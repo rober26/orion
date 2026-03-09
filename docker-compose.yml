@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: orion_db
+    restart: always
+    environment:
+      POSTGRES_USER: orion_admin
+      POSTGRES_PASSWORD: orion_password
+      POSTGRES_DB: orion_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
