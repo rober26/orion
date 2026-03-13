@@ -7,12 +7,79 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum ProfileVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum NotificationType {
+  connectionRequest
+  taskAssignment
+  taskAssigned
+  taskDue
+  eventReminder
+  projectInvite
+}
+
+enum ProjectRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TeamRole {
+  ADMIN
+  MEMBER
+}
+
+enum AccessRole {
+  OWNER
+  EDITOR
+  READER
+}
+
+enum ReferenceType {
+  TASK
+  EVENT
+  PROJECT
+  CONNECTION
+}
+
+enum ResponseStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 model User {
   id                String               @id @default(uuid()) @db.Uuid
   firstName         String?              @map("first_name") @db.VarChar(50)
   lastName          String?              @map("last_name") @db.VarChar(50)
-  username          String               @db.VarChar(50)
-  tag               Int?
+  username          String               @unique @db.VarChar(50)
   email             String               @unique @db.VarChar(100)
   passwordHash      String               @map("password_hash") @db.VarChar(255)
   avatarUrl         String?              @map("avatar_url")
@@ -51,7 +118,6 @@ model User {
   sessionComments   WorkSessionComment[]
   workSessions      WorkSession[]
 
-  @@unique([username, tag])
   @@map("users")
 }
 
@@ -494,70 +560,5 @@ model TaskTag {
   @@map("task_tags")
 }
 
-enum UserRole {
-  ADMIN
-  USER
-}
 
-enum ProfileVisibility {
-  PUBLIC
-  PRIVATE
-}
 
-enum ConnectionStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-}
-
-enum NotificationType {
-  connectionRequest
-  taskAssignment
-  taskAssigned
-  taskDue
-  eventReminder
-  projectInvite
-}
-
-enum ProjectRole {
-  OWNER
-  ADMIN
-  MEMBER
-  VIEWER
-}
-
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  DONE
-}
-
-enum TaskPriority {
-  LOW
-  MEDIUM
-  HIGH
-}
-
-enum TeamRole {
-  ADMIN
-  MEMBER
-}
-
-enum AccessRole {
-  OWNER
-  EDITOR
-  READER
-}
-
-enum ReferenceType {
-  TASK
-  EVENT
-  PROJECT
-  CONNECTION
-}
-
-enum ResponseStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-}
