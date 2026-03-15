@@ -1,36 +1,144 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ORION
 
-## Getting Started
+**Orion** es un sistema de **gestión de proyectos y biblioteca de apuntes**, desarrollado para el **TFG de DAM**.  
+Integra organización de proyectos, notas jerárquicas, calendario y colaboración básica, con una arquitectura moderna basada en **Next.js + TypeScript + Prisma**.
 
-First, run the development server:
+---
+
+## Objetivo del proyecto (TFG)
+
+El objetivo de Orion es ofrecer un entorno unificado donde un usuario pueda:
+
+- Gestionar proyectos y tareas
+- Organizar apuntes y conocimiento en formato jerárquico
+- Planificar eventos mediante calendario
+- Centralizar documentos y archivos dentro de un mismo sistema
+
+---
+
+## Tecnologias utilizadas
+
+- **Next.js (App Router)**
+- **TypeScript**
+- **Prisma ORM**
+- **PostgreSQL**
+- **TailwindCSS**
+- **JWT Auth (cookies)**
+- **Docker Compose** (para BD y sistema en un futuro)
+
+---
+
+## Funcionalidades principales (prototipo)
+
+### Autenticación
+
+- Login con JWT + cookies
+- Setup inicial de admin
+
+### Proyectos
+
+- Crear proyectos
+- Listado de proyectos
+- Vista de detalle
+
+### Notebooks (apuntes)
+
+- Crear notebooks
+- Crear documentos
+- Carpetas jerárquicas
+
+### Calendario
+
+- Vista calendario (base)
+- Endpoints de eventos iniciales
+
+---
+
+## Limitaciones actuales del prototipo
+
+- CRUD completo de calendario y tareas aún no implementado
+- Módulo social/conexiones definido a nivel de BD pero sin UI completa
+- Módulo de tareas no implementado
+
+---
+
+## Instalación rápida (Docker Compose)
+
+### 1. Clonar repositorio
+
+```bash
+git clone https://github.com/rober26/orion.git
+cd orion
+```
+
+### 2. Crear archivo .env
+
+Crea un archivo .env en la raíz:
+
+```env
+DATABASE_URL="postgresql://orion_admin:orion_password@localhost:5432/orion_db?schema=public"
+JWT_SECRET="orion_jwt_secret_super_seguro"
+```
+
+### 3. Levantar base de datos
+
+```bash
+docker compose up -d
+```
+
+### 4. Instalar dependencias
+
+```bash
+npm install
+```
+
+### 5. Ejecutar migraciones de Prisma
+
+```bash
+npx prisma migrate dev --name init
+```
+
+### 6. Iniciar aplicación
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Primer acceso (Setup admin)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Cuando ejecutes el proyecto por primera vez:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Abre en el navegador:
 
-## Learn More
+```URL
+http://localhost:3000/setup
+```
 
-To learn more about Next.js, take a look at the following resources:
+Crea el usuario administrador.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Luego podrás iniciar sesión en:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```URL
+http://localhost:3000/login
+```
 
-## Deploy on Vercel
+Estructura del proyecto (resumen)
+src/
+  app/
+    (auth)/         # login, setup
+    (dashboard)/    # proyectos, notebooks, calendar
+    api/            # endpoints API (auth, notebooks, projects)
+  components/       # componentes UI
+  lib/              # utilidades y prisma
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+prisma/
+  schema.prisma
+Estado actual (TFG)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+ Prototipo funcional
+
+ Arquitectura sólida
+
+ Base de datos completa
+
+ Algunas funcionalidades en progreso
