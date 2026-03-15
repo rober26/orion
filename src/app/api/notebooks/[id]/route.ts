@@ -1,79 +1,87 @@
 import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 
-// Obtener un notebook específico con sus documentos
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+type RouteParams = { params: Promise<{ id: string }> };
+
+export async function GET(req: Request, { params }: RouteParams) {
   try {
+    const { id } = await params; 
+
     const notebook = await prisma.notebook.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         documents: {
-          orderBy: { position: 'asc' },
+          orderBy: { position: "asc" },
           select: {
             id: true,
             title: true,
             icon: true,
-            updatedAt: true
-          }
+            updatedAt: true,
+          },
         },
-        folder: true
-      }
+        folder: true,
+      },
     });
 
     if (!notebook) {
-      return NextResponse.json({ error: "Notebook no encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Notebook no encontrado" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(notebook);
-  } catch (error) {
-    return NextResponse.json({ error: "Error al obtener el notebook" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Error al obtener el cuaderno:", error.message);
+    return NextResponse.json(
+      { error: "Error al obtener el notebook" },
+      { status: 500 }
+    );
   }
 }
 
-// Actualizar metadatos del Notebook (Título, color, icono, etc.)
-export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(req: Request, { params }: RouteParams) {
   try {
+    const { id } = await params;
     const body = await req.json();
     const { title, description, color, icon, folderId, isPublic } = body;
 
     const updatedNotebook = await prisma.notebook.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         title,
-        description, // TipTap puede enviar esto como JSON o HTML después
+        description,
         color,
         icon,
         folderId: folderId || null,
-        isPublic
+        isPublic,
       },
     });
 
     return NextResponse.json(updatedNotebook);
-  } catch (error) {
-    return NextResponse.json({ error: "Error al actualizar el notebook" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Error al actualizar el cuaderno:", error.message);
+    return NextResponse.json(
+      { error: "Error al actualizar el notebook" },
+      { status: 500 }
+    );
   }
 }
 
-// Eliminar el Notebook y sus relaciones
-export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: Request, { params }: RouteParams) {
   try {
-    // Al eliminar el notebook, los documentos vinculados 
-    // quedarán huérfanos o se borrarán según tu config de Prisma.
+    const { id } = await params;
+
     await prisma.notebook.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ message: "Notebook eliminado correctamente" });
-  } catch (error) {
-    return NextResponse.json({ error: "Error al eliminar el notebook" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Error al eliminar el cuaderno:", error.message);
+    return NextResponse.json(
+      { error: "Error al eliminar el notebook" },
+      { status: 500 }
+    );
   }
 }
