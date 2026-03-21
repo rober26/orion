@@ -3,7 +3,7 @@ import Navbar from "@/src/components/dashboard/Navbar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-slate-50 dark:bg-slate-950">
+    <div className="flex h-screen w-full overflow-hidden bg-orion-bg dark:bg-slate-950">
       <Sidebar />
 
       <div className="flex flex-col flex-1 min-w-0 h-full">

@@ -65,8 +65,8 @@ export default function DocumentEditorPage({ params }: { params: Promise<{ id: s
   if (!document) return <div>Nota no encontrada</div>;
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-slate-900">
-      <header className="flex items-center justify-between px-6 py-4 border-b">
+    <div className="flex flex-col h-full bg-orion-surface dark:bg-slate-900">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-orion-border dark:border-orion-dark-border">
         <div className="flex items-center gap-4 flex-1">
           <button onClick={() => router.back()}><ChevronLeft size={20} /></button>
           <input 

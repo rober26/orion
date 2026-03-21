@@ -91,7 +91,7 @@ export default function ProjectsPage() {
         <button 
           onClick={handleCreateProject}
           disabled={isCreating}
-          className="flex items-center gap-2 bg-orion-primary text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-primary px-6 py-3 rounded-2xl font-bold shadow-lg shadow-blue-500/20 disabled:cursor-not-allowed"
         >
           {isCreating ? <Loader2 className="animate-spin" size={20} /> : <Plus size={20} />}
           {isCreating ? "Creando..." : "Nuevo Proyecto"}
@@ -102,10 +102,10 @@ export default function ProjectsPage() {
         {loading ? (
            // Skeleton simple para carga
            [1, 2, 3].map((i) => (
-             <div key={i} className="h-44 bg-slate-100 dark:bg-slate-800 animate-pulse rounded-[2rem]" />
-           ))
+             <div key={i} className="h-44 surface-soft animate-pulse rounded-[2rem]" />
+            ))
         ) : projects.length === 0 ? (
-          <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2rem]">
+          <div className="col-span-full py-20 text-center border-2 border-dashed border-orion-border dark:border-orion-dark-border rounded-[2rem]">
             <FolderKanban className="mx-auto text-slate-300 mb-4" size={48} />
             <p className="text-slate-500 font-medium">No hay proyectos todavía. ¡Crea el primero!</p>
           </div>
@@ -114,7 +114,7 @@ export default function ProjectsPage() {
             <div 
               key={project.id}
               onClick={() => router.push(`/projects/${project.id}`)}
-              className="group bg-white dark:bg-slate-900 border border-orion-border dark:border-slate-800 p-6 rounded-[2rem] hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden"
+              className="group surface-panel p-6 rounded-[2rem] hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden"
             >
               {/* Indicador de color lateral */}
               <div 
@@ -135,7 +135,7 @@ export default function ProjectsPage() {
                 {project.name}
               </h3>
               
-              <div className="flex items-center gap-4 mt-6 pt-4 border-t border-slate-50 dark:border-slate-800/50 text-xs font-bold text-slate-400">
+              <div className="flex items-center gap-4 mt-6 pt-4 border-t border-slate-100 dark:border-orion-dark-border text-xs font-bold text-slate-400">
                 <span className="flex items-center gap-1.5">
                   <FileText size={14} className="text-blue-400" /> 
                   {project._count?.documents || 0} Docs

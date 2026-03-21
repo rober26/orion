@@ -41,15 +41,15 @@ export default function FileExplorer() {
   };
 
   if (loading) return (
-    <div className="w-72 border-r border-orion-border dark:border-slate-800 p-4 flex items-center gap-2 text-slate-400">
+    <div className="w-72 border-r border-orion-border dark:border-orion-dark-border p-4 flex items-center gap-2 text-slate-400">
       <Loader2 size={16} className="animate-spin" />
       <span className="text-sm">Sincronizando...</span>
     </div>
   );
 
   return (
-    <div className="w-72 border-r border-orion-border dark:border-slate-800 h-full flex flex-col bg-white/50 dark:bg-transparent">
-      <div className="p-4 flex items-center justify-between border-b border-orion-border dark:border-slate-800">
+    <div className="w-72 border-r border-orion-border dark:border-orion-dark-border h-full flex flex-col bg-orion-surface-muted/60 dark:bg-transparent">
+      <div className="p-4 flex items-center justify-between border-b border-orion-border dark:border-orion-dark-border">
         <h2 className="font-bold text-slate-900 dark:text-white text-sm uppercase tracking-wider">Explorador</h2>
         <button className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">
           <Plus size={18} className="text-orion-primary" />
@@ -72,7 +72,7 @@ export default function FileExplorer() {
               </button>
 
               {expandedFolders[folder.id] && (
-                <div className="ml-4 pl-2 border-l border-slate-200 dark:border-slate-800 space-y-1">
+                <div className="ml-4 pl-2 border-l border-orion-border dark:border-orion-dark-border space-y-1">
                   {folder.notebooks?.map((nb: any) => (
                     <Link 
                       key={nb.id} 

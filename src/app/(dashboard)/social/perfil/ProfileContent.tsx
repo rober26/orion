@@ -17,7 +17,7 @@ export default function ProfileContent() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-10">
-      <div className="flex flex-col sm:flex-row items-center sm:items-end gap-8 pb-10 border-b border-orion-border dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row items-center sm:items-end gap-8 pb-10 border-b border-orion-border dark:border-orion-dark-border">
           <div className="w-32 h-32 bg-blue-100 dark:bg-blue-900/30 rounded-3xl flex items-center justify-center text-orion-primary shadow-sm border border-blue-200 dark:border-blue-800">
             <User size={64} />
           </div>

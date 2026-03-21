@@ -3,8 +3,11 @@
 @theme {
   --color-orion-bg: var(--color-slate-50);
   --color-orion-card: var(--color-white);
+  --color-orion-surface: var(--color-white);
+  --color-orion-surface-muted: var(--color-slate-50);
   --color-orion-primary: var(--color-blue-600);
-  --color-orion-border: var(--color-slate-700);
+  --color-orion-border: var(--color-slate-200);
+  --color-orion-dark-border: var(--color-slate-800);
   --color-orion-dark-bg: var(--color-slate-50);
   --color-orion-dark-card: var(--color-slate-900);
 }
@@ -20,6 +23,22 @@
          rounded-xl p-6 bg-orion-card dark:bg-orion-dark-card shadow-sm;
 }
 
+@utility surface-panel {
+  @apply bg-orion-surface dark:bg-slate-900 border border-orion-border dark:border-orion-dark-border rounded-2xl shadow-sm;
+}
+
+@utility surface-soft {
+  @apply bg-orion-surface-muted/60 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 rounded-2xl;
+}
+
+@utility icon-btn {
+  @apply p-2 rounded-xl transition-all cursor-pointer;
+}
+
+@utility btn-secondary {
+  @apply px-4 py-2 rounded-xl font-semibold border border-orion-border dark:border-orion-dark-border text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all;
+}
+
 @utility input-orion {
   @apply w-full px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent
          focus:border-orion-primary/30 rounded-lg outline-none focus:ring-2 
@@ -27,14 +46,13 @@
 }
 
 :root {
-  --background: #020617;
-  --foreground: #f8fafc;
-  
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 .dark {
-  --background: #f8fafc; 
-  --foreground: #0f172a;
+  --background: #020617;
+  --foreground: #f8fafc;
 }
 
 body {

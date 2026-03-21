@@ -45,10 +45,10 @@ export default function ProjectSidebar() {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <div className="w-72 border-r border-orion-border dark:border-slate-800 h-full flex flex-col bg-slate-50/50 dark:bg-slate-900/10">
+    <div className="w-72 border-r border-orion-border dark:border-orion-dark-border h-full flex flex-col bg-slate-50/50 dark:bg-slate-900/10">
       
       {/* Header: Volver y Nombre del Proyecto */}
-      <div className="p-4 border-b border-orion-border dark:border-slate-800">
+      <div className="p-4 border-b border-orion-border dark:border-orion-dark-border">
         <button 
           onClick={() => router.push('/projects')}
           className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-orion-primary transition-colors mb-4 uppercase tracking-widest"
@@ -96,7 +96,7 @@ export default function ProjectSidebar() {
               <Loader2 size={12} className="animate-spin" /> Cargando archivos...
             </div>
           ) : projectDocs.length === 0 ? (
-            <div className="px-3 py-4 text-xs text-slate-400 italic bg-slate-100/50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center">
+            <div className="px-3 py-4 text-xs text-slate-400 italic bg-slate-100/50 dark:bg-slate-800/30 rounded-xl border border-dashed border-orion-border dark:border-orion-dark-border text-center">
               No hay documentos aún.
             </div>
           ) : (
@@ -114,7 +114,7 @@ export default function ProjectSidebar() {
       </div>
 
       {/* Footer: Configuración */}
-      <div className="p-4 mt-auto border-t border-orion-border dark:border-slate-800">
+      <div className="p-4 mt-auto border-t border-orion-border dark:border-orion-dark-border">
         <SidebarLink 
           href={`/projects/${projectId}/settings`} 
           icon={<Settings size={18} />} 
@@ -134,7 +134,7 @@ function SidebarLink({ href, icon, label, active }: { href: string, icon: any, l
       className={`
         flex items-center gap-3 px-3 py-2 text-sm rounded-xl transition-all duration-200
         ${active 
-          ? "bg-white dark:bg-slate-800 text-orion-primary shadow-sm border border-slate-200 dark:border-slate-700 font-semibold" 
+          ? "bg-orion-surface dark:bg-slate-800 text-orion-primary shadow-sm border border-orion-border dark:border-orion-dark-border font-semibold" 
           : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200"
         }
       `}

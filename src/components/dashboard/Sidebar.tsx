@@ -24,7 +24,7 @@ export default function Sidebar() {
 
   return (
     <aside 
-      className={`h-full shrink-0 bg-white dark:bg-slate-900 border-r border-orion-border dark:border-slate-800 flex flex-col transition-all duration-500 ease-in-out ${
+      className={`h-full shrink-0 bg-orion-surface dark:bg-slate-900 border-r border-orion-border dark:border-orion-dark-border flex flex-col transition-all duration-500 ease-in-out ${
         isCollapsed ? "w-20" : "w-64"
       }`}
     >
@@ -37,7 +37,7 @@ export default function Sidebar() {
         )}
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-orion-primary hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all group relative active:scale-90"
+          className="icon-btn rounded-xl bg-slate-50 dark:bg-slate-800/50 text-orion-primary hover:bg-blue-100 dark:hover:bg-blue-900/30 group relative active:scale-90"
         >
           <Image 
             src="/orion_logo.svg" 
@@ -96,7 +96,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Sección Inferior (Configuración) */}
-      <div className="p-3 border-t border-slate-100 dark:border-slate-800">
+      <div className="p-3 border-t border-orion-border dark:border-orion-dark-border">
         <Link 
           href="/settings" 
           className={`flex items-center gap-4 px-3 py-3 text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all group relative ${

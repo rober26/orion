@@ -41,7 +41,7 @@ export default function SetupPage() {
           <input 
             type="text" name="username" required
             onChange={handleChange}
-            className="w-full p-2 border rounded dark:bg-slate-800 dark:border-slate-700" 
+            className="input-orion" 
           />
         </div>
         <div>
@@ -49,7 +49,7 @@ export default function SetupPage() {
           <input 
             type="email" name="email" required
             onChange={handleChange}
-            className="w-full p-2 border rounded dark:bg-slate-800 dark:border-slate-700" 
+            className="input-orion" 
           />
         </div>
         <div>
@@ -57,10 +57,10 @@ export default function SetupPage() {
           <input 
             type="password" name="password" required
             onChange={handleChange}
-            className="w-full p-2 border rounded dark:bg-slate-800 dark:border-slate-700" 
+            className="input-orion" 
           />
         </div>
-        <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors">
+        <button className="btn-primary w-full py-2">
           Crear administrador
         </button>
       </form>

@@ -55,7 +55,7 @@ export default function NotebooksPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-160px)] bg-white dark:bg-slate-900/50 rounded-[2.5rem] border border-orion-border dark:border-slate-800 overflow-hidden shadow-sm">
+    <div className="flex h-[calc(100vh-160px)] surface-panel rounded-[2.5rem] overflow-hidden">
       <FileExplorer />
       
       <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-slate-50/30 dark:bg-transparent">
@@ -68,7 +68,7 @@ export default function NotebooksPage() {
             )}
           </div>
           {isCreating && (
-            <div className="absolute -bottom-2 -right-2 bg-white dark:bg-slate-900 p-2 rounded-full shadow-xl border border-slate-100 dark:border-slate-800">
+            <div className="absolute -bottom-2 -right-2 bg-orion-surface dark:bg-slate-900 p-2 rounded-full shadow-xl border border-orion-border dark:border-orion-dark-border">
               <Loader2 className="animate-spin text-orion-primary" size={20} />
             </div>
           )}
@@ -117,8 +117,8 @@ function QuickAction({ icon, label, onClick, disabled, primary }: QuickActionPro
       className={`
         flex items-center justify-center gap-3 p-5 rounded-2xl border font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-wait
         ${primary 
-          ? "bg-orion-primary text-white border-transparent hover:bg-blue-600 shadow-lg shadow-blue-500/20" 
-          : "bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+          ? "bg-orion-primary text-white border-transparent hover:bg-blue-700 shadow-lg shadow-blue-500/20" 
+          : "bg-orion-surface dark:bg-slate-800/50 border-orion-border dark:border-orion-dark-border text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
         }
       `}
     >

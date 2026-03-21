@@ -31,7 +31,7 @@ export default function NotebookDetailPage({ params }: { params: { id: string } 
   }, [params.id]);
 
   return (
-    <div className="flex h-[calc(100vh-160px)] bg-white dark:bg-slate-900/50 rounded-[2rem] border border-orion-border dark:border-slate-800 overflow-hidden shadow-sm">
+    <div className="flex h-[calc(100vh-160px)] surface-panel rounded-[2rem] overflow-hidden shadow-sm">
       <FileExplorer />
 
       <div className="flex-1 overflow-y-auto bg-slate-50/30 dark:bg-transparent">
@@ -41,7 +41,7 @@ export default function NotebookDetailPage({ params }: { params: { id: string } 
           </div>
         ) : notebook ? (
           <>
-            <header className="p-8 border-b border-orion-border dark:border-slate-800 bg-white dark:bg-slate-900/40">
+            <header className="p-8 border-b border-orion-border dark:border-orion-dark-border bg-orion-surface dark:bg-slate-900/40">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-4 mb-2">
@@ -57,7 +57,7 @@ export default function NotebookDetailPage({ params }: { params: { id: string } 
                     {notebook.title}
                   </h1>
                 </div>
-                <button className="flex items-center gap-2 bg-orion-primary text-white px-4 py-2 rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-blue-500/20">
+                <button className="btn-primary px-4 py-2 rounded-xl font-bold shadow-lg shadow-blue-500/20">
                   <Plus size={20} />
                   Nueva Nota
                 </button>
@@ -70,7 +70,7 @@ export default function NotebookDetailPage({ params }: { params: { id: string } 
                   <Link 
                     key={doc.id} 
                     href={`/notebooks/editor/${doc.id}`} // Ruta para el futuro editor TipTap
-                    className="p-6 bg-white dark:bg-slate-800 border border-orion-border dark:border-slate-700 rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
+                    className="p-6 surface-panel dark:bg-slate-800 rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
                   >
                     <div className="w-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-700 flex items-center justify-center mb-4 group-hover:bg-orion-primary/10 transition-colors">
                       <FileText className="text-orion-primary" size={20} />

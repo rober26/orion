@@ -19,7 +19,7 @@ export default function CalendarHeader({ currentMonth, onPrevMonth, onNextMonth,
         <p className="text-slate-500 font-medium">Cronograma de tu cerebro digital.</p>
       </div>
 
-      <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-orion-border dark:border-slate-800 shadow-sm">
+      <div className="flex items-center gap-2 bg-orion-surface dark:bg-slate-900 p-1.5 rounded-2xl border border-orion-border dark:border-orion-dark-border shadow-sm">
         <button onClick={onPrevMonth} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all">
           <ChevronLeft size={20} className="text-slate-600 dark:text-slate-400" />
         </button>

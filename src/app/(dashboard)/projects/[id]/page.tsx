@@ -26,7 +26,7 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
   if (loading) return <div className="p-10">Cargando proyecto...</div>;
 
   return (
-    <div className="flex h-full bg-white dark:bg-slate-950 overflow-hidden">
+    <div className="flex h-full bg-orion-surface dark:bg-slate-950 overflow-hidden">
       {/* El Sidebar que creamos antes */}
       <ProjectSidebar />
 
@@ -55,7 +55,7 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
 
         <section className="mt-12">
           <h2 className="text-xl font-bold mb-4">Actividad reciente</h2>
-          <div className="bg-slate-50 dark:bg-slate-900/50 rounded-[2rem] p-8 border border-slate-100 dark:border-slate-800 text-center text-slate-400 italic">
+          <div className="surface-soft rounded-[2rem] p-8 text-center text-slate-400 italic">
             Próximamente: Timeline de actividad del proyecto
           </div>
         </section>
@@ -66,7 +66,7 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
 
 function StatCard({ icon, label, value, color }: any) {
   return (
-    <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-orion-border dark:border-slate-800 shadow-sm">
+    <div className="surface-panel p-6 rounded-[2rem]">
       <div className={`mb-4 ${color}`}>{icon}</div>
       <div className="text-3xl font-black mb-1">{value}</div>
       <div className="text-sm font-medium text-slate-500">{label}</div>

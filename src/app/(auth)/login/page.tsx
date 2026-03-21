@@ -70,7 +70,7 @@ export default function LoginPage() {
             name="email"
             required
             onChange={handleChange}
-            className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            className="input-orion"
             placeholder="nombre@correo.com"
           />
         </div>
@@ -84,7 +84,7 @@ export default function LoginPage() {
             name="password"
             required
             onChange={handleChange}
-            className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            className="input-orion"
             placeholder="••••••••"
           />
         </div>
@@ -92,7 +92,7 @@ export default function LoginPage() {
         <button
           disabled={loading}
           type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors shadow-lg shadow-blue-500/20 disabled:opacity-50"
+          className="btn-primary w-full py-2.5 shadow-lg shadow-blue-500/20"
         >
           {loading ? "Verificando..." : "Entrar a Orion"}
         </button>
