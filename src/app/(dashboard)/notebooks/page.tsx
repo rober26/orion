@@ -1,12 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import FileExplorer from "@/src/components/notebooks/FileExplorer";
+import Editor from "@/src/components/notebooks/Editor";
+import ExplorerPanel from "@/src/components/notebooks/ExplorerPanel";
 import { BookOpen, Sparkles, Plus, Loader2 } from "lucide-react";
 
 export default function NotebooksPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedDocumentId = searchParams.get("doc");
+  const selectedFolderId = searchParams.get("folder");
+  const selectedNotebookId = searchParams.get("notebook");
   const [isCreating, setIsCreating] = useState(false);
 
   const handleCreateNote = async () => {
@@ -43,22 +49,28 @@ export default function NotebooksPage() {
         throw new Error(result.error || "Fallo al crear la nota en el servidor.");
       }
 
-      router.refresh(); 
-      router.push(`/notebooks/editor/${result.id}`);
+      router.refresh();
+      router.push(`/notebooks?doc=${result.id}`);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error al crear nota:", error);
-      alert(error.message || "Ocurrio un error inesperado.");
+      const message = error instanceof Error ? error.message : "Ocurrio un error inesperado.";
+      alert(message);
     } finally {
       setIsCreating(false);
     }
   };
 
   return (
-    <div className="flex h-[calc(100vh-160px)] surface-panel rounded-[2.5rem] overflow-hidden">
-      <FileExplorer />
-      
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-slate-50/30 dark:bg-transparent">
+    <div className="flex h-full min-h-0 surface-panel rounded-[2rem] overflow-hidden">
+      <FileExplorer collapsible />
+
+      {selectedDocumentId ? (
+        <Editor documentId={selectedDocumentId} />
+      ) : selectedFolderId || selectedNotebookId ? (
+        <ExplorerPanel folderId={selectedFolderId} notebookId={selectedNotebookId} />
+      ) : (
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center p-12 text-center bg-slate-50/30 dark:bg-transparent">
         <div className="relative mb-8">
           <div className="w-24 h-24 bg-orion-primary/10 dark:bg-orion-primary/20 rounded-[2rem] flex items-center justify-center text-orion-primary transition-all hover:scale-110 duration-500">
             {isCreating ? (
@@ -96,7 +108,8 @@ export default function NotebooksPage() {
             disabled={isCreating}
           />
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
