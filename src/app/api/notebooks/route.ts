@@ -6,12 +6,22 @@ export async function GET() {
     const notebooks = await prisma.notebook.findMany({
       include: {
         _count: { select: { documents: true } },
-        folder: true
+        folder: true,
+        documents: {
+          orderBy: { position: "asc" },
+          select: {
+            id: true,
+            title: true,
+            updatedAt: true,
+            position: true,
+            notebookId: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(notebooks);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Error al obtener notebooks" }, { status: 500 });
   }
 }

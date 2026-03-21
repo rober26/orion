@@ -5,12 +5,26 @@ export async function GET() {
   try {
     const folders = await prisma.notebookFolder.findMany({
       include: {
-        notebooks: true,
+        notebooks: {
+          orderBy: { updatedAt: "desc" },
+          include: {
+            documents: {
+              orderBy: { position: "asc" },
+              select: {
+                id: true,
+                title: true,
+                updatedAt: true,
+                position: true,
+                notebookId: true,
+              },
+            },
+          },
+        },
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: "asc" },
     });
     return NextResponse.json(folders);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Error al obtener carpetas" }, { status: 500 });
   }
 }
@@ -28,7 +42,26 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(folder);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Error al crear carpeta" }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const { id, name } = await req.json();
+
+    if (!id || !name) {
+      return NextResponse.json({ error: "ID y nombre son obligatorios" }, { status: 400 });
+    }
+
+    const folder = await prisma.notebookFolder.update({
+      where: { id },
+      data: { name },
+    });
+
+    return NextResponse.json(folder);
+  } catch {
+    return NextResponse.json({ error: "Error al actualizar carpeta" }, { status: 500 });
   }
 }

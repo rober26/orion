@@ -24,8 +24,9 @@ export async function GET(
     }
 
     return NextResponse.json(document);
-  } catch (error: any) {
-    console.error("Error en GET [id]:", error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Error desconocido";
+    console.error("Error en GET [id]:", message);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }
@@ -37,18 +38,20 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { title, content } = body;
+    const { title, content, notebookId, position } = body;
 
     const updatedDocument = await prisma.document.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
         ...(content !== undefined && { content }),
+        ...(notebookId !== undefined && { notebookId }),
+        ...(position !== undefined && { position }),
       },
     });
 
     return NextResponse.json(updatedDocument);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al actualizar:", error);
     return NextResponse.json({ error: "Error al guardar los cambios" }, { status: 500 });
   }
