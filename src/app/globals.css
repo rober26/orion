@@ -19,8 +19,8 @@
 }
 
 @utility page-container {
-  @apply min-h-full w-full border border-orion-border dark:border-slate-800 
-         rounded-xl p-6 bg-orion-card dark:bg-orion-dark-card shadow-sm;
+  @apply h-full min-h-0 w-full border border-orion-border dark:border-slate-800 
+         rounded-xl p-2 sm:p-3 bg-orion-card dark:bg-orion-dark-card shadow-sm;
 }
 
 @utility surface-panel {
@@ -59,4 +59,36 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   @apply antialiased;
+}
+
+.ProseMirror h1 {
+  @apply text-4xl font-black tracking-tight mb-4 text-white;
+}
+
+.ProseMirror h2 {
+  @apply text-3xl font-bold mb-3 text-white;
+}
+
+.ProseMirror h3 {
+  @apply text-2xl font-semibold mb-2 text-white;
+}
+
+.ProseMirror p {
+  @apply text-lg leading-relaxed text-white;
+}
+
+.ProseMirror ul {
+  @apply list-disc pl-6 text-white;
+}
+
+.ProseMirror ol {
+  @apply list-decimal pl-6 text-white;
+}
+
+.ProseMirror pre {
+  @apply bg-slate-800 text-white rounded-xl p-4 my-4 overflow-x-auto border border-slate-700;
+}
+
+.ProseMirror code {
+  @apply text-cyan-300;
 }
