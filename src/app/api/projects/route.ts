@@ -1,10 +1,23 @@
 import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
+import { getSessionUser } from "@/src/lib/auth";
 
 // Obtener todos los proyectos del usuario
 export async function GET() {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const projects = await prisma.project.findMany({
+      where: {
+        OR: [
+          { ownerId: sessionUser.userId },
+          { creatorId: sessionUser.userId },
+          { users: { some: { userId: sessionUser.userId } } },
+        ],
+      },
       orderBy: { updatedAt: 'desc' },
       include: {
         _count: {
@@ -13,7 +26,7 @@ export async function GET() {
       }
     });
     return NextResponse.json(projects);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Error al obtener proyectos" }, { status: 500 });
   }
 }
@@ -21,22 +34,32 @@ export async function GET() {
 // Crear un nuevo proyecto
 export async function POST(req: Request) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const body = await req.json();
-    const { name, description, color, creatorId } = body;
+    const { name, description, color } = body;
+
+    if (!name || typeof name !== "string") {
+      return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
+    }
 
     const newProject = await prisma.project.create({
       data: {
         name,
         description,
         color: color || "#3b82f6",
-        creatorId,
-        ownerId: creatorId, // Por ahora el creador es el dueño
+        creatorId: sessionUser.userId,
+        ownerId: sessionUser.userId,
       },
     });
 
     return NextResponse.json(newProject, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("ERROR CREAR PROYECTO:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Error interno";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
