@@ -1,16 +1,49 @@
 import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
+import { getSessionUser } from "@/src/lib/auth";
 
 export async function GET(req: Request) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const standaloneOnly = searchParams.get("standalone") === "true";
     const notebookId = searchParams.get("notebookId");
+
+    if (notebookId) {
+      const canAccessNotebook = await prisma.notebook.findFirst({
+        where: {
+          id: notebookId,
+          OR: [
+            { ownerId: sessionUser.userId },
+            { creatorId: sessionUser.userId },
+            { users: { some: { userId: sessionUser.userId } } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (!canAccessNotebook) {
+        return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+      }
+    }
 
     const documents = await prisma.document.findMany({
       where: {
         ...(standaloneOnly ? { notebookId: null } : {}),
         ...(notebookId ? { notebookId } : {}),
+        OR: [
+          { creatorId: sessionUser.userId },
+          { notebook: { ownerId: sessionUser.userId } },
+          { notebook: { creatorId: sessionUser.userId } },
+          { notebook: { users: { some: { userId: sessionUser.userId } } } },
+          { project: { ownerId: sessionUser.userId } },
+          { project: { creatorId: sessionUser.userId } },
+          { project: { users: { some: { userId: sessionUser.userId } } } },
+        ],
       },
       orderBy: { updatedAt: "desc" },
       select: {
@@ -30,20 +63,61 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { title, creatorId, notebookId, projectId } = body;
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
 
-    if (!title || !creatorId) {
+    const body = await req.json();
+    const { title, notebookId, projectId } = body;
+
+    if (!title) {
       return NextResponse.json(
-        { error: "Título y ID del creador son obligatorios" },
+        { error: "Titulo obligatorio" },
         { status: 400 }
       );
+    }
+
+    if (notebookId) {
+      const canUseNotebook = await prisma.notebook.findFirst({
+        where: {
+          id: notebookId,
+          OR: [
+            { ownerId: sessionUser.userId },
+            { creatorId: sessionUser.userId },
+            { users: { some: { userId: sessionUser.userId } } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (!canUseNotebook) {
+        return NextResponse.json({ error: "Acceso denegado al cuaderno" }, { status: 403 });
+      }
+    }
+
+    if (projectId) {
+      const canUseProject = await prisma.project.findFirst({
+        where: {
+          id: projectId,
+          OR: [
+            { ownerId: sessionUser.userId },
+            { creatorId: sessionUser.userId },
+            { users: { some: { userId: sessionUser.userId } } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (!canUseProject) {
+        return NextResponse.json({ error: "Acceso denegado al proyecto" }, { status: 403 });
+      }
     }
 
     const newDocument = await prisma.document.create({
       data: {
         title,
-        creatorId,
+        creatorId: sessionUser.userId,
         notebookId: notebookId || null, 
         projectId: projectId || null,   
         content: {}, 
