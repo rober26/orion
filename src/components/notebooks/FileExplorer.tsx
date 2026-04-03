@@ -93,7 +93,6 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
   const [expandedNotebooks, setExpandedNotebooks] = useState<Record<string, boolean>>({});
   const [rename, setRename] = useState<RenameState | null>(null);
   const [createDraft, setCreateDraft] = useState<DraftCreateState | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [dragLabel, setDragLabel] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const activeEditKey = rename
@@ -143,23 +142,6 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
   useEffect(() => {
     reload();
   }, [reload]);
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const res = await fetch("/api/users/me");
-        if (!res.ok) {
-          return;
-        }
-        const data = (await res.json()) as { id?: string };
-        setCurrentUserId(data.id ?? null);
-      } catch {
-        setCurrentUserId(null);
-      }
-    };
-
-    loadUser();
-  }, []);
 
   useEffect(() => {
     if (!activeEditKey) {
@@ -318,11 +300,6 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
         return;
       }
 
-      if (!currentUserId) {
-        await reload();
-        return;
-      }
-
       if (draft.type === "notebook") {
         await fetch("/api/notebooks", {
           method: "POST",
@@ -331,8 +308,6 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
             title: value,
             description: "",
             folderId: draft.parentId,
-            ownerId: currentUserId,
-            creatorId: currentUserId,
           }),
         });
         await reload();
@@ -344,7 +319,6 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: value,
-          creatorId: currentUserId,
           notebookId: draft.parentId,
           projectId: null,
         }),
@@ -356,7 +330,7 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
       }
       await reload();
     },
-    [currentUserId, reload, router],
+    [reload, router],
   );
 
   const commitInput = useCallback(async () => {
