@@ -20,24 +20,11 @@ export default function NotebooksPage() {
     setIsCreating(true);
 
     try {
-      const userRes = await fetch("/api/users/me");
-      
-      if (!userRes.ok) {
-        throw new Error("No se pudo verificar la sesión. Por favor, reintenta.");
-      }
-      
-      const userData = await userRes.json();
-
-      if (!userData?.id) {
-        throw new Error("ID de usuario no encontrado en la respuesta.");
-      }
-
       const response = await fetch("/api/notebooks/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: "Nueva nota sin título",
-          creatorId: userData.id, 
           notebookId: null,      
           projectId: null,
         }),
