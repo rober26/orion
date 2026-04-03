@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
+import { getSessionUser } from "@/src/lib/auth";
 
 export async function GET(req: Request) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
@@ -10,8 +16,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "ID no proporcionado" }, { status: 400 });
     }
 
-    const project = await prisma.project.findUnique({
-      where: { id },
+    const project = await prisma.project.findFirst({
+      where: {
+        id,
+        OR: [
+          { ownerId: sessionUser.userId },
+          { creatorId: sessionUser.userId },
+          { users: { some: { userId: sessionUser.userId } } },
+        ],
+      },
       include: {
         _count: {
           select: {
@@ -23,7 +36,7 @@ export async function GET(req: Request) {
     });
 
     if (!project) {
-      return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Acceso denegado o proyecto no encontrado" }, { status: 403 });
     }
 
     return NextResponse.json(project);
