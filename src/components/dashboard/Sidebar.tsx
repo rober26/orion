@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { 
   LayoutDashboard, FolderKanban, 
-  BookText, Users, Settings, ChevronLeft, ChevronRight, 
+  BookText, Users,
   Calendar
 } from "lucide-react"; 
 
@@ -94,25 +94,6 @@ export default function Sidebar() {
           );
         })}
       </nav>
-
-      {/* Sección Inferior (Configuración) */}
-      <div className="p-3 border-t border-orion-border dark:border-orion-dark-border">
-        <Link 
-          href="/settings" 
-          className={`flex items-center gap-4 px-3 py-3 text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all group relative ${
-            pathname === "/settings" ? "bg-slate-100 dark:bg-slate-800 text-orion-primary" : ""
-          }`}
-        >
-          <Settings size={22} className="shrink-0 group-hover:rotate-90 transition-transform duration-700" />
-          {!isCollapsed && <span className="animate-in fade-in slide-in-from-left-4 duration-500">Configuración</span>}
-          
-          {isCollapsed && (
-            <span className="absolute left-16 scale-0 group-hover:scale-100 transition-all bg-slate-900 text-white text-[10px] uppercase tracking-widest font-bold px-3 py-2 rounded-lg z-50 whitespace-nowrap pointer-events-none">
-              Configuración
-            </span>
-          )}
-        </Link>
-      </div>
     </aside>
   );
 }

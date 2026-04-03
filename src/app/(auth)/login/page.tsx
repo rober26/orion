@@ -1,13 +1,14 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 
-export default function LoginPage() {
+import Link from "next/link";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+function LoginContent() {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
@@ -32,11 +33,11 @@ export default function LoginPage() {
 
       if (res.ok) {
         router.push("/");
-        router.refresh(); 
+        router.refresh();
       } else {
         setError(data.error || "Credenciales incorrectas");
       }
-    } catch (err) {
+    } catch {
       setError("Error de conexion con el servidor");
     } finally {
       setLoading(false);
@@ -48,23 +49,19 @@ export default function LoginPage() {
       <div className="text-center">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Iniciar Sesión</h2>
         {message && (
-          <p className="mt-2 text-sm text-green-600 bg-green-50 dark:bg-green-900/30 p-2 rounded">
-            {message}
-          </p>
+          <p className="mt-2 rounded bg-green-50 p-2 text-sm text-green-600 dark:bg-green-900/30">{message}</p>
         )}
       </div>
 
       {error && (
-        <div className="p-3 text-sm text-red-500 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-500 dark:border-red-800 dark:bg-red-900/30">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-            Correo Electrónico
-          </label>
+          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Correo Electrónico</label>
           <input
             type="email"
             name="email"
@@ -76,9 +73,7 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-            Contraseña
-          </label>
+          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Contraseña</label>
           <input
             type="password"
             name="password"
@@ -89,21 +84,25 @@ export default function LoginPage() {
           />
         </div>
 
-        <button
-          disabled={loading}
-          type="submit"
-          className="btn-primary w-full py-2.5 shadow-lg shadow-blue-500/20"
-        >
+        <button disabled={loading} type="submit" className="btn-primary w-full py-2.5 shadow-lg shadow-blue-500/20">
           {loading ? "Verificando..." : "Entrar a Orion"}
         </button>
       </form>
 
       <div className="text-center text-sm text-slate-500">
         ¿No tienes cuenta?{" "}
-        <Link href="/register" className="text-blue-600 hover:underline font-medium">
+        <Link href="/register" className="font-medium text-blue-600 hover:underline">
           Solicitar acceso
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="text-center text-sm text-slate-500">Cargando...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }
