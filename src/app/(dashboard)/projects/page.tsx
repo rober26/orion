@@ -44,12 +44,6 @@ export default function ProjectsPage() {
 
     setIsCreating(true);
     try {
-      // Obtenemos el usuario para el creatorId
-      const userRes = await fetch("/api/users/me");
-      const userData = await userRes.json();
-
-      if (!userData?.id) throw new Error("Sesión no válida");
-
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,7 +51,6 @@ export default function ProjectsPage() {
           name: name,
           description: "Nuevo proyecto",
           color: "#3b82f6",
-          creatorId: userData.id,
         }),
       });
 
@@ -69,8 +62,9 @@ export default function ProjectsPage() {
       setProjects((prev) => [newProject, ...prev]);
       router.push(`/projects/${newProject.id}`);
       
-    } catch (error: any) {
-      alert(error.message || "Error al crear proyecto");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Error al crear proyecto";
+      alert(message);
     } finally {
       setIsCreating(false);
     }
