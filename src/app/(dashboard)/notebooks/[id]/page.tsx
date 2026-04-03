@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import FileExplorer from "@/src/components/notebooks/FileExplorer";
-import { FileText, Calendar, User, Plus, Loader2 } from "lucide-react";
+import { FileText, Calendar, Plus, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 interface NotebookData {
@@ -19,15 +19,26 @@ interface NotebookData {
 export default function NotebookDetailPage({ params }: { params: { id: string } }) {
   const [notebook, setNotebook] = useState<NotebookData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/notebooks/${params.id}`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) {
+          const payload = (await res.json()) as { error?: string };
+          throw new Error(payload.error ?? "Acceso denegado");
+        }
+        return res.json();
+      })
       .then((data) => {
         setNotebook(data);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : "Acceso denegado";
+        setError(message);
+        setLoading(false);
+      });
   }, [params.id]);
 
   return (
@@ -95,7 +106,7 @@ export default function NotebookDetailPage({ params }: { params: { id: string } 
           </>
         ) : (
           <div className="flex h-full items-center justify-center">
-            <p className="text-slate-500">No se encontró el cuaderno.</p>
+            <p className="text-slate-500">{error || "No se encontró el cuaderno."}</p>
           </div>
         )}
       </div>
