@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { folderEditorWhere, notebookAccessWhere } from "@/src/lib/permissions";
 
 export async function GET() {
   try {
@@ -11,13 +12,14 @@ export async function GET() {
 
     const notebooks = await prisma.notebook.findMany({
       where: {
-        OR: [
-          { ownerId: sessionUser.userId },
-          { creatorId: sessionUser.userId },
-          { users: { some: { userId: sessionUser.userId } } },
-        ],
+        ...notebookAccessWhere(sessionUser.userId),
       },
       include: {
+        users: {
+          where: { userId: sessionUser.userId },
+          select: { role: true },
+          take: 1,
+        },
         _count: { select: { documents: true } },
         folder: true,
         documents: {
@@ -33,7 +35,19 @@ export async function GET() {
       },
       orderBy: { createdAt: "desc" },
     });
-    return NextResponse.json(notebooks);
+
+    const payload = notebooks.map((notebook) => {
+      const membership = notebook.users[0] ?? null;
+      const isOwnerLike = notebook.ownerId === sessionUser.userId || notebook.creatorId === sessionUser.userId;
+
+      return {
+        ...notebook,
+        currentUserRole: isOwnerLike ? "OWNER" : membership?.role ?? null,
+        isSharedWithMe: !isOwnerLike && Boolean(membership),
+      };
+    });
+
+    return NextResponse.json(payload);
   } catch {
     return NextResponse.json({ error: "Error al obtener notebooks" }, { status: 500 });
   }
@@ -57,28 +71,7 @@ export async function POST(req: Request) {
       const folder = await prisma.notebookFolder.findFirst({
         where: {
           id: folderId,
-          OR: [
-            {
-              project: {
-                OR: [
-                  { ownerId: sessionUser.userId },
-                  { creatorId: sessionUser.userId },
-                  { users: { some: { userId: sessionUser.userId } } },
-                ],
-              },
-            },
-            {
-              notebooks: {
-                some: {
-                  OR: [
-                    { ownerId: sessionUser.userId },
-                    { creatorId: sessionUser.userId },
-                    { users: { some: { userId: sessionUser.userId } } },
-                  ],
-                },
-              },
-            },
-          ],
+          ...folderEditorWhere(sessionUser.userId),
         },
         select: { id: true },
       });
