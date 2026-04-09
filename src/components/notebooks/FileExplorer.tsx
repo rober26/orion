@@ -23,6 +23,7 @@ import {
   Book,
   ChevronDown,
   ChevronRight,
+  CircleDot,
   FileText,
   Folder,
   FolderPlus,
@@ -31,14 +32,18 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  Share2,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import ShareAccessModal from "@/src/components/notebooks/ShareAccessModal";
 
 interface ExplorerDocument {
   id: string;
   title: string;
   notebookId: string | null;
   position: number;
+  isSharedWithMe?: boolean;
+  currentUserRole?: "OWNER" | "EDITOR" | "READER" | null;
 }
 
 interface ExplorerNotebook {
@@ -47,6 +52,38 @@ interface ExplorerNotebook {
   color: string | null;
   folderId: string | null;
   documents: ExplorerDocument[];
+  isSharedWithMe?: boolean;
+  currentUserRole?: "OWNER" | "EDITOR" | "READER" | null;
+}
+
+interface SharedOwner {
+  id: string;
+  username: string;
+  firstName: string | null;
+  lastName: string | null;
+}
+
+interface SharedWithMeNotebook {
+  id: string;
+  title: string;
+  color: string | null;
+  permission: "OWNER" | "EDITOR" | "READER";
+  sharedAt: string;
+  owner: SharedOwner;
+}
+
+interface SharedWithMeDocument {
+  id: string;
+  title: string;
+  notebookId: string | null;
+  permission: "OWNER" | "EDITOR" | "READER";
+  sharedAt: string;
+  owner: SharedOwner;
+}
+
+interface SharedWithMeData {
+  notebooks: SharedWithMeNotebook[];
+  documents: SharedWithMeDocument[];
 }
 
 interface ExplorerFolder {
@@ -59,6 +96,8 @@ interface ExplorerState {
   folders: ExplorerFolder[];
   ungroupedNotebooks: ExplorerNotebook[];
   standaloneDocs: ExplorerDocument[];
+  sharedWithMeNotebooks: SharedWithMeNotebook[];
+  sharedWithMeDocs: SharedWithMeDocument[];
 }
 
 type DraftType = "folder" | "notebook" | "document";
@@ -88,12 +127,19 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
 
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
-  const [state, setState] = useState<ExplorerState>({ folders: [], ungroupedNotebooks: [], standaloneDocs: [] });
+  const [state, setState] = useState<ExplorerState>({
+    folders: [],
+    ungroupedNotebooks: [],
+    standaloneDocs: [],
+    sharedWithMeNotebooks: [],
+    sharedWithMeDocs: [],
+  });
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [expandedNotebooks, setExpandedNotebooks] = useState<Record<string, boolean>>({});
   const [rename, setRename] = useState<RenameState | null>(null);
   const [createDraft, setCreateDraft] = useState<DraftCreateState | null>(null);
   const [dragLabel, setDragLabel] = useState<string | null>(null);
+  const [shareTarget, setShareTarget] = useState<{ type: "folder" | "notebook" | "document"; id: string } | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const activeEditKey = rename
     ? `${rename.type}:${rename.id}`
@@ -106,24 +152,28 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
   const activeNotebookFromRoute = searchParams.get("notebook");
 
   const fetchState = useCallback(async () => {
-    const [foldersRes, notebooksRes, standaloneDocsRes] = await Promise.all([
+    const [foldersRes, notebooksRes, standaloneDocsRes, sharedWithMeRes] = await Promise.all([
       fetch("/api/notebooks/folders"),
       fetch("/api/notebooks"),
       fetch("/api/notebooks/documents?standalone=true"),
+      fetch("/api/notebooks/shared-with-me"),
     ]);
 
-    if (!foldersRes.ok || !notebooksRes.ok || !standaloneDocsRes.ok) {
+    if (!foldersRes.ok || !notebooksRes.ok || !standaloneDocsRes.ok || !sharedWithMeRes.ok) {
       throw new Error("No se pudo cargar el explorador");
     }
 
     const folders = (await foldersRes.json()) as ExplorerFolder[];
     const notebooks = (await notebooksRes.json()) as ExplorerNotebook[];
     const standaloneDocs = (await standaloneDocsRes.json()) as ExplorerDocument[];
+    const sharedWithMe = (await sharedWithMeRes.json()) as SharedWithMeData;
 
     return {
       folders,
       standaloneDocs,
       ungroupedNotebooks: notebooks.filter((notebook) => !notebook.folderId),
+      sharedWithMeNotebooks: sharedWithMe.notebooks ?? [],
+      sharedWithMeDocs: sharedWithMe.documents ?? [],
     } satisfies ExplorerState;
   }, []);
 
@@ -291,11 +341,17 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
       }
 
       if (draft.type === "folder") {
-        await fetch("/api/notebooks/folders", {
+        const folderRes = await fetch("/api/notebooks/folders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: value }),
         });
+
+        if (!folderRes.ok) {
+          const payload = (await folderRes.json()) as { error?: string };
+          throw new Error(payload.error || "No se pudo crear la carpeta");
+        }
+
         await reload();
         return;
       }
@@ -337,16 +393,28 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
     if (rename) {
       const current = rename;
       setRename(null);
-      await renameEntity(current);
+      try {
+        await renameEntity(current);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "No se pudo actualizar";
+        alert(message);
+        await reload();
+      }
       return;
     }
 
     if (createDraft) {
       const current = createDraft;
       setCreateDraft(null);
-      await createEntity(current);
+      try {
+        await createEntity(current);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "No se pudo crear";
+        alert(message);
+        await reload();
+      }
     }
-  }, [createDraft, createEntity, rename, renameEntity]);
+  }, [createDraft, createEntity, reload, rename, renameEntity]);
 
   const onDragEnd = useCallback(
     async (event: DragEndEvent) => {
@@ -457,9 +525,10 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
   }
 
   return (
-    <div className="w-80 border-r border-orion-border dark:border-orion-dark-border h-full flex flex-col bg-slate-900">
-      <div className="p-4 flex items-center justify-between border-b border-orion-border dark:border-orion-dark-border">
-        <h2 className="font-bold text-white text-sm uppercase tracking-wider">Explorador</h2>
+    <>
+      <div className="w-80 border-r border-orion-border dark:border-orion-dark-border h-full flex flex-col bg-slate-900">
+        <div className="p-4 flex items-center justify-between border-b border-orion-border dark:border-orion-dark-border">
+          <h2 className="font-bold text-white text-sm uppercase tracking-wider">Explorador</h2>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -636,13 +705,79 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
             </SortableContext>
             <DropZone id="drop-notebook:" label="Soltar documento para dejarlo suelto" />
           </div>
+
+          <div className="space-y-2">
+            <p className="px-2 pb-1 text-[10px] font-bold text-slate-200 uppercase">Compartido conmigo</p>
+
+            {state.sharedWithMeNotebooks.length === 0 && state.sharedWithMeDocs.length === 0 ? (
+              <div className="mx-2 rounded-lg border border-dashed border-orion-border dark:border-orion-dark-border p-3 text-xs text-slate-400">
+                No hay recursos compartidos.
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {state.sharedWithMeNotebooks.map((item) => (
+                  <button
+                    key={`shared-notebook:${item.id}`}
+                    type="button"
+                    onClick={() => router.push(`/notebooks?notebook=${item.id}`)}
+                    className="w-full text-left px-2 py-2 rounded-md hover:bg-slate-800/80 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 text-white text-sm">
+                      <Share2 size={12} className="text-cyan-300" />
+                      <Book size={14} className="text-blue-400" />
+                      <span className="truncate font-medium">{item.title || "Sin titulo"}</span>
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-400 pl-5">
+                      <span>{ownerName(item.owner)}</span>
+                      <span className="mx-1">•</span>
+                      <span>{roleLabel(item.permission)}</span>
+                      <span className="mx-1">•</span>
+                      <span>{new Date(item.sharedAt).toLocaleDateString()}</span>
+                    </div>
+                  </button>
+                ))}
+
+                {state.sharedWithMeDocs.map((item) => (
+                  <button
+                    key={`shared-doc:${item.id}`}
+                    type="button"
+                    onClick={() => router.push(`/notebooks?doc=${item.id}`)}
+                    className="w-full text-left px-2 py-2 rounded-md hover:bg-slate-800/80 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 text-white text-sm">
+                      <Share2 size={12} className="text-cyan-300" />
+                      <FileText size={14} className="text-slate-300" />
+                      <span className="truncate font-medium">{item.title || "Sin titulo"}</span>
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-400 pl-5">
+                      <span>{ownerName(item.owner)}</span>
+                      <span className="mx-1">•</span>
+                      <span>{roleLabel(item.permission)}</span>
+                      <span className="mx-1">•</span>
+                      <span>{new Date(item.sharedAt).toLocaleDateString()}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <DragOverlay>
           {dragLabel ? <div className="px-3 py-1.5 rounded-md bg-orion-primary text-white text-xs">{dragLabel}</div> : null}
         </DragOverlay>
       </DndContext>
-    </div>
+      </div>
+
+      {shareTarget && (
+        <ShareAccessModal
+          open={Boolean(shareTarget)}
+          targetId={shareTarget.id}
+          targetType={shareTarget.type}
+          onClose={() => setShareTarget(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -754,7 +889,8 @@ const NotebookRow = memo(function NotebookRow({
         ) : (
           <>
             <Book size={15} className="text-blue-400" />
-            <span className="truncate text-sm text-white">{notebook.title || "Sin titulo"}</span>
+            <span className="truncate text-sm text-white flex-1 min-w-0">{notebook.title || "Sin titulo"}</span>
+            {notebook.isSharedWithMe ? <Share2 size={12} className="text-cyan-300 ml-auto shrink-0" aria-label="Compartido contigo" /> : null}
           </>
         )}
 
@@ -891,7 +1027,8 @@ const DocumentRow = memo(function DocumentRow({
       ) : (
         <>
           <FileText size={14} className="text-slate-300" />
-          <span className="truncate text-sm text-white">{document.title || "Sin titulo"}</span>
+          <span className="truncate text-sm text-white flex-1 min-w-0">{document.title || "Sin titulo"}</span>
+          {document.isSharedWithMe ? <Share2 size={12} className="text-cyan-300 ml-auto shrink-0" aria-label="Compartido contigo" /> : null}
         </>
       )}
     </div>
@@ -909,4 +1046,19 @@ function DropZone({ id, label }: { id: string; label: string }) {
       title={label}
     />
   );
+}
+
+function roleLabel(role: "OWNER" | "EDITOR" | "READER"): string {
+  if (role === "EDITOR") {
+    return "Puede editar";
+  }
+  if (role === "OWNER") {
+    return "Owner";
+  }
+  return "Solo lectura";
+}
+
+function ownerName(owner: SharedOwner): string {
+  const fullName = `${owner.firstName || ""} ${owner.lastName || ""}`.trim();
+  return fullName || owner.username;
 }
