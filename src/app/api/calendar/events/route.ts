@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { projectAccessWhere } from "@/src/lib/permissions";
 
 export async function GET() {
   try {
@@ -14,11 +15,7 @@ export async function GET() {
       where: {
         dueDate: { not: null },
         project: {
-          OR: [
-            { ownerId: sessionUser.userId },
-            { creatorId: sessionUser.userId },
-            { users: { some: { userId: sessionUser.userId } } },
-          ],
+          ...projectAccessWhere(sessionUser.userId),
         },
       },
       select: { id: true, title: true, dueDate: true, priority: true }
@@ -27,11 +24,7 @@ export async function GET() {
     // Traemos proyectos (usando su fecha de creación o una fecha límite si la tienes)
     const projects = await prisma.project.findMany({
       where: {
-        OR: [
-          { ownerId: sessionUser.userId },
-          { creatorId: sessionUser.userId },
-          { users: { some: { userId: sessionUser.userId } } },
-        ],
+        ...projectAccessWhere(sessionUser.userId),
       },
       select: { id: true, name: true, createdAt: true, color: true }
     });
