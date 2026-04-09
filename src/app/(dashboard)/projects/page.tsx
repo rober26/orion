@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { FolderKanban, Plus, MoreHorizontal, FileText, LayoutGrid, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-// 1. Definimos la estructura para evitar el error 'never'
 interface Project {
   id: string;
   name: string;
@@ -16,7 +15,6 @@ interface Project {
 }
 
 export default function ProjectsPage() {
-  // 2. Tipamos el estado como un array de Projects
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -26,9 +24,15 @@ export default function ProjectsPage() {
     try {
       const res = await fetch("/api/projects");
       const data = await res.json();
-      setProjects(data);
+
+      if (!res.ok) {
+        throw new Error((data as { error?: string })?.error || "No se pudieron cargar los proyectos");
+      }
+
+      setProjects(Array.isArray(data) ? (data as Project[]) : []);
     } catch (error) {
       console.error("Error cargando proyectos:", error);
+      setProjects([]);
     } finally {
       setLoading(false);
     }
@@ -58,7 +62,6 @@ export default function ProjectsPage() {
 
       const newProject = await res.json();
       
-      // 3. Actualizamos el estado localmente y navegamos
       setProjects((prev) => [newProject, ...prev]);
       router.push(`/projects/${newProject.id}`);
       
@@ -94,7 +97,6 @@ export default function ProjectsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
-           // Skeleton simple para carga
            [1, 2, 3].map((i) => (
              <div key={i} className="h-44 surface-soft animate-pulse rounded-[2rem]" />
             ))
@@ -110,7 +112,6 @@ export default function ProjectsPage() {
               onClick={() => router.push(`/projects/${project.id}`)}
               className="group surface-panel p-6 rounded-[2rem] hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden"
             >
-              {/* Indicador de color lateral */}
               <div 
                 className="absolute top-0 left-0 w-2 h-full transition-all group-hover:w-3" 
                 style={{ backgroundColor: project.color || '#3b82f6' }} 
