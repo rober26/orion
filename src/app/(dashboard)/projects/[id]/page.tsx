@@ -51,10 +51,8 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="flex h-full bg-orion-surface dark:bg-slate-950 overflow-hidden">
-      {/* El Sidebar que creamos antes */}
       <ProjectSidebar />
 
-      {/* Contenido Principal */}
       <main className="flex-1 overflow-y-auto p-8">
         <header className="mb-8">
           <div className="flex items-center gap-3 mb-2">
@@ -71,7 +69,6 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Aquí irán widgets rápidos de resumen */}
           <StatCard icon={<FileText />} label="Documentos" value={project._count?.documents || 0} color="text-blue-500" />
           <StatCard icon={<CheckSquare />} label="Tareas Pendientes" value={project._count?.tasks || 0} color="text-purple-500" />
           <StatCard icon={<Users />} label="Colaboradores" value={1} color="text-emerald-500" />
