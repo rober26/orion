@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import FileExplorer from "@/src/components/notebooks/FileExplorer";
-import { FileText, Calendar, Plus, Loader2 } from "lucide-react";
+import { FileText, Calendar, Plus, Loader2, Share2 } from "lucide-react";
 import Link from "next/link";
 
 interface NotebookData {
@@ -13,7 +13,9 @@ interface NotebookData {
     title: string;
     icon: string;
     updatedAt: string;
+    isSharedWithMe?: boolean;
   }>;
+  isSharedWithMe?: boolean;
 }
 
 export default function NotebookDetailPage({ params }: { params: { id: string } }) {
@@ -63,6 +65,11 @@ export default function NotebookDetailPage({ params }: { params: { id: string } 
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                       Notebook
                     </span>
+                    {notebook.isSharedWithMe && (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-cyan-500/20 text-cyan-300 uppercase tracking-wider">
+                        <Share2 size={10} /> Compartido
+                      </span>
+                    )}
                   </div>
                   <h1 className="text-4xl font-black text-slate-900 dark:text-white">
                     {notebook.title}
@@ -87,7 +94,10 @@ export default function NotebookDetailPage({ params }: { params: { id: string } 
                       <FileText className="text-orion-primary" size={20} />
                     </div>
                     <h3 className="font-bold text-slate-900 dark:text-white mb-2 group-hover:text-orion-primary transition-colors line-clamp-1">
-                      {doc.title}
+                      <span className="inline-flex items-center gap-2">
+                        {doc.title}
+                        {doc.isSharedWithMe && <Share2 size={12} className="text-cyan-300" />}
+                      </span>
                     </h3>
                     <div className="flex items-center gap-3 text-xs text-slate-400">
                       <span className="flex items-center gap-1">
