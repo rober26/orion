@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import FileExplorer from "@/src/components/notebooks/FileExplorer";
 import Editor from "@/src/components/notebooks/Editor";
 import ExplorerPanel from "@/src/components/notebooks/ExplorerPanel";
 import { BookOpen, Sparkles, Plus, Loader2 } from "lucide-react";
 
-export default function NotebooksPage() {
+function NotebooksContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedDocumentId = searchParams.get("doc");
@@ -98,6 +98,20 @@ export default function NotebooksPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function NotebooksPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full min-h-0 surface-panel rounded-[2rem] overflow-hidden items-center justify-center text-slate-300">
+          <Loader2 className="animate-spin" size={20} />
+        </div>
+      }
+    >
+      <NotebooksContent />
+    </Suspense>
   );
 }
 
