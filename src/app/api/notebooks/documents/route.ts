@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { documentAccessWhere, notebookAccessWhere, notebookEditorWhere, projectAccessWhere } from "@/src/lib/permissions";
 
 export async function GET(req: Request) {
   try {
@@ -12,16 +13,13 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const standaloneOnly = searchParams.get("standalone") === "true";
     const notebookId = searchParams.get("notebookId");
+    const projectId = searchParams.get("projectId");
 
     if (notebookId) {
       const canAccessNotebook = await prisma.notebook.findFirst({
         where: {
           id: notebookId,
-          OR: [
-            { ownerId: sessionUser.userId },
-            { creatorId: sessionUser.userId },
-            { users: { some: { userId: sessionUser.userId } } },
-          ],
+          ...notebookAccessWhere(sessionUser.userId),
         },
         select: { id: true },
       });
@@ -31,20 +29,33 @@ export async function GET(req: Request) {
       }
     }
 
+    if (projectId) {
+      const canAccessProject = await prisma.project.findFirst({
+        where: {
+          id: projectId,
+          ...projectAccessWhere(sessionUser.userId),
+        },
+        select: { id: true },
+      });
+
+      if (!canAccessProject) {
+        return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+      }
+    }
+
+    const where = projectId
+      ? {
+          projectId,
+          OR: [{ creatorId: sessionUser.userId }, { project: projectAccessWhere(sessionUser.userId) }],
+        }
+      : {
+          ...(standaloneOnly ? { notebookId: null } : {}),
+          ...(notebookId ? { notebookId } : {}),
+          ...documentAccessWhere(sessionUser.userId),
+        };
+
     const documents = await prisma.document.findMany({
-      where: {
-        ...(standaloneOnly ? { notebookId: null } : {}),
-        ...(notebookId ? { notebookId } : {}),
-        OR: [
-          { creatorId: sessionUser.userId },
-          { notebook: { ownerId: sessionUser.userId } },
-          { notebook: { creatorId: sessionUser.userId } },
-          { notebook: { users: { some: { userId: sessionUser.userId } } } },
-          { project: { ownerId: sessionUser.userId } },
-          { project: { creatorId: sessionUser.userId } },
-          { project: { users: { some: { userId: sessionUser.userId } } } },
-        ],
-      },
+      where,
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,
@@ -52,11 +63,42 @@ export async function GET(req: Request) {
         updatedAt: true,
         notebookId: true,
         position: true,
+        creatorId: true,
+        creator: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        users: {
+          where: { userId: sessionUser.userId },
+          select: { role: true },
+          take: 1,
+        },
       }
     });
 
-    return NextResponse.json(documents);
-  } catch {
+    const payload = documents.map((document) => {
+      const membership = document.users[0] ?? null;
+      const isOwnerLike = document.creatorId === sessionUser.userId;
+
+      return {
+        id: document.id,
+        title: document.title,
+        updatedAt: document.updatedAt,
+        notebookId: document.notebookId,
+        position: document.position,
+        creator: document.creator,
+        currentUserRole: isOwnerLike ? "OWNER" : membership?.role ?? null,
+        isSharedWithMe: !isOwnerLike && Boolean(membership),
+      };
+    });
+
+    return NextResponse.json(payload);
+  } catch (error) {
+    console.error("GET_DOCUMENTS_ERROR", error);
     return NextResponse.json({ error: "Error al obtener notas" }, { status: 500 });
   }
 }
@@ -82,11 +124,7 @@ export async function POST(req: Request) {
       const canUseNotebook = await prisma.notebook.findFirst({
         where: {
           id: notebookId,
-          OR: [
-            { ownerId: sessionUser.userId },
-            { creatorId: sessionUser.userId },
-            { users: { some: { userId: sessionUser.userId } } },
-          ],
+          ...notebookEditorWhere(sessionUser.userId),
         },
         select: { id: true },
       });
@@ -100,11 +138,7 @@ export async function POST(req: Request) {
       const canUseProject = await prisma.project.findFirst({
         where: {
           id: projectId,
-          OR: [
-            { ownerId: sessionUser.userId },
-            { creatorId: sessionUser.userId },
-            { users: { some: { userId: sessionUser.userId } } },
-          ],
+          ...projectAccessWhere(sessionUser.userId),
         },
         select: { id: true },
       });
