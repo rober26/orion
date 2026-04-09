@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { folderEditorWhere, notebookAccessWhere, notebookEditorWhere } from "@/src/lib/permissions";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -8,11 +9,19 @@ async function canAccessNotebook(notebookId: string, userId: string) {
   const notebook = await prisma.notebook.findFirst({
     where: {
       id: notebookId,
-      OR: [
-        { ownerId: userId },
-        { creatorId: userId },
-        { users: { some: { userId } } },
-      ],
+      ...notebookAccessWhere(userId),
+    },
+    select: { id: true },
+  });
+
+  return Boolean(notebook);
+}
+
+async function canEditNotebook(notebookId: string, userId: string) {
+  const notebook = await prisma.notebook.findFirst({
+    where: {
+      id: notebookId,
+      ...notebookEditorWhere(userId),
     },
     select: { id: true },
   });
@@ -36,13 +45,14 @@ export async function GET(req: Request, { params }: RouteParams) {
     const notebook = await prisma.notebook.findFirst({
       where: {
         id,
-        OR: [
-          { ownerId: sessionUser.userId },
-          { creatorId: sessionUser.userId },
-          { users: { some: { userId: sessionUser.userId } } },
-        ],
+        ...notebookAccessWhere(sessionUser.userId),
       },
       include: {
+        users: {
+          where: { userId: sessionUser.userId },
+          select: { role: true },
+          take: 1,
+        },
         documents: {
           orderBy: { position: "asc" },
           select: {
@@ -50,6 +60,12 @@ export async function GET(req: Request, { params }: RouteParams) {
             title: true,
             icon: true,
             updatedAt: true,
+            creatorId: true,
+            users: {
+              where: { userId: sessionUser.userId },
+              select: { role: true },
+              take: 1,
+            },
           },
         },
         folder: true,
@@ -63,7 +79,27 @@ export async function GET(req: Request, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json(notebook);
+    const notebookMembership = notebook.users[0] ?? null;
+    const isNotebookOwnerLike = notebook.ownerId === sessionUser.userId || notebook.creatorId === sessionUser.userId;
+
+    return NextResponse.json({
+      ...notebook,
+      currentUserRole: isNotebookOwnerLike ? "OWNER" : notebookMembership?.role ?? null,
+      isSharedWithMe: !isNotebookOwnerLike && Boolean(notebookMembership),
+      documents: notebook.documents.map((document) => {
+        const membership = document.users[0] ?? null;
+        const isOwnerLike = document.creatorId === sessionUser.userId;
+
+        return {
+          id: document.id,
+          title: document.title,
+          icon: document.icon,
+          updatedAt: document.updatedAt,
+          currentUserRole: isOwnerLike ? "OWNER" : membership?.role ?? null,
+          isSharedWithMe: !isOwnerLike && Boolean(membership),
+        };
+      }),
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error desconocido";
     console.error("Error al obtener el cuaderno:", message);
@@ -83,7 +119,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     const { id } = await params;
 
-    if (!(await canAccessNotebook(id, sessionUser.userId))) {
+    if (!(await canEditNotebook(id, sessionUser.userId))) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
@@ -94,28 +130,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
       const folder = await prisma.notebookFolder.findFirst({
         where: {
           id: folderId,
-          OR: [
-            {
-              project: {
-                OR: [
-                  { ownerId: sessionUser.userId },
-                  { creatorId: sessionUser.userId },
-                  { users: { some: { userId: sessionUser.userId } } },
-                ],
-              },
-            },
-            {
-              notebooks: {
-                some: {
-                  OR: [
-                    { ownerId: sessionUser.userId },
-                    { creatorId: sessionUser.userId },
-                    { users: { some: { userId: sessionUser.userId } } },
-                  ],
-                },
-              },
-            },
-          ],
+          ...folderEditorWhere(sessionUser.userId),
         },
         select: { id: true },
       });
@@ -157,7 +172,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
     const { id } = await params;
 
-    if (!(await canAccessNotebook(id, sessionUser.userId))) {
+    if (!(await canEditNotebook(id, sessionUser.userId))) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
