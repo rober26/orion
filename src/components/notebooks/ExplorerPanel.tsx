@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Book, FileText, Folder, Loader2 } from "lucide-react";
+import { Book, FileText, Folder, Loader2, Share2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface FolderDocument {
   id: string;
   title: string;
+  isSharedWithMe?: boolean;
 }
 
 interface FolderNotebook {
@@ -15,6 +16,7 @@ interface FolderNotebook {
   color: string | null;
   folderId?: string | null;
   documents: FolderDocument[];
+  isSharedWithMe?: boolean;
 }
 
 interface FolderData {
@@ -29,6 +31,7 @@ interface NotebookData {
   color: string | null;
   folderId?: string | null;
   documents: FolderDocument[];
+  isSharedWithMe?: boolean;
 }
 
 interface ExplorerPanelProps {
@@ -191,7 +194,10 @@ export default function ExplorerPanel({ folderId, notebookId }: ExplorerPanelPro
                         onDoubleClick={(event) => event.stopPropagation()}
                       />
                     ) : (
-                      <span className="font-semibold text-white">{folderNotebook.title || "Sin titulo"}</span>
+                      <span className="font-semibold text-white inline-flex items-center gap-2 w-full min-w-0">
+                        <span className="truncate flex-1 min-w-0">{folderNotebook.title || "Sin titulo"}</span>
+                        {folderNotebook.isSharedWithMe ? <Share2 size={12} className="text-cyan-300 ml-auto shrink-0" /> : null}
+                      </span>
                     )}
                   </button>
 
@@ -219,7 +225,10 @@ export default function ExplorerPanel({ folderId, notebookId }: ExplorerPanelPro
                             onDoubleClick={(event) => event.stopPropagation()}
                           />
                         ) : (
-                          <span className="truncate text-sm text-white">{doc.title || "Sin titulo"}</span>
+                          <span className="truncate text-sm text-white inline-flex items-center gap-2 w-full min-w-0">
+                            <span className="truncate flex-1 min-w-0">{doc.title || "Sin titulo"}</span>
+                            {doc.isSharedWithMe ? <Share2 size={12} className="text-cyan-300 ml-auto shrink-0" /> : null}
+                          </span>
                         )}
                       </button>
                     ))}
@@ -262,7 +271,10 @@ export default function ExplorerPanel({ folderId, notebookId }: ExplorerPanelPro
                       onDoubleClick={(event) => event.stopPropagation()}
                     />
                   ) : (
-                    <span className="truncate text-sm text-white">{doc.title || "Sin titulo"}</span>
+                    <span className="truncate text-sm text-white inline-flex items-center gap-2 w-full min-w-0">
+                      <span className="truncate flex-1 min-w-0">{doc.title || "Sin titulo"}</span>
+                      {doc.isSharedWithMe ? <Share2 size={12} className="text-cyan-300 ml-auto shrink-0" /> : null}
+                    </span>
                   )}
                 </button>
               ))}

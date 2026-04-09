@@ -4,12 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Content, JSONContent } from "@tiptap/core";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Bold, Code, Italic, List, ListOrdered, Minus, Quote, Strikethrough, CloudCheck, CloudUpload, Loader2 } from "lucide-react";
+import { Bold, Code, Italic, List, ListOrdered, Minus, Quote, Strikethrough, CloudCheck, CloudUpload, Loader2, Share2 } from "lucide-react";
+import ShareAccessModal from "@/src/components/notebooks/ShareAccessModal";
 
 interface NotebookDocument {
   id: string;
   title: string;
   content: JSONContent | null;
+  currentUserRole?: "OWNER" | "EDITOR" | "READER" | null;
+  isSharedWithMe?: boolean;
 }
 
 interface EditorProps {
@@ -21,8 +24,14 @@ export default function Editor({ documentId }: EditorProps) {
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const isReader = document?.currentUserRole === "READER";
 
   const saveChanges = useCallback(async (updatedTitle: string, updatedContent: JSONContent | null) => {
+    if (isReader) {
+      return;
+    }
+
     setIsSaving(true);
     try {
       await fetch(`/api/notebooks/documents/${documentId}`, {
@@ -38,7 +47,7 @@ export default function Editor({ documentId }: EditorProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [documentId]);
+  }, [documentId, isReader]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,16 +118,28 @@ export default function Editor({ documentId }: EditorProps) {
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-slate-900">
+    <>
+      <div className="flex-1 min-h-0 flex flex-col bg-slate-900">
       <header className="flex items-center justify-between px-6 py-4 border-b border-orion-border dark:border-orion-dark-border gap-4">
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="text-xl font-bold bg-transparent outline-none w-full text-white"
+          className="text-xl font-bold bg-transparent outline-none w-full text-white disabled:opacity-70"
           placeholder="Sin titulo"
+          disabled={isReader}
         />
 
         <div className="flex items-center gap-2 text-sm text-slate-200">
+          {!isReader ? (
+            <button
+              type="button"
+              onClick={() => setShareOpen(true)}
+              className="h-9 px-3 rounded-lg border border-orion-border dark:border-orion-dark-border text-white hover:bg-slate-800 inline-flex items-center gap-2"
+            >
+              <Share2 size={14} /> Compartir
+            </button>
+          ) : null}
+          {isReader ? <span className="text-xs text-amber-300">Solo lectura</span> : null}
           {isSaving ? (
             <>
               <CloudUpload size={16} className="animate-pulse" /> Guardando...
@@ -136,19 +157,29 @@ export default function Editor({ documentId }: EditorProps) {
           <RichTextEditor
             initialContent={content}
             onChange={(newContent) => saveChanges(title, newContent)}
+            readOnly={Boolean(isReader)}
           />
         </div>
       </main>
-    </div>
+      </div>
+      <ShareAccessModal
+        open={shareOpen}
+        targetId={document.id}
+        targetType="document"
+        onClose={() => setShareOpen(false)}
+      />
+    </>
   );
 }
+
 
 interface RichTextEditorProps {
   initialContent: Content;
   onChange: (content: JSONContent) => void;
+  readOnly?: boolean;
 }
 
-function RichTextEditor({ initialContent, onChange }: RichTextEditorProps) {
+function RichTextEditor({ initialContent, onChange, readOnly = false }: RichTextEditorProps) {
   const normalizedContent = useMemo<Content>(() => {
     if (!initialContent || typeof initialContent !== "object") {
       return { type: "doc", content: [{ type: "paragraph" }] };
@@ -160,6 +191,7 @@ function RichTextEditor({ initialContent, onChange }: RichTextEditorProps) {
     extensions: [StarterKit.configure({ heading: { levels: [1, 2, 3] } })],
     content: normalizedContent,
     immediatelyRender: false,
+    editable: !readOnly,
     onUpdate: ({ editor }) => {
       onChange(editor.getJSON());
     },
@@ -209,6 +241,7 @@ function RichTextEditor({ initialContent, onChange }: RichTextEditorProps) {
 
   return (
     <div className="w-full space-y-3">
+      {!readOnly && (
       <div className="flex flex-wrap items-center gap-1 rounded-xl border border-orion-border dark:border-orion-dark-border bg-slate-900 p-2 sticky top-0 z-10">
         <select
           value={blockValue}
@@ -239,6 +272,7 @@ function RichTextEditor({ initialContent, onChange }: RichTextEditorProps) {
         <ToolbarButton label="Codigo" isActive={editor.isActive("codeBlock")} onClick={() => editor.chain().focus().toggleCodeBlock().run()} icon={<Code size={14} />} />
         <ToolbarButton label="Separador" isActive={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} icon={<Minus size={14} />} />
       </div>
+      )}
 
       <div className="rounded-2xl border border-orion-border dark:border-orion-dark-border bg-slate-900 p-4">
         <EditorContent editor={editor} />
