@@ -2,20 +2,22 @@
 import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { documentAccessWhere, documentEditorWhere, notebookEditorWhere } from "@/src/lib/permissions";
 
 async function findAccessibleDocument(id: string, userId: string) {
   return prisma.document.findFirst({
     where: {
       id,
-      OR: [
-        { creatorId: userId },
-        { notebook: { ownerId: userId } },
-        { notebook: { creatorId: userId } },
-        { notebook: { users: { some: { userId } } } },
-        { project: { ownerId: userId } },
-        { project: { creatorId: userId } },
-        { project: { users: { some: { userId } } } },
-      ],
+      ...documentAccessWhere(userId),
+    },
+  });
+}
+
+async function findEditableDocument(id: string, userId: string) {
+  return prisma.document.findFirst({
+    where: {
+      id,
+      ...documentEditorWhere(userId),
     },
   });
 }
@@ -42,7 +44,21 @@ export async function GET(
       return NextResponse.json({ error: "Acceso denegado o documento no encontrado" }, { status: 403 });
     }
 
-    return NextResponse.json(document);
+    const directMembership = await prisma.documentUser.findFirst({
+      where: {
+        documentId: id,
+        userId: sessionUser.userId,
+      },
+      select: { role: true },
+    });
+
+    const response = {
+      ...document,
+      currentUserRole: document.creatorId === sessionUser.userId ? "OWNER" : directMembership?.role ?? null,
+      isSharedWithMe: document.creatorId !== sessionUser.userId && Boolean(directMembership),
+    };
+
+    return NextResponse.json(response);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error desconocido";
     console.error("Error en GET [id]:", message);
@@ -61,7 +77,7 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const existing = await findAccessibleDocument(id, sessionUser.userId);
+    const existing = await findEditableDocument(id, sessionUser.userId);
 
     if (!existing) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
@@ -74,11 +90,7 @@ export async function PATCH(
       const canUseNotebook = await prisma.notebook.findFirst({
         where: {
           id: notebookId,
-          OR: [
-            { ownerId: sessionUser.userId },
-            { creatorId: sessionUser.userId },
-            { users: { some: { userId: sessionUser.userId } } },
-          ],
+          ...notebookEditorWhere(sessionUser.userId),
         },
         select: { id: true },
       });
