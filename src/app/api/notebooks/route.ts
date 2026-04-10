@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { badRequest, json, serverError, unauthorized } from "@/src/lib/http";
 import { folderEditorWhere, notebookAccessWhere } from "@/src/lib/permissions";
 
 export async function GET() {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const notebooks = await prisma.notebook.findMany({
@@ -47,9 +47,9 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(payload);
+    return json(payload);
   } catch {
-    return NextResponse.json({ error: "Error al obtener notebooks" }, { status: 500 });
+    return json({ error: "Error al obtener notebooks" }, 500);
   }
 }
 
@@ -57,14 +57,14 @@ export async function POST(req: Request) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const body = await req.json();
     const { title, description, folderId, color, icon } = body;
 
     if (!title || typeof title !== "string") {
-      return NextResponse.json({ error: "Titulo requerido" }, { status: 400 });
+      return badRequest("Titulo requerido");
     }
 
     if (folderId) {
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
       });
 
       if (!folder) {
-        return NextResponse.json({ error: "Acceso denegado a carpeta" }, { status: 403 });
+        return json({ error: "Acceso denegado a carpeta" }, 403);
       }
     }
 
@@ -89,13 +89,13 @@ export async function POST(req: Request) {
         ownerId: sessionUser.userId,
         creatorId: sessionUser.userId,
         color: color || "#3b82f6",
-        icon: icon || "Book"
+        icon: icon || "Book",
       },
     });
 
-    return NextResponse.json(notebook);
+    return json(notebook);
   } catch (error) {
     console.error("PRISMA ERROR:", error);
-    return NextResponse.json({ error: "Error al crear notebook" }, { status: 500 });
+    return serverError("Error al crear notebook");
   }
 }

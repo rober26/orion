@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { json, unauthorized } from "@/src/lib/http";
 
 // Obtener todos los proyectos del usuario
 export async function GET() {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const projects = await prisma.project.findMany({
@@ -25,9 +25,9 @@ export async function GET() {
         }
       }
     });
-    return NextResponse.json(projects);
+    return json(projects);
   } catch {
-    return NextResponse.json({ error: "Error al obtener proyectos" }, { status: 500 });
+    return json({ error: "Error al obtener proyectos" }, 500);
   }
 }
 
@@ -36,14 +36,14 @@ export async function POST(req: Request) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const body = await req.json();
     const { name, description, color } = body;
 
     if (!name || typeof name !== "string") {
-      return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
+      return json({ error: "Nombre requerido" }, 400);
     }
 
     const newProject = await prisma.project.create({
@@ -56,10 +56,10 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json(newProject, { status: 201 });
+    return json(newProject, 201);
   } catch (error: unknown) {
     console.error("ERROR CREAR PROYECTO:", error);
     const message = error instanceof Error ? error.message : "Error interno";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return json({ error: message }, 500);
   }
 }

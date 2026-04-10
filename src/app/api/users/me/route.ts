@@ -1,7 +1,7 @@
 import { ProfileVisibility } from "@prisma/client";
-import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { badRequest, json, serverError, unauthorized } from "@/src/lib/http";
 
 function getPrismaErrorCode(error: unknown): string | null {
   if (typeof error === "object" && error !== null && "code" in error) {
@@ -30,7 +30,7 @@ export async function GET() {
     const sessionUser = await getSessionUser();
 
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const user = await prisma.user.findUnique({
@@ -50,13 +50,13 @@ export async function GET() {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Usuario no existe" }, { status: 404 });
+      return json({ error: "Usuario no existe" }, 404);
     }
 
-    return NextResponse.json(formatProfile(user));
+    return json(formatProfile(user));
   } catch (error) {
     console.error("GET_PROFILE_ERROR", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    return serverError();
   }
 }
 
@@ -65,7 +65,7 @@ export async function PATCH(request: Request) {
     const sessionUser = await getSessionUser();
 
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const body = await request.json();
@@ -78,11 +78,11 @@ export async function PATCH(request: Request) {
     const profileVisibility = body.profileVisibility;
 
     if (username !== null && username.length > 0 && username.length < 3) {
-      return NextResponse.json({ error: "El username debe tener al menos 3 caracteres" }, { status: 400 });
+      return badRequest("El username debe tener al menos 3 caracteres");
     }
 
     if (bio !== null && bio.length > 300) {
-      return NextResponse.json({ error: "La bio no puede superar los 300 caracteres" }, { status: 400 });
+      return badRequest("La bio no puede superar los 300 caracteres");
     }
 
     if (
@@ -90,7 +90,7 @@ export async function PATCH(request: Request) {
       profileVisibility !== ProfileVisibility.PUBLIC &&
       profileVisibility !== ProfileVisibility.PRIVATE
     ) {
-      return NextResponse.json({ error: "Visibilidad inválida" }, { status: 400 });
+      return badRequest("Visibilidad inválida");
     }
 
     const updatedUser = await prisma.user.update({
@@ -118,13 +118,13 @@ export async function PATCH(request: Request) {
       },
     });
 
-    return NextResponse.json(formatProfile(updatedUser));
+    return json(formatProfile(updatedUser));
   } catch (error: unknown) {
     if (getPrismaErrorCode(error) === "P2002") {
-      return NextResponse.json({ error: "El username ya está en uso" }, { status: 409 });
+      return json({ error: "El username ya está en uso" }, 409);
     }
 
     console.error("PATCH_PROFILE_ERROR", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    return serverError();
   }
 }
