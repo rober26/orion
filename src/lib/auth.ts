@@ -1,8 +1,7 @@
 import { UserRole } from "@prisma/client";
 import { cookies } from "next/headers";
 import jwt, { JwtPayload } from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET || "tu_secreto_super_seguro_123";
+import { getJwtSecret } from "@/src/lib/session";
 
 export interface SessionUser {
   userId: string;
@@ -23,7 +22,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, getJwtSecret());
 
     if (typeof decoded === "string") {
       return null;
