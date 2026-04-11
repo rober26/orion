@@ -48,17 +48,49 @@
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+  --scrollbar-track: rgba(15, 23, 42, 0.08);
+  --scrollbar-thumb: #1e3a8a;
+  --scrollbar-thumb-hover: #1e40af;
 }
 
 .dark {
   --background: #020617;
   --foreground: #f8fafc;
+  --scrollbar-track: rgba(148, 163, 184, 0.12);
+  --scrollbar-thumb: #1d4ed8;
+  --scrollbar-thumb-hover: #2563eb;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
   @apply antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }
 
 label {
