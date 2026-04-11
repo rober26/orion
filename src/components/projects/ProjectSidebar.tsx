@@ -103,7 +103,7 @@ export default function ProjectSidebar() {
             projectDocs.map((doc: any) => (
               <SidebarLink 
                 key={doc.id}
-                href={`/notebooks/editor/${doc.id}?fromProject=${projectId}`} 
+                href={`/notebooks?doc=${doc.id}`} 
                 icon={<FileText size={18} />} 
                 label={doc.title || "Sin título"} 
                 active={params.id === doc.id}

@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import FileExplorer from "@/src/components/notebooks/FileExplorer";
 import { FileText, Calendar, Plus, Loader2, Share2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface NotebookData {
@@ -19,9 +20,11 @@ interface NotebookData {
 }
 
 export default function NotebookDetailPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const [notebook, setNotebook] = useState<NotebookData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     fetch(`/api/notebooks/${params.id}`)
@@ -42,6 +45,38 @@ export default function NotebookDetailPage({ params }: { params: { id: string } 
         setLoading(false);
       });
   }, [params.id]);
+
+  const handleCreateDocument = async () => {
+    if (!notebook || isCreating) {
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const response = await fetch("/api/notebooks/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Nueva nota sin titulo",
+          notebookId: notebook.id,
+          projectId: null,
+        }),
+      });
+
+      const payload = (await response.json()) as { id?: string; error?: string };
+
+      if (!response.ok || !payload.id) {
+        throw new Error(payload.error || "No se pudo crear la nota");
+      }
+
+      router.push(`/notebooks?doc=${payload.id}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo crear la nota";
+      alert(message);
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   return (
     <div className="flex h-[calc(100vh-160px)] surface-panel rounded-[2rem] overflow-hidden shadow-sm">
@@ -75,9 +110,14 @@ export default function NotebookDetailPage({ params }: { params: { id: string } 
                     {notebook.title}
                   </h1>
                 </div>
-                <button className="btn-primary px-4 py-2 rounded-xl font-bold shadow-lg shadow-blue-500/20">
+                <button
+                  type="button"
+                  onClick={() => void handleCreateDocument()}
+                  disabled={isCreating}
+                  className="btn-primary px-4 py-2 rounded-xl font-bold shadow-lg shadow-blue-500/20 disabled:opacity-60"
+                >
                   <Plus size={20} />
-                  Nueva Nota
+                  {isCreating ? "Creando..." : "Nueva Nota"}
                 </button>
               </div>
             </header>
@@ -87,7 +127,7 @@ export default function NotebookDetailPage({ params }: { params: { id: string } 
                 notebook.documents.map((doc) => (
                   <Link 
                     key={doc.id} 
-                    href={`/notebooks/editor/${doc.id}`} // Ruta para el futuro editor TipTap
+                    href={`/notebooks?doc=${doc.id}`}
                     className="p-6 surface-panel dark:bg-slate-800 rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
                   >
                     <div className="w-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-700 flex items-center justify-center mb-4 group-hover:bg-orion-primary/10 transition-colors">

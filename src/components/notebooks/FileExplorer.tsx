@@ -23,16 +23,17 @@ import {
   Book,
   ChevronDown,
   ChevronRight,
-  CircleDot,
   FileText,
   Folder,
   FolderPlus,
   Loader2,
+  MoreHorizontal,
   Notebook,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
   Share2,
+  Trash2,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ShareAccessModal from "@/src/components/notebooks/ShareAccessModal";
@@ -140,6 +141,7 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
   const [createDraft, setCreateDraft] = useState<DraftCreateState | null>(null);
   const [dragLabel, setDragLabel] = useState<string | null>(null);
   const [shareTarget, setShareTarget] = useState<{ type: "folder" | "notebook" | "document"; id: string } | null>(null);
+  const [openMenu, setOpenMenu] = useState<{ type: "folder" | "notebook" | "document"; id: string } | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const activeEditKey = rename
     ? `${rename.type}:${rename.id}`
@@ -203,6 +205,19 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
       inputRef.current?.select();
     });
   }, [activeEditKey]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-row-menu='true']")) {
+        return;
+      }
+      setOpenMenu(null);
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
 
   const findNotebook = useCallback(
     (id: string) => {
@@ -505,6 +520,58 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
     [findNotebook, reload, state.folders, state.ungroupedNotebooks],
   );
 
+  const deleteEntity = useCallback(
+    async (type: "folder" | "notebook" | "document", id: string) => {
+      const labels: Record<typeof type, string> = {
+        folder: "esta carpeta",
+        notebook: "este cuaderno",
+        document: "este documento",
+      };
+
+      if (!window.confirm(`Seguro que quieres eliminar ${labels[type]}?`)) {
+        return;
+      }
+
+      try {
+        if (type === "folder") {
+          const response = await fetch("/api/notebooks/folders", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id }),
+          });
+
+          if (!response.ok) {
+            const payload = (await response.json()) as { error?: string };
+            throw new Error(payload.error || "No se pudo eliminar la carpeta");
+          }
+        }
+
+        if (type === "notebook") {
+          const response = await fetch(`/api/notebooks/${id}`, { method: "DELETE" });
+          if (!response.ok) {
+            const payload = (await response.json()) as { error?: string };
+            throw new Error(payload.error || "No se pudo eliminar el cuaderno");
+          }
+        }
+
+        if (type === "document") {
+          const response = await fetch(`/api/notebooks/documents/${id}`, { method: "DELETE" });
+          if (!response.ok) {
+            const payload = (await response.json()) as { error?: string };
+            throw new Error(payload.error || "No se pudo eliminar el documento");
+          }
+        }
+
+        router.push("/notebooks");
+        await reload();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "No se pudo eliminar";
+        alert(message);
+      }
+    },
+    [reload, router],
+  );
+
   if (loading) {
     return (
       <div className="w-80 border-r border-orion-border dark:border-orion-dark-border p-4 flex items-center gap-2 text-slate-200">
@@ -586,6 +653,11 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                     router.push(`/notebooks?folder=${folder.id}`);
                   }}
                   onDoubleClick={() => setRename({ id: folder.id, type: "folder", value: folder.name })}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setOpenMenu({ type: "folder", id: folder.id });
+                  }}
                 >
                   <button type="button" className="p-0.5">
                     {expandedFolders[folder.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -617,16 +689,70 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                   ) : (
                     <span className="truncate text-sm text-white">{folder.name || "Sin nombre"}</span>
                   )}
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      startCreate("notebook", folder.id);
-                    }}
-                    className="p-1 rounded-md hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orion-primary/60"
-                  >
-                    <Plus size={13} />
-                  </button>
+                  <div className="relative ml-auto" data-row-menu="true">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenMenu((prev) =>
+                          prev?.type === "folder" && prev.id === folder.id ? null : { type: "folder", id: folder.id },
+                        );
+                      }}
+                      className="p-1 rounded-md hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orion-primary/60"
+                      aria-label="Opciones carpeta"
+                      title="Opciones"
+                    >
+                      <MoreHorizontal size={13} />
+                    </button>
+                    {openMenu?.type === "folder" && openMenu.id === folder.id ? (
+                      <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-orion-border dark:border-orion-dark-border bg-slate-900 shadow-xl overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setOpenMenu(null);
+                            setRename({ id: folder.id, type: "folder", value: folder.name || "" });
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
+                        >
+                          Renombrar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setOpenMenu(null);
+                            startCreate("notebook", folder.id);
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
+                        >
+                          Anadir cuaderno
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setOpenMenu(null);
+                            setShareTarget({ type: "folder", id: folder.id });
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
+                        >
+                          Compartir
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setOpenMenu(null);
+                            void deleteEntity("folder", folder.id);
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs text-red-300 hover:bg-red-500/10"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
                 <DropZone id={`drop-folder:${folder.id}`} label={`Soltar cuaderno en ${folder.name}`} />
@@ -648,6 +774,13 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                           onOpenNotebook={openNotebook}
                           onOpenDocument={openDocument}
                           onCreateDocument={() => startCreate("document", notebook.id)}
+                          onRename={() => setRename({ id: notebook.id, type: "notebook", value: notebook.title || "" })}
+                          onShare={() => setShareTarget({ type: "notebook", id: notebook.id })}
+                          onShareDocument={(id) => setShareTarget({ type: "document", id })}
+                          onDelete={() => deleteEntity("notebook", notebook.id)}
+                          onDeleteDocument={(id) => deleteEntity("document", id)}
+                          openMenu={openMenu}
+                          setOpenMenu={setOpenMenu}
                           isExpanded={Boolean(expandedNotebooks[notebook.id])}
                           onToggleExpand={() => setExpandedNotebooks((prev) => ({ ...prev, [notebook.id]: !prev[notebook.id] }))}
                         />
@@ -676,6 +809,13 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                   onOpenNotebook={openNotebook}
                   onOpenDocument={openDocument}
                   onCreateDocument={() => startCreate("document", notebook.id)}
+                  onRename={() => setRename({ id: notebook.id, type: "notebook", value: notebook.title || "" })}
+                  onShare={() => setShareTarget({ type: "notebook", id: notebook.id })}
+                  onShareDocument={(id) => setShareTarget({ type: "document", id })}
+                  onDelete={() => deleteEntity("notebook", notebook.id)}
+                  onDeleteDocument={(id) => deleteEntity("document", id)}
+                  openMenu={openMenu}
+                  setOpenMenu={setOpenMenu}
                   isExpanded={Boolean(expandedNotebooks[notebook.id])}
                   onToggleExpand={() => setExpandedNotebooks((prev) => ({ ...prev, [notebook.id]: !prev[notebook.id] }))}
                 />
@@ -700,6 +840,11 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                   setCreateDraft={setCreateDraft}
                   onCommit={commitInput}
                   onOpen={openDocument}
+                  onRename={() => setRename({ id: doc.id, type: "document", value: doc.title || "" })}
+                  onShare={() => setShareTarget({ type: "document", id: doc.id })}
+                  onDelete={() => deleteEntity("document", doc.id)}
+                  openMenu={openMenu}
+                  setOpenMenu={setOpenMenu}
                 />
               ))}
             </SortableContext>
@@ -793,6 +938,13 @@ interface NotebookRowProps {
   onOpenNotebook: (id: string) => void;
   onOpenDocument: (id: string) => void;
   onCreateDocument: () => void;
+  onRename: () => void;
+  onShare: () => void;
+  onShareDocument: (id: string) => void;
+  onDelete: () => void;
+  onDeleteDocument: (id: string) => void;
+  openMenu: { type: "folder" | "notebook" | "document"; id: string } | null;
+  setOpenMenu: Dispatch<SetStateAction<{ type: "folder" | "notebook" | "document"; id: string } | null>>;
   isExpanded: boolean;
   onToggleExpand: () => void;
 }
@@ -809,6 +961,13 @@ const NotebookRow = memo(function NotebookRow({
   onOpenNotebook,
   onOpenDocument,
   onCreateDocument,
+  onRename,
+  onShare,
+  onShareDocument,
+  onDelete,
+  onDeleteDocument,
+  openMenu,
+  setOpenMenu,
   isExpanded,
   onToggleExpand,
 }: NotebookRowProps) {
@@ -856,6 +1015,11 @@ const NotebookRow = memo(function NotebookRow({
         className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-800/80 text-white transition-colors"
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpenMenu({ type: "notebook", id: notebook.id });
+        }}
       >
         <button type="button" onClick={(event) => { event.stopPropagation(); onToggleExpand(); }} className="p-0.5">
           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -894,16 +1058,70 @@ const NotebookRow = memo(function NotebookRow({
           </>
         )}
 
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onCreateDocument();
-          }}
-          className="p-1 rounded-md hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orion-primary/60"
-        >
-          <Plus size={13} />
-        </button>
+        <div className="relative ml-auto" data-row-menu="true">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setOpenMenu((prev) =>
+                prev?.type === "notebook" && prev.id === notebook.id ? null : { type: "notebook", id: notebook.id },
+              );
+            }}
+            className="p-1 rounded-md hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orion-primary/60"
+            aria-label="Opciones cuaderno"
+            title="Opciones"
+          >
+            <MoreHorizontal size={13} />
+          </button>
+          {openMenu?.type === "notebook" && openMenu.id === notebook.id ? (
+            <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-orion-border dark:border-orion-dark-border bg-slate-900 shadow-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpenMenu(null);
+                  onRename();
+                }}
+                className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
+              >
+                Renombrar
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpenMenu(null);
+                  onCreateDocument();
+                }}
+                className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
+              >
+                Anadir documento
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpenMenu(null);
+                  onShare();
+                }}
+                className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
+              >
+                Compartir
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpenMenu(null);
+                  void onDelete();
+                }}
+                className="w-full px-3 py-2 text-left text-xs text-red-300 hover:bg-red-500/10"
+              >
+                Eliminar
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <DropZone id={`drop-notebook:${notebook.id}`} label="Soltar documento en cuaderno" />
@@ -923,6 +1141,11 @@ const NotebookRow = memo(function NotebookRow({
                 setCreateDraft={setCreateDraft}
                 onCommit={onCommit}
                 onOpen={onOpenDocument}
+                onRename={() => setRename({ id: doc.id, type: "document", value: doc.title || "" })}
+                onShare={() => onShareDocument(doc.id)}
+                onDelete={() => onDeleteDocument(doc.id)}
+                openMenu={openMenu}
+                setOpenMenu={setOpenMenu}
               />
             ))}
           </SortableContext>
@@ -942,6 +1165,11 @@ interface DocumentRowProps {
   setCreateDraft: Dispatch<SetStateAction<DraftCreateState | null>>;
   onCommit: () => Promise<void>;
   onOpen: (id: string) => void;
+  onRename: () => void;
+  onShare: () => void;
+  onDelete: () => void;
+  openMenu: { type: "folder" | "notebook" | "document"; id: string } | null;
+  setOpenMenu: Dispatch<SetStateAction<{ type: "folder" | "notebook" | "document"; id: string } | null>>;
 }
 
 const DocumentRow = memo(function DocumentRow({
@@ -954,6 +1182,11 @@ const DocumentRow = memo(function DocumentRow({
   setCreateDraft,
   onCommit,
   onOpen,
+  onRename,
+  onShare,
+  onDelete,
+  openMenu,
+  setOpenMenu,
 }: DocumentRowProps) {
   const isEditing =
     (rename?.id === document.id && rename.type === "document") ||
@@ -996,6 +1229,11 @@ const DocumentRow = memo(function DocumentRow({
       }`}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setOpenMenu({ type: "document", id: document.id });
+      }}
       {...(isEditing ? {} : attributes)}
       {...(isEditing ? {} : listeners)}
     >
@@ -1029,6 +1267,59 @@ const DocumentRow = memo(function DocumentRow({
           <FileText size={14} className="text-slate-300" />
           <span className="truncate text-sm text-white flex-1 min-w-0">{document.title || "Sin titulo"}</span>
           {document.isSharedWithMe ? <Share2 size={12} className="text-cyan-300 ml-auto shrink-0" aria-label="Compartido contigo" /> : null}
+          <div className="relative ml-auto" data-row-menu="true">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpenMenu((prev) =>
+                  prev?.type === "document" && prev.id === document.id ? null : { type: "document", id: document.id },
+                );
+              }}
+              className="p-1 rounded-md hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orion-primary/60"
+              aria-label="Opciones documento"
+              title="Opciones"
+            >
+              <MoreHorizontal size={12} />
+            </button>
+            {openMenu?.type === "document" && openMenu.id === document.id ? (
+              <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-orion-border dark:border-orion-dark-border bg-slate-900 shadow-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setOpenMenu(null);
+                    onRename();
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
+                >
+                  Renombrar
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setOpenMenu(null);
+                    onShare();
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
+                >
+                  Compartir
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setOpenMenu(null);
+                    void onDelete();
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs text-red-300 hover:bg-red-500/10"
+                >
+                  Eliminar
+                </button>
+              </div>
+            ) : null}
+          </div>
         </>
       )}
     </div>
