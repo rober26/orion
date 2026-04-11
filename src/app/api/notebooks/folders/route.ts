@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
-import { folderAccessWhere, folderEditorWhere, notebookAccessWhere, projectAccessWhere } from "@/src/lib/permissions";
+import { folderAccessWhere, folderEditorWhere, notebookAccessWhere, projectEditorWhere } from "@/src/lib/permissions";
 
 export async function GET() {
   try {
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
       const project = await prisma.project.findFirst({
         where: {
           id: effectiveProjectId,
-          ...projectAccessWhere(sessionUser.userId),
+          ...projectEditorWhere(sessionUser.userId),
         },
         select: { id: true },
       });
@@ -93,20 +93,32 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Acceso denegado al proyecto" }, { status: 403 });
       }
     } else {
-      const fallbackProject = await prisma.project.findFirst({
-        where: projectAccessWhere(sessionUser.userId),
+      const editableProject = await prisma.project.findFirst({
+        where: {
+          ...projectEditorWhere(sessionUser.userId),
+        },
         orderBy: { updatedAt: "desc" },
         select: { id: true },
       });
 
-      if (!fallbackProject) {
-        return NextResponse.json(
-          { error: "Primero crea un proyecto para poder organizar carpetas" },
-          { status: 409 },
-        );
-      }
+      if (editableProject) {
+        effectiveProjectId = editableProject.id;
+      } else {
+        const personalProject = await prisma.project.create({
+          data: {
+            name: "Espacio personal",
+            description: "Proyecto personal autogenerado para organizar notas",
+            ownerId: sessionUser.userId,
+            creatorId: sessionUser.userId,
+            icon: "Folder",
+            color: "#3b82f6",
+            isPublic: false,
+          },
+          select: { id: true },
+        });
 
-      effectiveProjectId = fallbackProject.id;
+        effectiveProjectId = personalProject.id;
+      }
     }
 
     const folder = await prisma.notebookFolder.create({
@@ -157,5 +169,47 @@ export async function PATCH(req: Request) {
     return NextResponse.json(folder);
   } catch {
     return NextResponse.json({ error: "Error al actualizar carpeta" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const { id } = await req.json();
+
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "ID obligatorio" }, { status: 400 });
+    }
+
+    const canAccess = await prisma.notebookFolder.findFirst({
+      where: {
+        id,
+        ...folderEditorWhere(sessionUser.userId),
+      },
+      select: { id: true },
+    });
+
+    if (!canAccess) {
+      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+    }
+
+    await prisma.$transaction([
+      prisma.notebook.updateMany({
+        where: { folderId: canAccess.id },
+        data: { folderId: null },
+      }),
+      prisma.notebookFolder.delete({
+        where: { id: canAccess.id },
+      }),
+    ]);
+
+    return NextResponse.json({ message: "Carpeta eliminada correctamente" });
+  } catch (error) {
+    console.error("DELETE_FOLDER_ERROR", error);
+    return NextResponse.json({ error: "Error al eliminar carpeta" }, { status: 500 });
   }
 }

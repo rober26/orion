@@ -116,3 +116,31 @@ export async function PATCH(
     return NextResponse.json({ error: "Error al guardar los cambios" }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const existing = await findEditableDocument(id, sessionUser.userId);
+
+    if (!existing) {
+      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+    }
+
+    await prisma.document.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ message: "Documento eliminado correctamente" });
+  } catch (error: unknown) {
+    console.error("Error al eliminar documento:", error);
+    return NextResponse.json({ error: "Error al eliminar documento" }, { status: 500 });
+  }
+}

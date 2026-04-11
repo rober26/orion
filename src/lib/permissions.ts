@@ -1,7 +1,9 @@
-import { AccessRole, ConnectionStatus, Prisma } from "@prisma/client";
+import { AccessRole, ConnectionStatus, Prisma, ProjectRole } from "@prisma/client";
 import prisma from "@/src/lib/prisma";
 
 const editorRoles: AccessRole[] = [AccessRole.OWNER, AccessRole.EDITOR];
+
+const projectEditorRoles: ProjectRole[] = [ProjectRole.OWNER, ProjectRole.ADMIN, ProjectRole.MEMBER];
 
 export function projectAccessWhere(userId: string): Prisma.ProjectWhereInput {
   return {
@@ -9,6 +11,16 @@ export function projectAccessWhere(userId: string): Prisma.ProjectWhereInput {
       { ownerId: userId },
       { creatorId: userId },
       { users: { some: { userId } } },
+    ],
+  };
+}
+
+export function projectEditorWhere(userId: string): Prisma.ProjectWhereInput {
+  return {
+    OR: [
+      { ownerId: userId },
+      { creatorId: userId },
+      { users: { some: { userId, role: { in: projectEditorRoles } } } },
     ],
   };
 }
@@ -30,7 +42,7 @@ export function notebookEditorWhere(userId: string): Prisma.NotebookWhereInput {
       { ownerId: userId },
       { creatorId: userId },
       { users: { some: { userId, role: { in: editorRoles } } } },
-      { folder: { project: projectAccessWhere(userId) } },
+      { folder: { project: projectEditorWhere(userId) } },
     ],
   };
 }
@@ -94,7 +106,7 @@ export function documentEditorWhere(userId: string): Prisma.DocumentWhereInput {
       { creatorId: userId },
       { users: { some: { userId, role: { in: editorRoles } } } },
       { notebook: notebookEditorWhere(userId) },
-      { project: projectAccessWhere(userId) },
+      { project: projectEditorWhere(userId) },
     ],
   };
 }
