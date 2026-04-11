@@ -33,7 +33,7 @@ export default function SetupPage() {
     <div>
       <h2 className="text-2xl font-bold mb-2 dark:text-white">Configuración Inicial</h2>
       <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">
-        Crea la cuenta del Super Administrador para empezar.
+        Crea la cuenta del administrador para empezar.
       </p>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

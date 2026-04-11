@@ -61,6 +61,10 @@ body {
   @apply antialiased;
 }
 
+label {
+  color: #ffffff !important;
+}
+
 .ProseMirror h1 {
   @apply text-4xl font-black tracking-tight mb-4 text-white;
 }
