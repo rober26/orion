@@ -78,7 +78,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Nombre obligatorio" }, { status: 400 });
     }
 
-    let effectiveProjectId = projectId as string | null;
+    let effectiveProjectId = typeof projectId === "string" && projectId.trim() ? projectId : null;
 
     if (effectiveProjectId) {
       const project = await prisma.project.findFirst({
@@ -93,31 +93,36 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Acceso denegado al proyecto" }, { status: 403 });
       }
     } else {
-      const editableProject = await prisma.project.findFirst({
+      const personalProjectName = "Espacio personal notebooks";
+      const personalProjectDescription = "Proyecto interno para carpetas del explorador";
+
+      const personalProject = await prisma.project.findFirst({
         where: {
-          ...projectEditorWhere(sessionUser.userId),
+          ownerId: sessionUser.userId,
+          creatorId: sessionUser.userId,
+          name: personalProjectName,
         },
-        orderBy: { updatedAt: "desc" },
         select: { id: true },
       });
 
-      if (editableProject) {
-        effectiveProjectId = editableProject.id;
+      if (personalProject) {
+        effectiveProjectId = personalProject.id;
       } else {
-        const personalProject = await prisma.project.create({
+        const createdProject = await prisma.project.create({
           data: {
-            name: "Espacio personal",
-            description: "Proyecto personal autogenerado para organizar notas",
+            name: personalProjectName,
+            description: personalProjectDescription,
             ownerId: sessionUser.userId,
             creatorId: sessionUser.userId,
             icon: "Folder",
-            color: "#3b82f6",
+            color: "#64748b",
             isPublic: false,
+            isArchived: true,
           },
           select: { id: true },
         });
 
-        effectiveProjectId = personalProject.id;
+        effectiveProjectId = createdProject.id;
       }
     }
 

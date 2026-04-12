@@ -34,7 +34,7 @@ enum NotificationType {
 
 enum ProjectRole {
   OWNER
-  ADMIN
+   
   MEMBER
   VIEWER
 }

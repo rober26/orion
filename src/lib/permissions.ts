@@ -3,7 +3,8 @@ import prisma from "@/src/lib/prisma";
 
 const editorRoles: AccessRole[] = [AccessRole.OWNER, AccessRole.EDITOR];
 
-const projectEditorRoles: ProjectRole[] = [ProjectRole.OWNER, ProjectRole.ADMIN, ProjectRole.MEMBER];
+const projectEditorRoles: ProjectRole[] = [ProjectRole.OWNER, ProjectRole.MEMBER];
+const projectOwnerRoles: ProjectRole[] = [ProjectRole.OWNER];
 
 export function projectAccessWhere(userId: string): Prisma.ProjectWhereInput {
   return {
@@ -23,6 +24,72 @@ export function projectEditorWhere(userId: string): Prisma.ProjectWhereInput {
       { users: { some: { userId, role: { in: projectEditorRoles } } } },
     ],
   };
+}
+
+export function projectOwnerWhere(userId: string): Prisma.ProjectWhereInput {
+  return {
+    OR: [
+      { ownerId: userId },
+      { creatorId: userId },
+      { users: { some: { userId, role: { in: projectOwnerRoles } } } },
+    ],
+  };
+}
+
+export function normalizeProjectRole(role: ProjectRole): "OWNER" | "MEMBER" | "VIEWER" {
+  if (role === ProjectRole.OWNER) {
+    return "OWNER";
+  }
+
+  if (role === ProjectRole.MEMBER) {
+    return "MEMBER";
+  }
+
+  return "VIEWER";
+}
+
+export function parseProjectMemberRole(value: unknown): ProjectRole | null {
+  if (value === ProjectRole.MEMBER || value === ProjectRole.VIEWER) {
+    return value;
+  }
+
+  return null;
+}
+
+export async function canViewProject(projectId: string, userId: string): Promise<boolean> {
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      ...projectAccessWhere(userId),
+    },
+    select: { id: true },
+  });
+
+  return Boolean(project);
+}
+
+export async function canEditProjectContent(projectId: string, userId: string): Promise<boolean> {
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      ...projectEditorWhere(userId),
+    },
+    select: { id: true },
+  });
+
+  return Boolean(project);
+}
+
+export async function canManageProjectMembers(projectId: string, userId: string): Promise<boolean> {
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      ...projectOwnerWhere(userId),
+    },
+    select: { id: true },
+  });
+
+  return Boolean(project);
 }
 
 export function notebookAccessWhere(userId: string): Prisma.NotebookWhereInput {
