@@ -1,25 +1,32 @@
 "use client";
-import { useState, useEffect } from "react";
-import { 
-  FileText, 
-  ChevronLeft, 
-  Plus, 
-  LayoutDashboard, 
-  CheckSquare, 
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  FileText,
+  ChevronLeft,
+  LayoutDashboard,
+  CheckSquare,
   Settings,
   Loader2,
-  Search
+  Search,
+  Users,
+  BookOpen,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+
+interface ProjectDocument {
+  id: string;
+  title: string | null;
+}
 
 export default function ProjectSidebar() {
   const params = useParams();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const projectId = params.id as string;
 
-  const [projectDocs, setProjectDocs] = useState([]);
+  const [projectDocs, setProjectDocs] = useState<ProjectDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,8 +36,11 @@ export default function ProjectSidebar() {
         setLoading(true);
         // Filtramos documentos que pertenezcan a este proyecto
         const res = await fetch(`/api/notebooks/documents?projectId=${projectId}`);
+        if (!res.ok) {
+          throw new Error("No se pudieron cargar los documentos del proyecto");
+        }
         const data = await res.json();
-        setProjectDocs(data);
+        setProjectDocs(Array.isArray(data) ? (data as ProjectDocument[]) : []);
       } catch (error) {
         console.error("Error al cargar sidebar del proyecto:", error);
       } finally {
@@ -59,9 +69,6 @@ export default function ProjectSidebar() {
           <h2 className="font-black text-slate-900 dark:text-white truncate">
             Espacio de Trabajo
           </h2>
-          <button className="p-1.5 bg-orion-primary/10 text-orion-primary rounded-lg hover:bg-orion-primary hover:text-white transition-all">
-            <Plus size={16} />
-          </button>
         </div>
       </div>
 
@@ -82,6 +89,18 @@ export default function ProjectSidebar() {
             label="Tareas" 
             active={isActive(`/projects/${projectId}/tasks`)} 
           />
+          <SidebarLink
+            href={`/projects/${projectId}/documentation`}
+            icon={<BookOpen size={18} />}
+            label="Documentacion"
+            active={isActive(`/projects/${projectId}/documentation`)}
+          />
+          <SidebarLink
+            href={`/projects/${projectId}/members`}
+            icon={<Users size={18} />}
+            label="Miembros"
+            active={isActive(`/projects/${projectId}/members`)}
+          />
         </nav>
 
         {/* SECCIÓN: DOCUMENTACIÓN DEL PROYECTO */}
@@ -100,13 +119,13 @@ export default function ProjectSidebar() {
               No hay documentos aún.
             </div>
           ) : (
-            projectDocs.map((doc: any) => (
+            projectDocs.map((doc) => (
               <SidebarLink 
                 key={doc.id}
                 href={`/notebooks?doc=${doc.id}`} 
                 icon={<FileText size={18} />} 
                 label={doc.title || "Sin título"} 
-                active={params.id === doc.id}
+                active={pathname === "/notebooks" && searchParams.get("doc") === doc.id}
               />
             ))
           )}
@@ -115,10 +134,10 @@ export default function ProjectSidebar() {
 
       {/* Footer: Configuración */}
       <div className="p-4 mt-auto border-t border-orion-border dark:border-orion-dark-border">
-        <SidebarLink 
-          href={`/projects/${projectId}/settings`} 
-          icon={<Settings size={18} />} 
-          label="Ajustes" 
+          <SidebarLink 
+            href={`/projects/${projectId}/settings`} 
+            icon={<Settings size={18} />} 
+            label="Ajustes" 
           active={isActive(`/projects/${projectId}/settings`)} 
         />
       </div>
@@ -127,7 +146,7 @@ export default function ProjectSidebar() {
 }
 
 // Subcomponente de Link para el Sidebar
-function SidebarLink({ href, icon, label, active }: { href: string, icon: any, label: string, active: boolean }) {
+function SidebarLink({ href, icon, label, active }: { href: string; icon: ReactNode; label: string; active: boolean }) {
   return (
     <Link 
       href={href}
