@@ -9,7 +9,6 @@ import {
   FolderKanban,
   LayoutDashboard,
   Users,
-  X,
 } from "lucide-react";
 import { type ComponentType } from "react";
 
@@ -105,7 +104,7 @@ export default function Sidebar({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={onToggleCollapse}
+              onClick={isMobileOpen ? onCloseMobile : onToggleCollapse}
               className="icon-btn group relative rounded-xl bg-slate-50 text-orion-primary hover:bg-blue-100 active:scale-90 dark:bg-slate-800/50 dark:hover:bg-blue-900/30"
             >
               <Image
@@ -121,14 +120,6 @@ export default function Sidebar({
                   Expandir menu
                 </span>
               )}
-            </button>
-
-            <button
-              onClick={onCloseMobile}
-              className="icon-btn rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 lg:hidden dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
-              aria-label="Cerrar menu"
-            >
-              <X size={18} />
             </button>
           </div>
         </div>

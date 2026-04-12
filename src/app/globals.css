@@ -20,7 +20,8 @@
 
 @utility page-container {
   @apply h-full min-h-0 w-full border border-orion-border dark:border-slate-800 
-         rounded-xl p-2 sm:p-3 bg-orion-card dark:bg-orion-dark-card shadow-sm;
+         rounded-xl p-2 sm:p-3 bg-orion-card dark:bg-orion-dark-card shadow-sm
+         text-slate-900 dark:text-slate-100;
 }
 
 @utility surface-panel {
@@ -42,7 +43,13 @@
 @utility input-orion {
   @apply w-full px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent
          focus:border-orion-primary/30 rounded-lg outline-none focus:ring-2 
-         focus:ring-orion-primary/20 transition-all dark:text-white;
+         focus:ring-orion-primary/20 transition-all text-slate-900 dark:text-white;
+}
+
+@utility select-orion {
+  @apply w-full rounded-xl border border-orion-border bg-white px-3 py-2 text-sm text-slate-800
+         shadow-sm outline-none transition-all focus:border-orion-primary/40 focus:ring-2 focus:ring-orion-primary/20
+         dark:bg-slate-900 dark:border-orion-dark-border dark:text-slate-100;
 }
 
 :root {
@@ -64,7 +71,7 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
-  @apply antialiased;
+  @apply antialiased text-slate-900 dark:text-slate-100;
 }
 
 * {
@@ -94,31 +101,31 @@ body {
 }
 
 label {
-  color: #ffffff !important;
+  color: inherit;
 }
 
 .ProseMirror h1 {
-  @apply text-4xl font-black tracking-tight mb-4 text-white;
+  @apply text-4xl font-black tracking-tight mb-4 text-slate-900 dark:text-white;
 }
 
 .ProseMirror h2 {
-  @apply text-3xl font-bold mb-3 text-white;
+  @apply text-3xl font-bold mb-3 text-slate-900 dark:text-white;
 }
 
 .ProseMirror h3 {
-  @apply text-2xl font-semibold mb-2 text-white;
+  @apply text-2xl font-semibold mb-2 text-slate-900 dark:text-white;
 }
 
 .ProseMirror p {
-  @apply text-lg leading-relaxed text-white;
+  @apply text-lg leading-relaxed text-slate-800 dark:text-slate-100;
 }
 
 .ProseMirror ul {
-  @apply list-disc pl-6 text-white;
+  @apply list-disc pl-6 text-slate-800 dark:text-slate-100;
 }
 
 .ProseMirror ol {
-  @apply list-decimal pl-6 text-white;
+  @apply list-decimal pl-6 text-slate-800 dark:text-slate-100;
 }
 
 .ProseMirror pre {

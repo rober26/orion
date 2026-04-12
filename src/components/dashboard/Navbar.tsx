@@ -1,5 +1,6 @@
 "use client";
-import { ChevronRight, Menu, Search, User } from "lucide-react";
+import { ChevronRight, Search, User } from "lucide-react";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { type KeyboardEvent, useEffect, useMemo, useState } from "react";
 import ProfileModal from "../../app/(dashboard)/social/perfil/ProfileModal";
@@ -100,10 +101,10 @@ export default function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
         <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-4">
           <button
             onClick={onMenuClick}
-            className="icon-btn rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 lg:hidden dark:text-slate-300 dark:hover:bg-slate-800"
+            className="icon-btn rounded-xl bg-slate-50 text-orion-primary hover:bg-blue-100 active:scale-95 lg:hidden dark:bg-slate-800/50 dark:hover:bg-blue-900/30"
             aria-label="Abrir menu"
           >
-            <Menu size={18} />
+            <Image src="/orion_logo.svg" alt="Logo Orion" width={20} height={20} />
           </button>
 
           <div className="min-w-0">
