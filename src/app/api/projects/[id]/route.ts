@@ -246,7 +246,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   }
 }
 
-export async function DELETE(_req: Request, { params }: RouteParams) {
+export async function DELETE(req: Request, { params }: RouteParams) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
@@ -259,19 +259,22 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
     }
 
     const { id } = await params;
+    const { searchParams } = new URL(req.url);
+    const permanent = searchParams.get("permanent") === "true";
 
     if (!(await canManageProject(id, actorUserId))) {
       return forbidden();
     }
 
-    await prisma.project.update({
-      where: { id },
-      data: { isArchived: true },
-    });
+    if (permanent) {
+      await prisma.project.delete({ where: { id } });
+      return json({ message: "Proyecto eliminado correctamente" });
+    }
 
+    await prisma.project.update({ where: { id }, data: { isArchived: true } });
     return json({ message: "Proyecto archivado correctamente" });
   } catch (error) {
-    console.error("Error al archivar proyecto:", error);
-    return serverError("Error al archivar proyecto");
+    console.error("Error al eliminar/archivar proyecto:", error);
+    return serverError("Error al eliminar/archivar proyecto");
   }
 }

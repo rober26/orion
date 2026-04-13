@@ -64,7 +64,7 @@ export async function GET(req: Request) {
       orderBy: { updatedAt: "desc" },
       include: {
         _count: {
-          select: { documents: true, tasks: true },
+          select: { tasks: true, users: true },
         },
       },
     });
