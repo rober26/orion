@@ -212,7 +212,7 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
   };
 
   return (
-    <div className="flex h-full bg-orion-surface dark:bg-slate-950 overflow-hidden">
+    <div className="flex h-full rounded-[1rem] bg-orion-surface dark:bg-slate-950 overflow-hidden">
       <ProjectSidebar />
 
       <main className="flex-1 overflow-y-auto p-8">

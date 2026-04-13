@@ -173,7 +173,7 @@ export default function ProjectMembersPage({ params }: { params: Promise<{ id: s
   };
 
   return (
-    <div className="flex h-full bg-orion-surface dark:bg-slate-950 overflow-hidden">
+    <div className="flex h-full rounded-[1rem] bg-orion-surface dark:bg-slate-950 overflow-hidden">
       <ProjectSidebar />
       <main className="flex-1 overflow-y-auto p-8">
         <section className="mx-auto w-full max-w-4xl space-y-6">

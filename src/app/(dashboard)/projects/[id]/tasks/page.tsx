@@ -3,13 +3,16 @@
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   closestCenter,
+  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
-import { SortableContext, arrayMove, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, arrayMove, useSortable, rectSortingStrategy, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import ProjectSidebar from "@/src/components/projects/ProjectSidebar";
 import { CalendarClock, Edit3, Loader2, Lock, Plus, Trash2, X } from "lucide-react";
@@ -116,6 +119,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [taskForm, setTaskForm] = useState<TaskFormState>(EMPTY_FORM);
   const [deleteConfirmTaskId, setDeleteConfirmTaskId] = useState<string | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -139,6 +143,11 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
     }
     return map;
   }, [selectedBoard]);
+
+  const activeTask = useMemo(
+    () => (activeTaskId ? taskById.get(activeTaskId) || null : null),
+    [activeTaskId, taskById],
+  );
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -411,6 +420,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
   const onDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || !selectedBoard) {
+      setActiveTaskId(null);
       return;
     }
 
@@ -433,16 +443,19 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
 
       const reordered = arrayMove(selectedBoard.columns, sourceIndex, targetIndex);
       await updateColumnPositions(reordered.map((column, index) => ({ columnId: column.id, position: index })));
+      setActiveTaskId(null);
       return;
     }
 
     if (!activeId.startsWith("task:")) {
+      setActiveTaskId(null);
       return;
     }
 
     const taskId = activeId.replace("task:", "");
     const draggedTask = taskById.get(taskId);
     if (!draggedTask) {
+      setActiveTaskId(null);
       return;
     }
 
@@ -450,6 +463,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
       const targetTaskId = overId.replace("task:", "");
       const targetTask = taskById.get(targetTaskId);
       if (!targetTask) {
+        setActiveTaskId(null);
         return;
       }
 
@@ -457,6 +471,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
       const targetColumn = selectedBoard.columns.find((column) => column.id === targetTask.columnId);
 
       if (!sourceColumn || !targetColumn) {
+        setActiveTaskId(null);
         return;
       }
 
@@ -464,6 +479,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
         const fromIndex = sourceColumn.tasks.findIndex((task) => task.id === draggedTask.id);
         const toIndex = sourceColumn.tasks.findIndex((task) => task.id === targetTask.id);
         if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
+          setActiveTaskId(null);
           return;
         }
 
@@ -475,6 +491,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
             position: index,
           })),
         );
+        setActiveTaskId(null);
         return;
       }
 
@@ -490,6 +507,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
         ...sourceTasks.map((task, index) => ({ taskId: task.id, columnId: sourceColumn.id, position: index })),
         ...targetTasks.map((task, index) => ({ taskId: task.id, columnId: targetColumn.id, position: index })),
       ]);
+      setActiveTaskId(null);
       return;
     }
 
@@ -498,10 +516,12 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
       const sourceColumn = selectedBoard.columns.find((column) => column.id === draggedTask.columnId);
       const targetColumn = selectedBoard.columns.find((column) => column.id === targetColumnId);
       if (!sourceColumn || !targetColumn) {
+        setActiveTaskId(null);
         return;
       }
 
       if (sourceColumn.id === targetColumn.id) {
+        setActiveTaskId(null);
         return;
       }
 
@@ -513,14 +533,26 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
         ...targetTasks.map((task, index) => ({ taskId: task.id, columnId: targetColumn.id, position: index })),
       ]);
     }
+
+    setActiveTaskId(null);
+  };
+
+  const onDragStart = (event: DragStartEvent) => {
+    const activeId = String(event.active.id);
+    if (activeId.startsWith("task:")) {
+      setActiveTaskId(activeId.replace("task:", ""));
+      return;
+    }
+
+    setActiveTaskId(null);
   };
 
   return (
-    <div className="flex h-full bg-orion-surface dark:bg-slate-950 overflow-hidden">
+    <div className="flex h-full rounded-[1rem] bg-orion-surface dark:bg-slate-950 overflow-hidden">
       <ProjectSidebar />
 
-      <main className="flex-1 overflow-y-auto p-8">
-        <section className="mx-auto w-full max-w-[1300px] space-y-6">
+      <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+        <section className="w-full space-y-6">
           <header>
             <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Tareas</h1>
             <p className="mt-2 text-slate-500">Tablero personalizable con drag & drop y CRUD completo de tareas.</p>
@@ -532,7 +564,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
             </div>
           )}
 
-          <div className="surface-panel rounded-[2rem] p-5 space-y-4">
+          <div className="surface-panel rounded-[1.75rem] p-5 space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={selectedBoardId}
@@ -596,10 +628,16 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
               No hay tableros disponibles.
             </div>
           ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event) => void onDragEnd(event)}>
-              <div className="overflow-x-auto pb-2">
-                <SortableContext items={selectedBoard.columns.map((column) => `column:${column.id}`)} strategy={horizontalListSortingStrategy}>
-                  <div className="flex gap-4 min-w-max">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={onDragStart}
+              onDragCancel={() => setActiveTaskId(null)}
+              onDragEnd={(event) => void onDragEnd(event)}
+            >
+              <div className="pb-2">
+                <SortableContext items={selectedBoard.columns.map((column) => `column:${column.id}`)} strategy={rectSortingStrategy}>
+                  <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))" }}>
                     {selectedBoard.columns.map((column) => (
                       <SortableColumn
                         key={column.id}
@@ -616,6 +654,10 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                   </div>
                 </SortableContext>
               </div>
+
+              <DragOverlay>
+                {activeTask ? <TaskCard task={activeTask} onEdit={() => undefined} draggingOverlay /> : null}
+              </DragOverlay>
             </DndContext>
           )}
         </section>
@@ -623,7 +665,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
 
       {isBoardModalOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
-          <div className="surface-panel w-full max-w-lg rounded-[2rem] p-6">
+          <div className="surface-panel w-full max-w-lg rounded-[1.75rem] p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-black text-slate-900 dark:text-white">Crear tablero</h2>
               <button type="button" onClick={() => setIsBoardModalOpen(false)} className="text-slate-500 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white">
@@ -649,7 +691,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
 
       {isColumnModalOpen && selectedBoard && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
-          <div className="surface-panel w-full max-w-lg rounded-[2rem] p-6">
+          <div className="surface-panel w-full max-w-lg rounded-[1.75rem] p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-black text-slate-900 dark:text-white">Crear columna</h2>
               <button type="button" onClick={() => setIsColumnModalOpen(false)} className="text-slate-500 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white">
@@ -675,7 +717,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
 
       {isTaskModalOpen && selectedBoard && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
-          <div className="surface-panel w-full max-w-2xl rounded-[2rem] p-6">
+          <div className="surface-panel w-full max-w-2xl rounded-[1.75rem] p-6">
             <div className="mb-5 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white">
@@ -879,7 +921,7 @@ function SortableColumn({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 }}
-      className="w-80 surface-panel rounded-[2rem] p-4"
+      className="surface-panel w-full rounded-[1.5rem] p-4"
       {...attributes}
       {...listeners}
     >
@@ -905,19 +947,19 @@ function SortableColumn({
         )}
       </div>
 
-      <DropZone id={`drop-column:${column.id}`} />
-
-      <SortableContext items={column.tasks.map((task) => `task:${task.id}`)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-2">
-          {column.tasks.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-orion-border px-3 py-6 text-center text-xs text-slate-500 dark:border-orion-dark-border">
-              Sin tareas
-            </div>
-          ) : (
-            column.tasks.map((task) => <SortableTask key={task.id} task={task} onEdit={() => onEditTask(task)} />)
-          )}
-        </div>
-      </SortableContext>
+      <ColumnDropZone id={`drop-column:${column.id}`}>
+        <SortableContext items={column.tasks.map((task) => `task:${task.id}`)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {column.tasks.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-orion-border px-3 py-6 text-center text-xs text-slate-500 dark:border-orion-dark-border">
+                Sin tareas
+              </div>
+            ) : (
+              column.tasks.map((task) => <SortableTask key={task.id} task={task} onEdit={() => onEditTask(task)} />)
+            )}
+          </div>
+        </SortableContext>
+      </ColumnDropZone>
     </div>
   );
 }
@@ -928,24 +970,40 @@ function SortableTask({ task, onEdit }: { task: TaskItem; onEdit: () => void }) 
   });
 
   return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 }} {...attributes} {...listeners}>
+      <TaskCard task={task} onEdit={onEdit} />
+    </div>
+  );
+}
+
+function TaskCard({
+  task,
+  onEdit,
+  draggingOverlay = false,
+}: {
+  task: TaskItem;
+  onEdit: () => void;
+  draggingOverlay?: boolean;
+}) {
+  return (
     <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.55 : 1 }}
-      className="rounded-xl border border-orion-border dark:border-orion-dark-border p-3 space-y-2 bg-white/60 dark:bg-slate-900/40"
-      {...attributes}
-      {...listeners}
+      className={`rounded-2xl border border-orion-border dark:border-orion-dark-border p-3 space-y-2 bg-white/70 dark:bg-slate-900/50 ${
+        draggingOverlay ? "shadow-2xl ring-2 ring-orion-primary/30" : ""
+      }`}
     >
       <div className="flex items-start justify-between gap-2">
         <p className="font-semibold text-slate-900 dark:text-white leading-tight">{task.title}</p>
-        <button
-          type="button"
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={onEdit}
-          className="text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white"
-          title="Editar"
-        >
-          <Edit3 size={13} />
-        </button>
+        {!draggingOverlay && (
+          <button
+            type="button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={onEdit}
+            className="text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white"
+            title="Editar"
+          >
+            <Edit3 size={13} />
+          </button>
+        )}
       </div>
 
       {task.description ? <p className="text-xs text-slate-500 line-clamp-3">{task.description}</p> : null}
@@ -958,13 +1016,12 @@ function SortableTask({ task, onEdit }: { task: TaskItem; onEdit: () => void }) 
   );
 }
 
-function DropZone({ id }: { id: string }) {
-  const { setNodeRef, isOver } = useSortable({ id });
+function ColumnDropZone({ id, children }: { id: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
-    <div
-      ref={setNodeRef}
-      className={`h-2 mb-2 rounded-full transition-colors ${isOver ? "bg-orion-primary/50" : "bg-transparent"}`}
-    />
+    <div ref={setNodeRef} className={`rounded-2xl p-1.5 transition-colors ${isOver ? "bg-orion-primary/10 ring-2 ring-orion-primary/35" : ""}`}>
+      {children}
+    </div>
   );
 }
