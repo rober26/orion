@@ -33,10 +33,17 @@ export default function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
 
   useEffect(() => {
     fetch("/api/users/me")
-      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((res) => {
+        if (res.status === 401) {
+          router.replace("/login");
+          return Promise.reject(new Error("UNAUTHORIZED"));
+        }
+
+        return res.ok ? res.json() : Promise.reject(new Error("PROFILE_FETCH_ERROR"));
+      })
       .then((data) => setUserName(data.username || "Usuario"))
       .catch(() => setUserName("Invitado"));
-  }, []);
+  }, [router]);
 
   const breadcrumbs = useMemo(() => {
     const segments = pathname.split("/").filter(Boolean);
