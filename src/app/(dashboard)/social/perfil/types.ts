@@ -32,6 +32,20 @@ export interface PublicNotebook {
   creatorId: string;
 }
 
+export interface PublicFolder {
+  id: string;
+  name: string;
+  isPublic: boolean;
+}
+
+export interface PublicDocument {
+  id: string;
+  title: string;
+  isPublic: boolean;
+  creatorId: string;
+  notebookId: string | null;
+}
+
 export interface AdminUser {
   id: string;
   username: string;

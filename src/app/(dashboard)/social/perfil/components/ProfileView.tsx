@@ -1,14 +1,23 @@
-import { BookOpen, Globe, Lock, Mail, Pencil, User, FolderKanban } from "lucide-react";
-import type { PublicNotebook, PublicProject, UserProfile } from "../types";
+import { BookOpen, FileText, Folder, FolderKanban, Globe, Lock, Mail, Pencil, User } from "lucide-react";
+import type { PublicDocument, PublicFolder, PublicNotebook, PublicProject, UserProfile } from "../types";
 
 interface ProfileViewProps {
   profile: UserProfile;
   publicProjects: PublicProject[];
+  publicFolders: PublicFolder[];
   publicNotebooks: PublicNotebook[];
+  publicDocuments: PublicDocument[];
   onEditClick: () => void;
 }
 
-export default function ProfileView({ profile, publicProjects, publicNotebooks, onEditClick }: ProfileViewProps) {
+export default function ProfileView({
+  profile,
+  publicProjects,
+  publicFolders,
+  publicNotebooks,
+  publicDocuments,
+  onEditClick,
+}: ProfileViewProps) {
   const visibilityLabel = profile.profileVisibility === "PUBLIC" ? "Perfil publico" : "Perfil privado";
 
   return (
@@ -63,7 +72,7 @@ export default function ProfileView({ profile, publicProjects, publicNotebooks, 
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <article className="surface-soft p-5">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
             <FolderKanban size={16} />
@@ -84,6 +93,24 @@ export default function ProfileView({ profile, publicProjects, publicNotebooks, 
 
         <article className="surface-soft p-5">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
+            <Folder size={16} />
+            Carpetas publicas
+          </h2>
+          {publicFolders.length === 0 ? (
+            <p className="text-sm text-slate-500">No hay carpetas publicas para mostrar.</p>
+          ) : (
+            <ul className="space-y-2">
+              {publicFolders.map((folder) => (
+                <li key={folder.id} className="rounded-xl border border-orion-border bg-white px-3 py-2 text-sm dark:border-orion-dark-border dark:bg-slate-900">
+                  {folder.name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </article>
+
+        <article className="surface-soft p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
             <BookOpen size={16} />
             Cuadernos publicos
           </h2>
@@ -94,6 +121,27 @@ export default function ProfileView({ profile, publicProjects, publicNotebooks, 
               {publicNotebooks.map((notebook) => (
                 <li key={notebook.id} className="rounded-xl border border-orion-border bg-white px-3 py-2 text-sm dark:border-orion-dark-border dark:bg-slate-900">
                   {notebook.title}
+                </li>
+              ))}
+            </ul>
+          )}
+        </article>
+
+        <article className="surface-soft p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
+            <FileText size={16} />
+            Documentos publicos
+          </h2>
+          {publicDocuments.length === 0 ? (
+            <p className="text-sm text-slate-500">No hay documentos publicos para mostrar.</p>
+          ) : (
+            <ul className="space-y-2">
+              {publicDocuments.map((document) => (
+                <li
+                  key={document.id}
+                  className="rounded-xl border border-orion-border bg-white px-3 py-2 text-sm dark:border-orion-dark-border dark:bg-slate-900"
+                >
+                  {document.title}
                 </li>
               ))}
             </ul>

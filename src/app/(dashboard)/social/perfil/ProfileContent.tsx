@@ -13,7 +13,8 @@ import type { UserProfile } from "./types";
 type ProfileTab = "profile" | "security" | "admin" | "system";
 
 export default function ProfileContent() {
-  const { profile, publicProjects, publicNotebooks, loading, error, refreshProfile } = useProfileData();
+  const { profile, publicProjects, publicFolders, publicNotebooks, publicDocuments, loading, error, refreshProfile } =
+    useProfileData();
   const [tab, setTab] = useState<ProfileTab>("profile");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [localProfile, setLocalProfile] = useState<UserProfile | null>(null);
@@ -74,7 +75,9 @@ export default function ProfileContent() {
           <ProfileView
             profile={activeProfile}
             publicProjects={publicProjects}
+            publicFolders={publicFolders}
             publicNotebooks={publicNotebooks}
+            publicDocuments={publicDocuments}
             onEditClick={() => setIsEditModalOpen(true)}
           />
           <ProfileEdit

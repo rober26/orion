@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { PublicNotebook, PublicProject, UserProfile } from "../types";
+import type { PublicDocument, PublicFolder, PublicNotebook, PublicProject, UserProfile } from "../types";
 
 interface UseProfileDataResult {
   profile: UserProfile | null;
   publicProjects: PublicProject[];
+  publicFolders: PublicFolder[];
   publicNotebooks: PublicNotebook[];
+  publicDocuments: PublicDocument[];
   loading: boolean;
   error: string | null;
   refreshProfile: () => Promise<void>;
@@ -23,7 +25,9 @@ async function safeJson<T>(res: Response): Promise<T | null> {
 export function useProfileData(): UseProfileDataResult {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [publicProjects, setPublicProjects] = useState<PublicProject[]>([]);
+  const [publicFolders, setPublicFolders] = useState<PublicFolder[]>([]);
   const [publicNotebooks, setPublicNotebooks] = useState<PublicNotebook[]>([]);
+  const [publicDocuments, setPublicDocuments] = useState<PublicDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,16 +42,25 @@ export function useProfileData(): UseProfileDataResult {
     setProfile(profileData);
 
     const publicContentRes = await fetch("/api/users/me/public-content", { cache: "no-store" });
-    const publicContent = await safeJson<{ projects: PublicProject[]; notebooks: PublicNotebook[] }>(
+    const publicContent = await safeJson<{
+      projects: PublicProject[];
+      folders: PublicFolder[];
+      notebooks: PublicNotebook[];
+      documents: PublicDocument[];
+    }>(
       publicContentRes,
     );
 
     if (publicContentRes.ok && publicContent) {
       setPublicProjects(publicContent.projects);
+      setPublicFolders(publicContent.folders ?? []);
       setPublicNotebooks(publicContent.notebooks);
+      setPublicDocuments(publicContent.documents ?? []);
     } else {
       setPublicProjects([]);
+      setPublicFolders([]);
       setPublicNotebooks([]);
+      setPublicDocuments([]);
     }
   }, []);
 
@@ -65,7 +78,9 @@ export function useProfileData(): UseProfileDataResult {
           setError(err instanceof Error ? err.message : "Error al cargar el perfil");
           setProfile(null);
           setPublicProjects([]);
+          setPublicFolders([]);
           setPublicNotebooks([]);
+          setPublicDocuments([]);
         }
       } finally {
         if (mounted) {
@@ -84,7 +99,9 @@ export function useProfileData(): UseProfileDataResult {
   return {
     profile,
     publicProjects,
+    publicFolders,
     publicNotebooks,
+    publicDocuments,
     loading,
     error,
     refreshProfile,
