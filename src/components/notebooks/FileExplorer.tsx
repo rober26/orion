@@ -43,6 +43,7 @@ interface ExplorerDocument {
   title: string;
   notebookId: string | null;
   position: number;
+  isPublic?: boolean;
   isSharedWithMe?: boolean;
   currentUserRole?: "OWNER" | "EDITOR" | "READER" | null;
 }
@@ -52,6 +53,7 @@ interface ExplorerNotebook {
   title: string;
   color: string | null;
   folderId: string | null;
+  isPublic?: boolean;
   documents: ExplorerDocument[];
   isSharedWithMe?: boolean;
   currentUserRole?: "OWNER" | "EDITOR" | "READER" | null;
@@ -90,6 +92,7 @@ interface SharedWithMeData {
 interface ExplorerFolder {
   id: string;
   name: string;
+  isPublic?: boolean;
   notebooks: ExplorerNotebook[];
 }
 
@@ -324,11 +327,6 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               title: value,
-              description: "",
-              color: notebook.color,
-              icon: "Book",
-              folderId: notebook.folderId,
-              isPublic: false,
             }),
           });
         }
@@ -506,12 +504,7 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            title: notebook.title,
-            description: "",
-            color: notebook.color,
-            icon: "Book",
             folderId: targetFolderId,
-            isPublic: false,
           }),
         });
         await reload();
@@ -570,6 +563,57 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
       }
     },
     [reload, router],
+  );
+
+  const setVisibility = useCallback(
+    async (type: "folder" | "notebook" | "document", id: string, isPublic: boolean) => {
+      try {
+        if (type === "folder") {
+          const response = await fetch("/api/notebooks/folders", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, isPublic }),
+          });
+
+          if (!response.ok) {
+            const payload = (await response.json()) as { error?: string };
+            throw new Error(payload.error || "No se pudo actualizar la visibilidad de la carpeta");
+          }
+        }
+
+        if (type === "notebook") {
+          const response = await fetch(`/api/notebooks/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isPublic }),
+          });
+
+          if (!response.ok) {
+            const payload = (await response.json()) as { error?: string };
+            throw new Error(payload.error || "No se pudo actualizar la visibilidad del cuaderno");
+          }
+        }
+
+        if (type === "document") {
+          const response = await fetch(`/api/notebooks/documents/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isPublic }),
+          });
+
+          if (!response.ok) {
+            const payload = (await response.json()) as { error?: string };
+            throw new Error(payload.error || "No se pudo actualizar la visibilidad del documento");
+          }
+        }
+
+        await reload();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "No se pudo actualizar visibilidad";
+        alert(message);
+      }
+    },
+    [reload],
   );
 
   if (loading) {
@@ -733,6 +777,17 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                           onClick={(event) => {
                             event.stopPropagation();
                             setOpenMenu(null);
+                            void setVisibility("folder", folder.id, !Boolean(folder.isPublic));
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
+                        >
+                          {folder.isPublic ? "Hacer privado" : "Hacer publico"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setOpenMenu(null);
                             setShareTarget({ type: "folder", id: folder.id });
                           }}
                           className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
@@ -775,8 +830,14 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                           onOpenDocument={openDocument}
                           onCreateDocument={() => startCreate("document", notebook.id)}
                           onRename={() => setRename({ id: notebook.id, type: "notebook", value: notebook.title || "" })}
+                          onToggleVisibility={() => setVisibility("notebook", notebook.id, !Boolean(notebook.isPublic))}
+                          isPublic={Boolean(notebook.isPublic)}
                           onShare={() => setShareTarget({ type: "notebook", id: notebook.id })}
                           onShareDocument={(id) => setShareTarget({ type: "document", id })}
+                          onToggleDocumentVisibility={(id) => {
+                            const doc = notebook.documents.find((item) => item.id === id);
+                            void setVisibility("document", id, !Boolean(doc?.isPublic));
+                          }}
                           onDelete={() => deleteEntity("notebook", notebook.id)}
                           onDeleteDocument={(id) => deleteEntity("document", id)}
                           openMenu={openMenu}
@@ -810,8 +871,14 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                   onOpenDocument={openDocument}
                   onCreateDocument={() => startCreate("document", notebook.id)}
                   onRename={() => setRename({ id: notebook.id, type: "notebook", value: notebook.title || "" })}
+                  onToggleVisibility={() => setVisibility("notebook", notebook.id, !Boolean(notebook.isPublic))}
+                  isPublic={Boolean(notebook.isPublic)}
                   onShare={() => setShareTarget({ type: "notebook", id: notebook.id })}
                   onShareDocument={(id) => setShareTarget({ type: "document", id })}
+                  onToggleDocumentVisibility={(id) => {
+                    const doc = notebook.documents.find((item) => item.id === id);
+                    void setVisibility("document", id, !Boolean(doc?.isPublic));
+                  }}
                   onDelete={() => deleteEntity("notebook", notebook.id)}
                   onDeleteDocument={(id) => deleteEntity("document", id)}
                   openMenu={openMenu}
@@ -841,6 +908,8 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                   onCommit={commitInput}
                   onOpen={openDocument}
                   onRename={() => setRename({ id: doc.id, type: "document", value: doc.title || "" })}
+                  onToggleVisibility={() => setVisibility("document", doc.id, !Boolean(doc.isPublic))}
+                  isPublic={Boolean(doc.isPublic)}
                   onShare={() => setShareTarget({ type: "document", id: doc.id })}
                   onDelete={() => deleteEntity("document", doc.id)}
                   openMenu={openMenu}
@@ -939,8 +1008,11 @@ interface NotebookRowProps {
   onOpenDocument: (id: string) => void;
   onCreateDocument: () => void;
   onRename: () => void;
+  onToggleVisibility: () => void;
+  isPublic: boolean;
   onShare: () => void;
   onShareDocument: (id: string) => void;
+  onToggleDocumentVisibility: (id: string) => void;
   onDelete: () => void;
   onDeleteDocument: (id: string) => void;
   openMenu: { type: "folder" | "notebook" | "document"; id: string } | null;
@@ -962,8 +1034,11 @@ const NotebookRow = memo(function NotebookRow({
   onOpenDocument,
   onCreateDocument,
   onRename,
+  onToggleVisibility,
+  isPublic,
   onShare,
   onShareDocument,
+  onToggleDocumentVisibility,
   onDelete,
   onDeleteDocument,
   openMenu,
@@ -1102,6 +1177,17 @@ const NotebookRow = memo(function NotebookRow({
                 onClick={(event) => {
                   event.stopPropagation();
                   setOpenMenu(null);
+                  onToggleVisibility();
+                }}
+                className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
+              >
+                {isPublic ? "Hacer privado" : "Hacer publico"}
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpenMenu(null);
                   onShare();
                 }}
                 className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
@@ -1142,6 +1228,8 @@ const NotebookRow = memo(function NotebookRow({
                 onCommit={onCommit}
                 onOpen={onOpenDocument}
                 onRename={() => setRename({ id: doc.id, type: "document", value: doc.title || "" })}
+                onToggleVisibility={() => onToggleDocumentVisibility(doc.id)}
+                isPublic={Boolean(doc.isPublic)}
                 onShare={() => onShareDocument(doc.id)}
                 onDelete={() => onDeleteDocument(doc.id)}
                 openMenu={openMenu}
@@ -1166,6 +1254,8 @@ interface DocumentRowProps {
   onCommit: () => Promise<void>;
   onOpen: (id: string) => void;
   onRename: () => void;
+  onToggleVisibility: () => void;
+  isPublic: boolean;
   onShare: () => void;
   onDelete: () => void;
   openMenu: { type: "folder" | "notebook" | "document"; id: string } | null;
@@ -1183,6 +1273,8 @@ const DocumentRow = memo(function DocumentRow({
   onCommit,
   onOpen,
   onRename,
+  onToggleVisibility,
+  isPublic,
   onShare,
   onDelete,
   openMenu,
@@ -1294,6 +1386,17 @@ const DocumentRow = memo(function DocumentRow({
                   className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
                 >
                   Renombrar
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setOpenMenu(null);
+                    onToggleVisibility();
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
+                >
+                  {isPublic ? "Hacer privado" : "Hacer publico"}
                 </button>
                 <button
                   type="button"

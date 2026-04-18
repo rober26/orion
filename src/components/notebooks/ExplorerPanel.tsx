@@ -115,21 +115,13 @@ export default function ExplorerPanel({ folderId, notebookId }: ExplorerPanelPro
     }
 
     if (current.type === "notebook") {
-      const source = folder?.notebooks.find((item) => item.id === current.id) ?? (notebook?.id === current.id ? notebook : null);
-      if (source) {
-        await fetch(`/api/notebooks/${current.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: nextValue,
-            description: "",
-            color: source.color,
-            icon: "Book",
-            folderId: source.folderId ?? null,
-            isPublic: false,
-          }),
-        });
-      }
+      await fetch(`/api/notebooks/${current.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: nextValue,
+        }),
+      });
     }
 
     if (folderId || notebookId) {
