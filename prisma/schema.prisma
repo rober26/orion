@@ -379,6 +379,7 @@ model NotebookShare {
 model NotebookFolder {
   id        String     @id @default(uuid()) @db.Uuid
   name      String     @db.VarChar(100)
+  isPublic  Boolean    @default(false) @map("is_public")
   parentId  String?    @map("parent_id") @db.Uuid
   projectId String?    @map("project_id") @db.Uuid
   createdAt DateTime   @default(now()) @map("created_at")

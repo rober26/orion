@@ -126,6 +126,10 @@ export async function PUT(req: Request, { params }: RouteParams) {
     const body = await req.json();
     const { title, description, color, icon, folderId, isPublic } = body;
 
+    if (isPublic !== undefined && typeof isPublic !== "boolean") {
+      return NextResponse.json({ error: "Visibilidad invalida" }, { status: 400 });
+    }
+
     if (folderId) {
       const folder = await prisma.notebookFolder.findFirst({
         where: {
@@ -140,16 +144,27 @@ export async function PUT(req: Request, { params }: RouteParams) {
       }
     }
 
-    const updatedNotebook = await prisma.notebook.update({
-      where: { id },
-      data: {
-        title,
-        description,
-        color,
-        icon,
-        folderId: folderId || null,
-        isPublic,
-      },
+    const updatedNotebook = await prisma.$transaction(async (tx) => {
+      const updated = await tx.notebook.update({
+        where: { id },
+        data: {
+          ...(title !== undefined ? { title } : {}),
+          ...(description !== undefined ? { description } : {}),
+          ...(color !== undefined ? { color } : {}),
+          ...(icon !== undefined ? { icon } : {}),
+          ...(folderId !== undefined ? { folderId: folderId || null } : {}),
+          ...(isPublic !== undefined ? { isPublic } : {}),
+        },
+      });
+
+      if (typeof isPublic === "boolean") {
+        await tx.document.updateMany({
+          where: { notebookId: id },
+          data: { isPublic },
+        });
+      }
+
+      return updated;
     });
 
     return NextResponse.json(updatedNotebook);

@@ -84,7 +84,11 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { title, content, notebookId, position } = body;
+    const { title, content, notebookId, position, isPublic } = body;
+
+    if (isPublic !== undefined && typeof isPublic !== "boolean") {
+      return NextResponse.json({ error: "Visibilidad invalida" }, { status: 400 });
+    }
 
     if (notebookId) {
       const canUseNotebook = await prisma.notebook.findFirst({
@@ -107,6 +111,7 @@ export async function PATCH(
         ...(content !== undefined && { content }),
         ...(notebookId !== undefined && { notebookId }),
         ...(position !== undefined && { position }),
+        ...(isPublic !== undefined && { isPublic }),
       },
     });
 

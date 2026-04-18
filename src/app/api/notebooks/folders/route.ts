@@ -14,13 +14,30 @@ export async function GET() {
       where: {
         ...folderAccessWhere(sessionUser.userId),
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        isPublic: true,
+        parentId: true,
+        projectId: true,
+        createdAt: true,
         notebooks: {
           where: {
             ...notebookAccessWhere(sessionUser.userId),
           },
           orderBy: { updatedAt: "desc" },
-          include: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            icon: true,
+            color: true,
+            isPublic: true,
+            createdAt: true,
+            updatedAt: true,
+            ownerId: true,
+            creatorId: true,
+            folderId: true,
             users: {
               where: { userId: sessionUser.userId },
               select: { role: true },
@@ -34,6 +51,7 @@ export async function GET() {
               select: {
                 id: true,
                 title: true,
+                isPublic: true,
                 updatedAt: true,
                 position: true,
                 notebookId: true,
@@ -148,10 +166,28 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const { id, name } = await req.json();
+    const { id, name, isPublic } = await req.json();
 
-    if (!id || !name) {
-      return NextResponse.json({ error: "ID y nombre son obligatorios" }, { status: 400 });
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "ID obligatorio" }, { status: 400 });
+    }
+
+    if (name !== undefined && typeof name !== "string") {
+      return NextResponse.json({ error: "Nombre invalido" }, { status: 400 });
+    }
+
+    if (isPublic !== undefined && typeof isPublic !== "boolean") {
+      return NextResponse.json({ error: "Visibilidad invalida" }, { status: 400 });
+    }
+
+    const normalizedName = typeof name === "string" ? name.trim() : undefined;
+
+    if (normalizedName !== undefined && !normalizedName) {
+      return NextResponse.json({ error: "Nombre obligatorio" }, { status: 400 });
+    }
+
+    if (normalizedName === undefined && isPublic === undefined) {
+      return NextResponse.json({ error: "No hay cambios para actualizar" }, { status: 400 });
     }
 
     const canAccess = await prisma.notebookFolder.findFirst({
@@ -166,9 +202,32 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
-    const folder = await prisma.notebookFolder.update({
-      where: { id: canAccess.id },
-      data: { name },
+    const folder = await prisma.$transaction(async (tx) => {
+      const updatedFolder = await tx.notebookFolder.update({
+        where: { id: canAccess.id },
+        data: {
+          ...(normalizedName !== undefined ? { name: normalizedName } : {}),
+          ...(typeof isPublic === "boolean" ? { isPublic } : {}),
+        },
+      });
+
+      if (typeof isPublic === "boolean") {
+        await tx.notebook.updateMany({
+          where: { folderId: canAccess.id },
+          data: { isPublic },
+        });
+
+        await tx.document.updateMany({
+          where: {
+            notebook: {
+              folderId: canAccess.id,
+            },
+          },
+          data: { isPublic },
+        });
+      }
+
+      return updatedFolder;
     });
 
     return NextResponse.json(folder);

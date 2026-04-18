@@ -217,19 +217,77 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       return badRequest("No hay cambios para actualizar");
     }
 
-    const project = await prisma.project.update({
-      where: { id },
-      data,
-      include: {
-        _count: {
-          select: { documents: true, tasks: true },
-        },
-        users: {
-          select: {
-            userId: true,
+    const project = await prisma.$transaction(async (tx) => {
+      const updatedProject = await tx.project.update({
+        where: { id },
+        data,
+        include: {
+          _count: {
+            select: { documents: true, tasks: true },
+          },
+          users: {
+            select: {
+              userId: true,
+            },
           },
         },
-      },
+      });
+
+      if (typeof data.isPublic === "boolean") {
+        await tx.notebookFolder.updateMany({
+          where: { projectId: id },
+          data: { isPublic: data.isPublic },
+        });
+
+        await tx.notebook.updateMany({
+          where: {
+            OR: [
+              {
+                folder: {
+                  projectId: id,
+                },
+              },
+              {
+                projects: {
+                  some: {
+                    projectId: id,
+                  },
+                },
+              },
+            ],
+          },
+          data: { isPublic: data.isPublic },
+        });
+
+        await tx.document.updateMany({
+          where: {
+            OR: [
+              { projectId: id },
+              {
+                notebook: {
+                  OR: [
+                    {
+                      folder: {
+                        projectId: id,
+                      },
+                    },
+                    {
+                      projects: {
+                        some: {
+                          projectId: id,
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+          data: { isPublic: data.isPublic },
+        });
+      }
+
+      return updatedProject;
     });
 
     return json({
