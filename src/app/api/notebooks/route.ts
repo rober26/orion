@@ -10,9 +10,17 @@ export async function GET() {
       return unauthorized();
     }
 
+    const baseAccess = notebookAccessWhere(sessionUser.userId);
+
     const notebooks = await prisma.notebook.findMany({
       where: {
-        ...notebookAccessWhere(sessionUser.userId),
+        OR: [
+          baseAccess,
+          {
+            isPublic: true,
+            OR: [{ ownerId: sessionUser.userId }, { creatorId: sessionUser.userId }],
+          },
+        ],
       },
       include: {
         users: {

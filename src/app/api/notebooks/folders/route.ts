@@ -10,9 +10,21 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const baseAccess = folderAccessWhere(sessionUser.userId);
+
     const folders = await prisma.notebookFolder.findMany({
       where: {
-        ...folderAccessWhere(sessionUser.userId),
+        OR: [
+          baseAccess,
+          {
+            isPublic: true,
+            notebooks: {
+              some: {
+                OR: [{ ownerId: sessionUser.userId }, { creatorId: sessionUser.userId }],
+              },
+            },
+          },
+        ],
       },
       select: {
         id: true,

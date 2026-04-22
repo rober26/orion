@@ -117,6 +117,7 @@ export function notebookEditorWhere(userId: string): Prisma.NotebookWhereInput {
 export function folderAccessWhere(userId: string): Prisma.NotebookFolderWhereInput {
   return {
     OR: [
+      { users: { some: { userId } } },
       { project: projectAccessWhere(userId) },
       {
         notebooks: {
@@ -136,6 +137,7 @@ export function folderAccessWhere(userId: string): Prisma.NotebookFolderWhereInp
 export function folderEditorWhere(userId: string): Prisma.NotebookFolderWhereInput {
   return {
     OR: [
+      { users: { some: { userId, role: { in: editorRoles } } } },
       {
         project: {
           OR: [{ ownerId: userId }, { creatorId: userId }],
@@ -199,6 +201,7 @@ export async function canManageFolderMembers(folderId: string, userId: string): 
     where: {
       id: folderId,
       OR: [
+        { users: { some: { userId, role: { in: editorRoles } } } },
         {
           project: {
             OR: [{ ownerId: userId }, { creatorId: userId }],

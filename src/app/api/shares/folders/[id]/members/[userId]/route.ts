@@ -25,31 +25,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "role invalido" }, { status: 400 });
     }
 
-    const folder = await prisma.notebookFolder.findUnique({
-      where: { id },
-      select: {
-        projectId: true,
-        project: {
-          select: {
-            ownerId: true,
-            creatorId: true,
-          },
-        },
-      },
-    });
-
-    if (!folder || !folder.projectId || !folder.project) {
-      return NextResponse.json({ error: "No se puede compartir una carpeta sin proyecto asociado" }, { status: 400 });
-    }
-
-    if (userId === folder.project.ownerId || userId === folder.project.creatorId) {
-      return NextResponse.json({ error: "No puedes cambiar el rol del propietario" }, { status: 409 });
-    }
-
-    const projectRole = role === "READER" ? "VIEWER" : "MEMBER";
-
-    const existing = await prisma.projectUser.findFirst({
-      where: { projectId: folder.projectId, userId },
+    const existing = await prisma.notebookFolderUser.findFirst({
+      where: { folderId: id, userId },
       select: { id: true },
     });
 
@@ -57,9 +34,9 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Miembro no encontrado" }, { status: 404 });
     }
 
-    const updated = await prisma.projectUser.update({
+    const updated = await prisma.notebookFolderUser.update({
       where: { id: existing.id },
-      data: { role: projectRole },
+      data: { role },
       include: {
         user: { select: { id: true, username: true, firstName: true, lastName: true, avatarUrl: true } },
       },
@@ -67,9 +44,9 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     return NextResponse.json({
       user: updated.user,
-      role: updated.role === "VIEWER" ? "READER" : updated.role === "MEMBER" ? "EDITOR" : "OWNER",
+      role: updated.role,
       joinedAt: updated.joinedAt,
-      invitedBy: null,
+      invitedBy: updated.invitedBy,
       inherited: false,
     });
   } catch (error: unknown) {
@@ -98,29 +75,8 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
-    const folder = await prisma.notebookFolder.findUnique({
-      where: { id },
-      select: {
-        projectId: true,
-        project: {
-          select: {
-            ownerId: true,
-            creatorId: true,
-          },
-        },
-      },
-    });
-
-    if (!folder || !folder.projectId || !folder.project) {
-      return NextResponse.json({ error: "No se puede compartir una carpeta sin proyecto asociado" }, { status: 400 });
-    }
-
-    if (userId === folder.project.ownerId || userId === folder.project.creatorId) {
-      return NextResponse.json({ error: "No puedes revocar al propietario" }, { status: 409 });
-    }
-
-    const existing = await prisma.projectUser.findFirst({
-      where: { projectId: folder.projectId, userId },
+    const existing = await prisma.notebookFolderUser.findFirst({
+      where: { folderId: id, userId },
       select: { id: true },
     });
 
@@ -128,7 +84,7 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Miembro no encontrado" }, { status: 404 });
     }
 
-    await prisma.projectUser.delete({ where: { id: existing.id } });
+    await prisma.notebookFolderUser.delete({ where: { id: existing.id } });
 
     return NextResponse.json({ message: "Acceso revocado" });
   } catch (error: unknown) {

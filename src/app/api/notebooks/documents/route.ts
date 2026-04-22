@@ -43,6 +43,8 @@ export async function GET(req: Request) {
       }
     }
 
+    const baseAccess = documentAccessWhere(sessionUser.userId);
+
     const where = projectId
       ? {
           projectId,
@@ -51,7 +53,20 @@ export async function GET(req: Request) {
       : {
           ...(standaloneOnly ? { notebookId: null } : {}),
           ...(notebookId ? { notebookId } : {}),
-          ...documentAccessWhere(sessionUser.userId),
+          OR: [
+            baseAccess,
+            {
+              isPublic: true,
+              OR: [
+                { creatorId: sessionUser.userId },
+                {
+                  notebook: {
+                    OR: [{ ownerId: sessionUser.userId }, { creatorId: sessionUser.userId }],
+                  },
+                },
+              ],
+            },
+          ],
         };
 
     const documents = await prisma.document.findMany({

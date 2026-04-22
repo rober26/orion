@@ -9,7 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const [sharedNotebooks, sharedDocuments] = await Promise.all([
+    const [sharedNotebooks, sharedDocuments, sharedFolders] = await Promise.all([
       prisma.notebookUser.findMany({
         where: {
           userId: sessionUser.userId,
@@ -64,9 +64,29 @@ export async function GET() {
           },
         },
       }),
+      prisma.notebookFolderUser.findMany({
+        where: {
+          userId: sessionUser.userId,
+        },
+        orderBy: { joinedAt: "desc" },
+        include: {
+          folder: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      }),
     ]);
 
     return NextResponse.json({
+      folders: sharedFolders.map((item) => ({
+        id: item.folder.id,
+        name: item.folder.name,
+        permission: item.role,
+        sharedAt: item.joinedAt,
+      })),
       notebooks: sharedNotebooks.map((item) => ({
         id: item.notebook.id,
         title: item.notebook.title,

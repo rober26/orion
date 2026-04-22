@@ -5,18 +5,6 @@ import { folderEditorWhere, notebookAccessWhere, notebookEditorWhere } from "@/s
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-async function canAccessNotebook(notebookId: string, userId: string) {
-  const notebook = await prisma.notebook.findFirst({
-    where: {
-      id: notebookId,
-      ...notebookAccessWhere(userId),
-    },
-    select: { id: true },
-  });
-
-  return Boolean(notebook);
-}
-
 async function canEditNotebook(notebookId: string, userId: string) {
   const notebook = await prisma.notebook.findFirst({
     where: {
@@ -38,14 +26,16 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     const { id } = await params; 
 
-    if (!(await canAccessNotebook(id, sessionUser.userId))) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-    }
-
     const notebook = await prisma.notebook.findFirst({
       where: {
         id,
-        ...notebookAccessWhere(sessionUser.userId),
+        OR: [
+          notebookAccessWhere(sessionUser.userId),
+          {
+            isPublic: true,
+            OR: [{ ownerId: sessionUser.userId }, { creatorId: sessionUser.userId }],
+          },
+        ],
       },
       include: {
         users: {

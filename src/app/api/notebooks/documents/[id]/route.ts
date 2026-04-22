@@ -8,7 +8,10 @@ async function findAccessibleDocument(id: string, userId: string) {
   return prisma.document.findFirst({
     where: {
       id,
-      ...documentAccessWhere(userId),
+      OR: [
+        documentAccessWhere(userId),
+        { isPublic: true },
+      ],
     },
   });
 }
@@ -54,7 +57,10 @@ export async function GET(
 
     const response = {
       ...document,
-      currentUserRole: document.creatorId === sessionUser.userId ? "OWNER" : directMembership?.role ?? null,
+      currentUserRole:
+        document.creatorId === sessionUser.userId
+          ? "OWNER"
+          : directMembership?.role ?? (document.isPublic ? "READER" : null),
       isSharedWithMe: document.creatorId !== sessionUser.userId && Boolean(directMembership),
     };
 
