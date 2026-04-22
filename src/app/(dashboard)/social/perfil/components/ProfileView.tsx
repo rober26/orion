@@ -1,5 +1,7 @@
-import { BookOpen, FileText, Folder, FolderKanban, Globe, Lock, Mail, Pencil, User } from "lucide-react";
+import Link from "next/link";
+import { FolderKanban, Globe, Lock, Mail, Pencil, User } from "lucide-react";
 import type { PublicDocument, PublicFolder, PublicNotebook, PublicProject, UserProfile } from "../types";
+import PublicContentExplorer from "./PublicContentExplorer";
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -72,7 +74,7 @@ export default function ProfileView({
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2">
         <article className="surface-soft p-5">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
             <FolderKanban size={16} />
@@ -83,71 +85,26 @@ export default function ProfileView({
           ) : (
             <ul className="space-y-2">
               {publicProjects.map((project) => (
-                <li key={project.id} className="rounded-xl border border-orion-border bg-white px-3 py-2 text-sm dark:border-orion-dark-border dark:bg-slate-900">
-                  {project.name}
-                </li>
-              ))}
-            </ul>
-          )}
-        </article>
-
-        <article className="surface-soft p-5">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
-            <Folder size={16} />
-            Carpetas publicas
-          </h2>
-          {publicFolders.length === 0 ? (
-            <p className="text-sm text-slate-500">No hay carpetas publicas para mostrar.</p>
-          ) : (
-            <ul className="space-y-2">
-              {publicFolders.map((folder) => (
-                <li key={folder.id} className="rounded-xl border border-orion-border bg-white px-3 py-2 text-sm dark:border-orion-dark-border dark:bg-slate-900">
-                  {folder.name}
-                </li>
-              ))}
-            </ul>
-          )}
-        </article>
-
-        <article className="surface-soft p-5">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
-            <BookOpen size={16} />
-            Cuadernos publicos
-          </h2>
-          {publicNotebooks.length === 0 ? (
-            <p className="text-sm text-slate-500">No hay cuadernos publicos para mostrar.</p>
-          ) : (
-            <ul className="space-y-2">
-              {publicNotebooks.map((notebook) => (
-                <li key={notebook.id} className="rounded-xl border border-orion-border bg-white px-3 py-2 text-sm dark:border-orion-dark-border dark:bg-slate-900">
-                  {notebook.title}
-                </li>
-              ))}
-            </ul>
-          )}
-        </article>
-
-        <article className="surface-soft p-5">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
-            <FileText size={16} />
-            Documentos publicos
-          </h2>
-          {publicDocuments.length === 0 ? (
-            <p className="text-sm text-slate-500">No hay documentos publicos para mostrar.</p>
-          ) : (
-            <ul className="space-y-2">
-              {publicDocuments.map((document) => (
-                <li
-                  key={document.id}
-                  className="rounded-xl border border-orion-border bg-white px-3 py-2 text-sm dark:border-orion-dark-border dark:bg-slate-900"
-                >
-                  {document.title}
+                <li key={project.id}>
+                  <Link
+                    href={`/projects/${project.id}`}
+                    className="block rounded-xl border border-orion-border bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:border-orion-dark-border dark:bg-slate-900 dark:hover:bg-slate-800"
+                  >
+                    {project.name}
+                  </Link>
                 </li>
               ))}
             </ul>
           )}
         </article>
       </section>
+
+      <PublicContentExplorer
+        title="Documentacion publica"
+        folders={publicFolders}
+        notebooks={publicNotebooks}
+        documents={publicDocuments}
+      />
     </div>
   );
 }

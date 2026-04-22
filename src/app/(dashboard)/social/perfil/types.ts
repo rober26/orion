@@ -27,6 +27,7 @@ export interface PublicProject {
 export interface PublicNotebook {
   id: string;
   title: string;
+  folderId: string | null;
   isPublic: boolean;
   ownerId: string;
   creatorId: string;
@@ -44,6 +45,7 @@ export interface PublicDocument {
   isPublic: boolean;
   creatorId: string;
   notebookId: string | null;
+  updatedAt?: string;
 }
 
 export interface AdminUser {

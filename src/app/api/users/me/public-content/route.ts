@@ -34,6 +34,7 @@ export async function GET() {
         select: {
           id: true,
           title: true,
+          folderId: true,
           isPublic: true,
           ownerId: true,
           creatorId: true,
@@ -74,6 +75,7 @@ export async function GET() {
           isPublic: true,
           creatorId: true,
           notebookId: true,
+          updatedAt: true,
         },
       }),
     ]);

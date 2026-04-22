@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Loader2, Search, UserMinus, UserPlus, Users } from "lucide-react";
 
 type ConnectionUser = {
@@ -39,7 +40,7 @@ function displayName(user: ConnectionUser | SearchUser) {
 }
 
 export default function ConnectionsPage() {
-  const [tab, setTab] = useState<"incoming" | "outgoing" | "accepted">("incoming");
+  const [tab, setTab] = useState<"incoming" | "outgoing" | "accepted">("accepted");
   const [loading, setLoading] = useState(true);
   const [connections, setConnections] = useState<ConnectionsPayload>({
     incomingPending: [],
@@ -213,9 +214,9 @@ export default function ConnectionsPage() {
       </div>
 
       <div className="flex items-center gap-2 text-xs">
-        <TabButton label={`Pendientes (${connections.incomingPending.length})`} active={tab === "incoming"} onClick={() => setTab("incoming")} />
-        <TabButton label={`Enviadas (${connections.outgoingPending.length})`} active={tab === "outgoing"} onClick={() => setTab("outgoing")} />
         <TabButton label={`Conectados (${connections.accepted.length})`} active={tab === "accepted"} onClick={() => setTab("accepted")} />
+        <TabButton label={`Enviadas (${connections.outgoingPending.length})`} active={tab === "outgoing"} onClick={() => setTab("outgoing")} />
+        <TabButton label={`Pendientes (${connections.incomingPending.length})`} active={tab === "incoming"} onClick={() => setTab("incoming")} />
       </div>
 
       <div className="flex-1 min-h-0 rounded-2xl border border-orion-border dark:border-orion-dark-border bg-slate-900/70 overflow-y-auto divide-y divide-orion-border dark:divide-orion-dark-border">
@@ -231,7 +232,12 @@ export default function ConnectionsPage() {
           activeList.map((item) => (
             <div key={item.id} className="p-4 flex items-center justify-between gap-3">
               <div>
-                <p className="font-semibold text-white">{displayName(item.user)}</p>
+                <Link
+                  href={`/social/perfil/${item.user.id}`}
+                  className="font-semibold text-white hover:text-blue-300 transition-colors"
+                >
+                  {displayName(item.user)}
+                </Link>
                 <p className="text-xs text-slate-400">@{item.user.username}</p>
               </div>
 
@@ -261,13 +267,15 @@ export default function ConnectionsPage() {
                   Cancelar
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => void deleteConnection(item.id)}
-                  className="h-9 px-3 rounded-lg border border-red-400/40 text-red-300 text-xs hover:bg-red-500/10 inline-flex items-center gap-1"
-                >
-                  <UserMinus size={12} /> Quitar
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void deleteConnection(item.id)}
+                    className="h-9 px-3 rounded-lg border border-red-400/40 text-red-300 text-xs hover:bg-red-500/10 inline-flex items-center gap-1"
+                  >
+                    <UserMinus size={12} /> Quitar
+                  </button>
+                </div>
               )}
             </div>
           ))
