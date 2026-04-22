@@ -11,6 +11,7 @@ interface NotebookDocument {
   id: string;
   title: string;
   content: JSONContent | null;
+  isPublic?: boolean;
   currentUserRole?: "OWNER" | "EDITOR" | "READER" | null;
   isSharedWithMe?: boolean;
 }
@@ -166,6 +167,29 @@ export default function Editor({ documentId }: EditorProps) {
         open={shareOpen}
         targetId={document.id}
         targetType="document"
+        isPublic={Boolean(document.isPublic)}
+        onTogglePublic={async (nextValue) => {
+          const response = await fetch(`/api/notebooks/documents/${document.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isPublic: nextValue }),
+          });
+
+          const payload = (await response.json()) as { error?: string };
+          if (!response.ok) {
+            throw new Error(payload.error || "No se pudo actualizar la visibilidad");
+          }
+
+          setDocument((prev) => (prev ? { ...prev, isPublic: nextValue } : prev));
+        }}
+        onChanged={async () => {
+          const response = await fetch(`/api/notebooks/documents/${document.id}`);
+          if (!response.ok) {
+            return;
+          }
+          const data = (await response.json()) as NotebookDocument;
+          setDocument(data);
+        }}
         onClose={() => setShareOpen(false)}
       />
     </>

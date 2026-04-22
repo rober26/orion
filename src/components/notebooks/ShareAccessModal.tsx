@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Search, UserPlus, X, UserMinus, Shield } from "lucide-react";
+import { Globe, Loader2, Lock as LockIcon, Search, Shield, UserMinus, UserPlus, X } from "lucide-react";
 
 type ShareTargetType = "folder" | "notebook" | "document";
 type AccessRole = "READER" | "EDITOR" | "OWNER";
@@ -10,6 +10,9 @@ interface ShareAccessModalProps {
   open: boolean;
   targetId: string;
   targetType: ShareTargetType;
+  isPublic: boolean;
+  onTogglePublic: (nextValue: boolean) => Promise<void> | void;
+  onChanged?: () => void;
   onClose: () => void;
 }
 
@@ -54,7 +57,15 @@ function fullName(user: SearchUserItem | MemberItem["user"]): string {
   return value || user.username;
 }
 
-export default function ShareAccessModal({ open, targetId, targetType, onClose }: ShareAccessModalProps) {
+export default function ShareAccessModal({
+  open,
+  targetId,
+  targetType,
+  isPublic,
+  onTogglePublic,
+  onChanged,
+  onClose,
+}: ShareAccessModalProps) {
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [query, setQuery] = useState("");
@@ -62,6 +73,7 @@ export default function ShareAccessModal({ open, targetId, targetType, onClose }
   const [results, setResults] = useState<SearchUserItem[]>([]);
   const [inviteRole, setInviteRole] = useState<"READER" | "EDITOR">("READER");
   const [feedback, setFeedback] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [togglingPublic, setTogglingPublic] = useState(false);
 
   const basePath = useMemo(() => getBasePath(targetType, targetId), [targetType, targetId]);
   const memberIds = useMemo(() => new Set(members.map((member) => member.user.id)), [members]);
@@ -131,6 +143,7 @@ export default function ShareAccessModal({ open, targetId, targetType, onClose }
       setQuery("");
       setResults([]);
       await loadMembers();
+      await onChanged?.();
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo compartir";
       setFeedback({ type: "error", text: message });
@@ -150,6 +163,7 @@ export default function ShareAccessModal({ open, targetId, targetType, onClose }
       }
       setFeedback({ type: "success", text: "Rol actualizado." });
       await loadMembers();
+      await onChanged?.();
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo actualizar";
       setFeedback({ type: "error", text: message });
@@ -165,9 +179,28 @@ export default function ShareAccessModal({ open, targetId, targetType, onClose }
       }
       setFeedback({ type: "success", text: "Acceso revocado." });
       await loadMembers();
+      await onChanged?.();
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo revocar";
       setFeedback({ type: "error", text: message });
+    }
+  };
+
+  const togglePublic = async () => {
+    if (togglingPublic) {
+      return;
+    }
+
+    setTogglingPublic(true);
+    try {
+      await onTogglePublic(!isPublic);
+      setFeedback({ type: "success", text: isPublic ? "Ahora es privado." : "Ahora es publico." });
+      await onChanged?.();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo actualizar visibilidad";
+      setFeedback({ type: "error", text: message });
+    } finally {
+      setTogglingPublic(false);
     }
   };
 
@@ -207,6 +240,34 @@ export default function ShareAccessModal({ open, targetId, targetType, onClose }
           ) : null}
 
           <div className="space-y-3">
+            <div className="rounded-xl border border-orion-border dark:border-orion-dark-border bg-slate-800/70 px-3 py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white">Visibilidad del recurso</p>
+                <p className="text-xs text-slate-400">
+                  {isPublic ? "Publico en tu perfil. Incluye herencia a hijos." : "Privado. No aparece en tu perfil."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void togglePublic()}
+                disabled={togglingPublic}
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider disabled:opacity-60 ${
+                  isPublic
+                    ? "bg-emerald-500/15 text-emerald-300"
+                    : "bg-slate-700 text-slate-200"
+                }`}
+              >
+                {togglingPublic ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : isPublic ? (
+                  <Globe size={12} />
+                ) : (
+                  <LockIcon size={12} />
+                )}
+                {isPublic ? "Publico" : "Privado"}
+              </button>
+            </div>
+
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
