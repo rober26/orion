@@ -20,7 +20,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  AlertCircle,
   Book,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   FileText,
@@ -34,6 +36,7 @@ import {
   Plus,
   Share2,
   Trash2,
+  X,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ShareAccessModal from "@/src/components/notebooks/ShareAccessModal";
@@ -116,6 +119,19 @@ interface ExplorerState {
   sharedWithMeDocs: SharedWithMeDocument[];
 }
 
+interface ExplorerLoadWarnings {
+  folders?: string;
+  notebooks?: string;
+  standaloneDocs?: string;
+  sharedWithMe?: string;
+}
+
+interface ToastMessage {
+  id: string;
+  type: "error" | "success";
+  text: string;
+}
+
 type DraftType = "folder" | "notebook" | "document";
 
 interface RenameState {
@@ -143,6 +159,8 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
 
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
+  const [warnings, setWarnings] = useState<ExplorerLoadWarnings>({});
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [state, setState] = useState<ExplorerState>({
     folders: [],
     ungroupedNotebooks: [],
@@ -162,6 +180,7 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
     isPublic: boolean;
   } | null>(null);
   const [openMenu, setOpenMenu] = useState<{ type: "folder" | "notebook" | "document"; id: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ type: "folder" | "notebook" | "document"; id: string } | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const activeEditKey = rename
     ? `${rename.type}:${rename.id}`
@@ -181,32 +200,54 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
       fetch("/api/notebooks/shared-with-me"),
     ]);
 
-    if (!foldersRes.ok || !notebooksRes.ok || !standaloneDocsRes.ok || !sharedWithMeRes.ok) {
-      throw new Error("No se pudo cargar el explorador");
+    const nextWarnings: ExplorerLoadWarnings = {};
+
+    const folders = foldersRes.ok ? ((await foldersRes.json()) as ExplorerFolder[]) : [];
+    if (!foldersRes.ok) {
+      nextWarnings.folders = "Carpetas no disponibles";
     }
 
-    const folders = (await foldersRes.json()) as ExplorerFolder[];
-    const notebooks = (await notebooksRes.json()) as ExplorerNotebook[];
-    const standaloneDocs = (await standaloneDocsRes.json()) as ExplorerDocument[];
-    const sharedWithMe = (await sharedWithMeRes.json()) as SharedWithMeData;
+    const notebooks = notebooksRes.ok ? ((await notebooksRes.json()) as ExplorerNotebook[]) : [];
+    if (!notebooksRes.ok) {
+      nextWarnings.notebooks = "Cuadernos no disponibles";
+    }
+
+    const standaloneDocs = standaloneDocsRes.ok ? ((await standaloneDocsRes.json()) as ExplorerDocument[]) : [];
+    if (!standaloneDocsRes.ok) {
+      nextWarnings.standaloneDocs = "Documentos sueltos no disponibles";
+    }
+
+    const sharedWithMe = sharedWithMeRes.ok
+      ? ((await sharedWithMeRes.json()) as SharedWithMeData)
+      : { folders: [], notebooks: [], documents: [] };
+    if (!sharedWithMeRes.ok) {
+      nextWarnings.sharedWithMe = "Compartidos no disponibles";
+    }
 
     return {
-      folders,
-      standaloneDocs,
-      ungroupedNotebooks: notebooks.filter((notebook) => !notebook.folderId),
-      sharedWithMeFolders: sharedWithMe.folders ?? [],
-      sharedWithMeNotebooks: sharedWithMe.notebooks ?? [],
-      sharedWithMeDocs: sharedWithMe.documents ?? [],
-    } satisfies ExplorerState;
+      data: {
+        folders,
+        standaloneDocs,
+        ungroupedNotebooks: notebooks.filter((notebook) => !notebook.folderId),
+        sharedWithMeFolders: sharedWithMe.folders ?? [],
+        sharedWithMeNotebooks: sharedWithMe.notebooks ?? [],
+        sharedWithMeDocs: sharedWithMe.documents ?? [],
+      } satisfies ExplorerState,
+      warnings: nextWarnings,
+    };
   }, []);
 
   const reload = useCallback(async () => {
     try {
       setLoading(true);
       const next = await fetchState();
-      setState(next);
+      setState(next.data);
+      setWarnings(next.warnings);
     } catch (error) {
       console.error("Error cargando explorer:", error);
+      setWarnings({
+        folders: "No se pudo cargar el explorador",
+      });
     } finally {
       setLoading(false);
     }
@@ -238,6 +279,14 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
 
     window.addEventListener("pointerdown", handlePointerDown);
     return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
+  const showToast = useCallback((type: ToastMessage["type"], text: string) => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((prev) => [...prev, { id, type, text }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((item) => item.id !== id));
+    }, 2600);
   }, []);
 
   const findNotebook = useCallback(
@@ -330,32 +379,44 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
       }
 
       if (renameState.type === "folder") {
-        await fetch("/api/notebooks/folders", {
+        const response = await fetch("/api/notebooks/folders", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: renameState.id, name: value }),
         });
+        if (!response.ok) {
+          const payload = (await response.json()) as { error?: string };
+          throw new Error(payload.error || "No se pudo renombrar la carpeta");
+        }
       }
 
       if (renameState.type === "notebook") {
         const notebook = findNotebook(renameState.id);
         if (notebook) {
-          await fetch(`/api/notebooks/${renameState.id}`, {
+          const response = await fetch(`/api/notebooks/${renameState.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               title: value,
             }),
           });
+          if (!response.ok) {
+            const payload = (await response.json()) as { error?: string };
+            throw new Error(payload.error || "No se pudo renombrar el cuaderno");
+          }
         }
       }
 
       if (renameState.type === "document") {
-        await fetch(`/api/notebooks/documents/${renameState.id}`, {
+        const response = await fetch(`/api/notebooks/documents/${renameState.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title: value }),
         });
+        if (!response.ok) {
+          const payload = (await response.json()) as { error?: string };
+          throw new Error(payload.error || "No se pudo renombrar el documento");
+        }
       }
 
       await reload();
@@ -388,7 +449,7 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
       }
 
       if (draft.type === "notebook") {
-        await fetch("/api/notebooks", {
+        const response = await fetch("/api/notebooks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -397,6 +458,11 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
             folderId: draft.parentId,
           }),
         });
+
+        if (!response.ok) {
+          const payload = (await response.json()) as { error?: string };
+          throw new Error(payload.error || "No se pudo crear el cuaderno");
+        }
         await reload();
         return;
       }
@@ -411,10 +477,13 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
         }),
       });
 
-      if (response.ok) {
-        const created = (await response.json()) as { id: string };
-        router.push(`/notebooks?doc=${created.id}`);
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        throw new Error(payload.error || "No se pudo crear el documento");
       }
+
+      const created = (await response.json()) as { id: string };
+      router.push(`/notebooks?doc=${created.id}`);
       await reload();
     },
     [reload, router],
@@ -426,9 +495,10 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
       setRename(null);
       try {
         await renameEntity(current);
+        showToast("success", "Nombre actualizado");
       } catch (error) {
         const message = error instanceof Error ? error.message : "No se pudo actualizar";
-        alert(message);
+        showToast("error", message);
         await reload();
       }
       return;
@@ -439,13 +509,14 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
       setCreateDraft(null);
       try {
         await createEntity(current);
+        showToast("success", "Elemento creado");
       } catch (error) {
         const message = error instanceof Error ? error.message : "No se pudo crear";
-        alert(message);
+        showToast("error", message);
         await reload();
       }
     }
-  }, [createDraft, createEntity, reload, rename, renameEntity]);
+  }, [createDraft, createEntity, reload, rename, renameEntity, showToast]);
 
   const onDragEnd = useCallback(
     async (event: DragEndEvent) => {
@@ -533,16 +604,6 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
 
   const deleteEntity = useCallback(
     async (type: "folder" | "notebook" | "document", id: string) => {
-      const labels: Record<typeof type, string> = {
-        folder: "esta carpeta",
-        notebook: "este cuaderno",
-        document: "este documento",
-      };
-
-      if (!window.confirm(`Seguro que quieres eliminar ${labels[type]}?`)) {
-        return;
-      }
-
       try {
         if (type === "folder") {
           const response = await fetch("/api/notebooks/folders", {
@@ -575,12 +636,13 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
 
         router.push("/notebooks");
         await reload();
+        showToast("success", "Elemento eliminado");
       } catch (error) {
         const message = error instanceof Error ? error.message : "No se pudo eliminar";
-        alert(message);
+        showToast("error", message);
       }
     },
-    [reload, router],
+    [reload, router, showToast],
   );
 
   const setVisibility = useCallback(
@@ -625,8 +687,9 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
       }
 
       await reload();
+      showToast("success", isPublic ? "Ahora es publico" : "Ahora es privado");
     },
-    [reload],
+    [reload, showToast],
   );
 
   if (loading) {
@@ -697,10 +760,22 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
         onDragEnd={onDragEnd}
       >
         <div className="flex-1 overflow-y-auto p-2 space-y-4">
+          {Object.values(warnings).length > 0 ? (
+            <div className="mx-2 rounded-lg border border-amber-400/30 bg-amber-500/10 p-2 text-[11px] text-amber-200">
+              <div className="flex items-center gap-2 font-semibold mb-1">
+                <AlertCircle size={12} />
+                Carga parcial del explorador
+              </div>
+              <ul className="space-y-0.5">
+                {Object.values(warnings).map((value) => (
+                  <li key={value}>- {value}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <DropZone id="drop-folder:" label="Soltar para dejar cuaderno fuera de carpeta" />
 
           <div className="space-y-1">
-            <p className="px-2 pb-1 text-[10px] font-bold text-slate-200 uppercase">Carpetas</p>
             {state.folders.map((folder) => (
               <div key={folder.id} className="space-y-1">
                 <div
@@ -801,7 +876,7 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                           onClick={(event) => {
                             event.stopPropagation();
                             setOpenMenu(null);
-                            void deleteEntity("folder", folder.id);
+                            setPendingDelete({ type: "folder", id: folder.id });
                           }}
                           className="w-full px-3 py-2 text-left text-xs text-red-300 hover:bg-red-500/10"
                         >
@@ -837,8 +912,8 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                             const doc = notebook.documents.find((item) => item.id === id);
                             setShareTarget({ type: "document", id, isPublic: Boolean(doc?.isPublic) });
                           }}
-                          onDelete={() => deleteEntity("notebook", notebook.id)}
-                          onDeleteDocument={(id) => deleteEntity("document", id)}
+                          onDelete={() => setPendingDelete({ type: "notebook", id: notebook.id })}
+                          onDeleteDocument={(id) => setPendingDelete({ type: "document", id })}
                           openMenu={openMenu}
                           setOpenMenu={setOpenMenu}
                           isExpanded={Boolean(expandedNotebooks[notebook.id])}
@@ -850,10 +925,7 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                 )}
               </div>
             ))}
-          </div>
 
-          <div className="space-y-1">
-            <p className="px-2 pb-1 text-[10px] font-bold text-slate-200 uppercase">Cuadernos sin carpeta</p>
             <SortableContext items={state.ungroupedNotebooks.map((notebook) => `notebook:${notebook.id}`)} strategy={verticalListSortingStrategy}>
               {state.ungroupedNotebooks.map((notebook) => (
                 <NotebookRow
@@ -875,8 +947,8 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                     const doc = notebook.documents.find((item) => item.id === id);
                     setShareTarget({ type: "document", id, isPublic: Boolean(doc?.isPublic) });
                   }}
-                  onDelete={() => deleteEntity("notebook", notebook.id)}
-                  onDeleteDocument={(id) => deleteEntity("document", id)}
+                  onDelete={() => setPendingDelete({ type: "notebook", id: notebook.id })}
+                  onDeleteDocument={(id) => setPendingDelete({ type: "document", id })}
                   openMenu={openMenu}
                   setOpenMenu={setOpenMenu}
                   isExpanded={Boolean(expandedNotebooks[notebook.id])}
@@ -884,12 +956,7 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                 />
               ))}
             </SortableContext>
-          </div>
 
-          <div className="space-y-1">
-            <div className="flex items-center justify-between px-2 pb-1">
-              <p className="text-[10px] font-bold text-slate-200 uppercase">Documentos sueltos</p>
-            </div>
             <SortableContext items={state.standaloneDocs.map((doc) => `doc:${doc.id}`)} strategy={verticalListSortingStrategy}>
               {state.standaloneDocs.map((doc) => (
                 <DocumentRow
@@ -905,12 +972,19 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                   onOpen={openDocument}
                   onRename={() => setRename({ id: doc.id, type: "document", value: doc.title || "" })}
                   onShare={() => setShareTarget({ type: "document", id: doc.id, isPublic: Boolean(doc.isPublic) })}
-                  onDelete={() => deleteEntity("document", doc.id)}
+                  onDelete={() => setPendingDelete({ type: "document", id: doc.id })}
                   openMenu={openMenu}
                   setOpenMenu={setOpenMenu}
                 />
               ))}
             </SortableContext>
+
+            {state.folders.length === 0 && state.ungroupedNotebooks.length === 0 && state.standaloneDocs.length === 0 ? (
+              <div className="mx-2 rounded-lg border border-dashed border-orion-border dark:border-orion-dark-border p-3 text-xs text-slate-400">
+                Crea tu primera carpeta, cuaderno o documento.
+              </div>
+            ) : null}
+
             <DropZone id="drop-notebook:" label="Soltar documento para dejarlo suelto" />
           </div>
 
@@ -1011,7 +1085,86 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
           onClose={() => setShareTarget(null)}
         />
       )}
+
+      {pendingDelete ? (
+        <ConfirmDeleteModal
+          targetType={pendingDelete.type}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={async () => {
+            const target = pendingDelete;
+            setPendingDelete(null);
+            await deleteEntity(target.type, target.id);
+          }}
+        />
+      ) : null}
+
+      {toasts.length > 0 ? (
+        <div className="fixed bottom-4 right-4 z-[120] space-y-2 w-[280px]">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`rounded-xl border px-3 py-2 shadow-xl text-sm flex items-start gap-2 ${
+                toast.type === "error"
+                  ? "border-red-400/40 bg-red-500/10 text-red-200"
+                  : "border-emerald-400/40 bg-emerald-500/10 text-emerald-200"
+              }`}
+            >
+              {toast.type === "error" ? <AlertCircle size={14} className="mt-0.5" /> : <CheckCircle2 size={14} className="mt-0.5" />}
+              <span className="flex-1">{toast.text}</span>
+              <button
+                type="button"
+                onClick={() => setToasts((prev) => prev.filter((item) => item.id !== toast.id))}
+                className="opacity-80 hover:opacity-100"
+                aria-label="Cerrar aviso"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </>
+  );
+}
+
+function ConfirmDeleteModal({
+  targetType,
+  onCancel,
+  onConfirm,
+}: {
+  targetType: "folder" | "notebook" | "document";
+  onCancel: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  const labels: Record<typeof targetType, string> = {
+    folder: "esta carpeta",
+    notebook: "este cuaderno",
+    document: "este documento",
+  };
+
+  return (
+    <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-orion-border dark:border-orion-dark-border bg-slate-900 shadow-2xl p-5 space-y-4">
+        <h3 className="text-lg font-bold text-white">Confirmar eliminacion</h3>
+        <p className="text-sm text-slate-300">Seguro que quieres eliminar {labels[targetType]}? Esta accion no se puede deshacer.</p>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-2 rounded-lg text-sm border border-orion-border dark:border-orion-dark-border text-slate-200 hover:bg-slate-800"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={() => void onConfirm()}
+            className="px-3 py-2 rounded-lg text-sm bg-red-600/90 text-white hover:bg-red-600"
+          >
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
