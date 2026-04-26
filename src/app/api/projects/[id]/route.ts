@@ -2,7 +2,7 @@ import { ProjectRole } from "@prisma/client";
 import { getSessionUser, type SessionUser } from "@/src/lib/auth";
 import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import prisma from "@/src/lib/prisma";
-import { projectAccessWhere } from "@/src/lib/permissions";
+import { projectReadWhere } from "@/src/lib/permissions";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -67,7 +67,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
     const project = await prisma.project.findFirst({
       where: {
         id,
-        ...projectAccessWhere(actorUserId),
+        ...projectReadWhere(actorUserId),
       },
       include: {
         _count: {

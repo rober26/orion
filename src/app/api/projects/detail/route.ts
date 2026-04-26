@@ -1,7 +1,7 @@
 import prisma from "@/src/lib/prisma";
 import { getSessionUser, type SessionUser } from "@/src/lib/auth";
 import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
-import { projectAccessWhere } from "@/src/lib/permissions";
+import { projectReadWhere } from "@/src/lib/permissions";
 
 function getMembersCount(ownerId: string, creatorId: string, memberUserIds: string[]): number {
   return new Set([ownerId, creatorId, ...memberUserIds]).size;
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
     const project = await prisma.project.findFirst({
       where: {
         id,
-        ...projectAccessWhere(actorUserId),
+        ...projectReadWhere(actorUserId),
       },
       include: {
         _count: {

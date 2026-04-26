@@ -51,6 +51,7 @@ export async function GET(req: Request) {
           OR: [{ creatorId: sessionUser.userId }, { project: projectAccessWhere(sessionUser.userId) }],
         }
       : {
+          projectId: null,
           ...(standaloneOnly ? { notebookId: null } : {}),
           ...(notebookId ? { notebookId } : {}),
           OR: [

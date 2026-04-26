@@ -16,6 +16,18 @@ export function projectAccessWhere(userId: string): Prisma.ProjectWhereInput {
   };
 }
 
+export function projectReadWhere(userId: string): Prisma.ProjectWhereInput {
+  const memberOrCreatorClauses: Prisma.ProjectWhereInput[] = [
+    { ownerId: userId },
+    { creatorId: userId },
+    { users: { some: { userId } } },
+  ];
+
+  return {
+    OR: [{ isPublic: true }, ...memberOrCreatorClauses],
+  };
+}
+
 export function projectEditorWhere(userId: string): Prisma.ProjectWhereInput {
   return {
     OR: [
@@ -60,7 +72,7 @@ export async function canViewProject(projectId: string, userId: string): Promise
   const project = await prisma.project.findFirst({
     where: {
       id: projectId,
-      ...projectAccessWhere(userId),
+      ...projectReadWhere(userId),
     },
     select: { id: true },
   });
@@ -98,7 +110,7 @@ export function notebookAccessWhere(userId: string): Prisma.NotebookWhereInput {
       { ownerId: userId },
       { creatorId: userId },
       { users: { some: { userId } } },
-      { folder: { project: projectAccessWhere(userId) } },
+      { folder: { project: projectReadWhere(userId) } },
     ],
   };
 }
@@ -118,7 +130,7 @@ export function folderAccessWhere(userId: string): Prisma.NotebookFolderWhereInp
   return {
     OR: [
       { users: { some: { userId } } },
-      { project: projectAccessWhere(userId) },
+      { project: projectReadWhere(userId) },
       {
         notebooks: {
           some: {
@@ -164,7 +176,7 @@ export function documentAccessWhere(userId: string): Prisma.DocumentWhereInput {
       { creatorId: userId },
       { users: { some: { userId } } },
       { notebook: notebookAccessWhere(userId) },
-      { project: projectAccessWhere(userId) },
+      { project: projectReadWhere(userId) },
     ],
   };
 }
