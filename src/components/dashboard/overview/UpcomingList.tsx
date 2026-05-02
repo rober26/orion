@@ -1,4 +1,7 @@
+"use client";
+
 import { Calendar, CheckSquare, FolderPlus } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { DashboardEventItem } from "./types";
 
 function sourceLabel(type: DashboardEventItem["sourceType"]) {
@@ -45,7 +48,70 @@ function formatWhen(item: DashboardEventItem): string {
   }).format(date);
 }
 
-export default function UpcomingList({ items, className = "" }: { items: DashboardEventItem[]; className?: string }) {
+function getWeekWindow(): { from: string; to: string } {
+  const from = new Date();
+  from.setHours(0, 0, 0, 0);
+
+  const to = new Date(from);
+  to.setDate(to.getDate() + 7);
+  to.setHours(23, 59, 59, 999);
+
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+export default function UpcomingList({ className = "" }: { className?: string }) {
+  const [items, setItems] = useState<DashboardEventItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadUpcoming = async () => {
+      try {
+        setError(null);
+
+        const { from, to } = getWeekWindow();
+        const response = await fetch(`/api/calendar/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("UPCOMING_FETCH_ERROR");
+        }
+
+        const payload = asArray<DashboardEventItem>(await response.json())
+          .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+          .slice(0, 10);
+
+        if (!cancelled) {
+          setItems(payload);
+          setLoading(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setError("No se pudo cargar la agenda.");
+          setItems([]);
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadUpcoming();
+    const intervalId = window.setInterval(() => {
+      void loadUpcoming();
+    }, 20000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
   return (
     <section className={`surface-panel flex h-full min-h-0 flex-col rounded-[1.8rem] p-4 sm:p-5 ${className}`}>
       <div className="mb-4 flex items-end justify-between">
@@ -55,7 +121,16 @@ export default function UpcomingList({ items, className = "" }: { items: Dashboa
         </div>
       </div>
 
-      {items.length === 0 ? (
+      {error && <p className="mb-3 text-sm font-semibold text-red-600 dark:text-red-300">{error}</p>}
+
+      {loading ? (
+        <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+          <div className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          <div className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          <div className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          <div className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+        </div>
+      ) : items.length === 0 ? (
         <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-orion-border px-4 py-10 text-center text-sm font-semibold text-slate-500 dark:border-orion-dark-border dark:text-slate-400">
           Sin eventos o tareas programadas para esta semana.
         </div>

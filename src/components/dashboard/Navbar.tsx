@@ -9,6 +9,7 @@ const navigationTargets = [
   { label: "Resumen", href: "/" },
   { label: "Calendario", href: "/calendar" },
   { label: "Proyectos", href: "/projects" },
+  { label: "Notas", href: "/notes" },
   { label: "Notebooks", href: "/notebooks" },
   { label: "Conexiones", href: "/social/connections" },
 ];

@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowUpRight, FolderKanban, Users } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { DashboardProject } from "./types";
 
 function formatDate(value: string): string {
@@ -9,7 +12,55 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
-export default function RecentProjects({ projects, className = "" }: { projects: DashboardProject[]; className?: string }) {
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+export default function RecentProjects({ className = "" }: { className?: string }) {
+  const [projects, setProjects] = useState<DashboardProject[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProjects = async () => {
+      try {
+        setError(null);
+
+        const response = await fetch("/api/projects?status=active", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("RECENT_PROJECTS_FETCH_ERROR");
+        }
+
+        const payload = asArray<DashboardProject>(await response.json())
+          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+          .slice(0, 8);
+
+        if (!cancelled) {
+          setProjects(payload);
+          setLoading(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setError("No se pudo cargar la actividad de proyectos.");
+          setProjects([]);
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadProjects();
+    const intervalId = window.setInterval(() => {
+      void loadProjects();
+    }, 25000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
   return (
     <section className={`surface-panel flex h-full min-h-0 flex-col rounded-[1.8rem] p-4 sm:p-5 ${className}`}>
       <div className="mb-4 flex items-center justify-between">
@@ -22,7 +73,16 @@ export default function RecentProjects({ projects, className = "" }: { projects:
         </Link>
       </div>
 
-      {projects.length === 0 ? (
+      {error && <p className="mb-3 text-sm font-semibold text-red-600 dark:text-red-300">{error}</p>}
+
+      {loading ? (
+        <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+          <div className="h-14 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          <div className="h-14 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          <div className="h-14 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          <div className="h-14 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+        </div>
+      ) : projects.length === 0 ? (
         <p className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-orion-border px-3 py-8 text-center text-sm font-semibold text-slate-500 dark:border-orion-dark-border dark:text-slate-400">
           Aun no hay proyectos recientes.
         </p>

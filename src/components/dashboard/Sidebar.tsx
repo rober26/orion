@@ -4,10 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bot,
   BookText,
   Calendar,
   FolderKanban,
   LayoutDashboard,
+  StickyNote,
   Users,
 } from "lucide-react";
 import { type ComponentType } from "react";
@@ -27,8 +29,10 @@ type MenuItem = {
 
 const mainMenuItems: MenuItem[] = [
   { name: "Resumen", href: "/", icon: LayoutDashboard },
+  { name: "IA Chat", href: "/ai/chat", icon: Bot },
   { name: "Calendario", href: "/calendar", icon: Calendar },
   { name: "Proyectos", href: "/projects", icon: FolderKanban },
+  { name: "Notas", href: "/notes", icon: StickyNote },
   { name: "Notebooks", href: "/notebooks", icon: BookText },
   { name: "Conexiones", href: "/social/connections", icon: Users },
 ];

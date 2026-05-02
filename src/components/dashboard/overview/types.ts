@@ -1,11 +1,8 @@
 export type DashboardStats = {
   activeProjects: number;
-  archivedProjects: number;
   notebooks: number;
-  rangeItems: number;
+  upcomingItems: number;
 };
-
-export type DashboardRange = "today" | "7d" | "30d";
 
 export type DashboardEventItem = {
   id: string;
