@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
-import { FolderKanban, Loader2, Lock, User } from "lucide-react";
+import { CalendarDays, FolderKanban, Loader2, Lock, User } from "lucide-react";
 import PublicContentExplorer from "../components/PublicContentExplorer";
 
 type PublicProject = {
@@ -28,6 +28,12 @@ type PublicDocument = {
   updatedAt: string;
 };
 
+type PublicCalendar = {
+  id: string;
+  name: string;
+  color: string | null;
+};
+
 type ProfilePayload = {
   profile: {
     id: string;
@@ -43,6 +49,7 @@ type ProfilePayload = {
   notebooks: PublicNotebook[];
   folders: PublicFolder[];
   documents: PublicDocument[];
+  calendars: PublicCalendar[];
 };
 
 type ApiError = { error?: string };
@@ -155,6 +162,26 @@ export default function ConnectionProfilePage({ params }: { params: Promise<{ us
                         >
                           {project.name}
                         </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </article>
+
+              <article className="surface-soft p-5">
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
+                  <CalendarDays size={16} /> Calendarios publicos
+                </h3>
+                {data.calendars.length === 0 ? (
+                  <p className="text-sm text-slate-500">No hay calendarios publicos para mostrar.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {data.calendars.map((calendar) => (
+                      <li key={calendar.id}>
+                        <div className="block rounded-xl border border-orion-border bg-white px-3 py-2 text-sm font-semibold dark:border-orion-dark-border dark:bg-slate-900">
+                          <span className="inline-block h-2.5 w-2.5 rounded-full mr-2" style={{ backgroundColor: calendar.color || "#2563eb" }} />
+                          {calendar.name}
+                        </div>
                       </li>
                     ))}
                   </ul>

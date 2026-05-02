@@ -58,7 +58,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       return json({ error: "Usuario no encontrado" }, 404);
     }
 
-    const [projects, notebooks, folders, documents] = await Promise.all([
+    const [projects, notebooks, folders, documents, calendars] = await Promise.all([
       prisma.project.findMany({
         where: {
           isPublic: true,
@@ -131,6 +131,23 @@ export async function GET(_request: Request, { params }: RouteParams) {
           updatedAt: true,
         },
       }),
+      prisma.calendar.findMany({
+        where: {
+          visibility: "PUBLIC",
+          OR: [{ ownerId: user.id }, { creatorId: user.id }],
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          visibility: true,
+          ownerId: true,
+          creatorId: true,
+          updatedAt: true,
+        },
+      }),
     ]);
 
     return json({
@@ -139,6 +156,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       notebooks,
       folders,
       documents,
+      calendars,
     });
   } catch (error) {
     console.error("GET_CONNECTION_PROFILE_ERROR", error);

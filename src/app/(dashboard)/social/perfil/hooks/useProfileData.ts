@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { PublicDocument, PublicFolder, PublicNotebook, PublicProject, UserProfile } from "../types";
+import type { PublicCalendar, PublicDocument, PublicFolder, PublicNotebook, PublicProject, UserProfile } from "../types";
 
 interface UseProfileDataResult {
   profile: UserProfile | null;
@@ -9,6 +9,7 @@ interface UseProfileDataResult {
   publicFolders: PublicFolder[];
   publicNotebooks: PublicNotebook[];
   publicDocuments: PublicDocument[];
+  publicCalendars: PublicCalendar[];
   loading: boolean;
   error: string | null;
   refreshProfile: () => Promise<void>;
@@ -28,6 +29,7 @@ export function useProfileData(): UseProfileDataResult {
   const [publicFolders, setPublicFolders] = useState<PublicFolder[]>([]);
   const [publicNotebooks, setPublicNotebooks] = useState<PublicNotebook[]>([]);
   const [publicDocuments, setPublicDocuments] = useState<PublicDocument[]>([]);
+  const [publicCalendars, setPublicCalendars] = useState<PublicCalendar[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +49,7 @@ export function useProfileData(): UseProfileDataResult {
       folders: PublicFolder[];
       notebooks: PublicNotebook[];
       documents: PublicDocument[];
+      calendars: PublicCalendar[];
     }>(
       publicContentRes,
     );
@@ -56,11 +59,13 @@ export function useProfileData(): UseProfileDataResult {
       setPublicFolders(publicContent.folders ?? []);
       setPublicNotebooks(publicContent.notebooks);
       setPublicDocuments(publicContent.documents ?? []);
+      setPublicCalendars(publicContent.calendars ?? []);
     } else {
       setPublicProjects([]);
       setPublicFolders([]);
       setPublicNotebooks([]);
       setPublicDocuments([]);
+      setPublicCalendars([]);
     }
   }, []);
 
@@ -81,6 +86,7 @@ export function useProfileData(): UseProfileDataResult {
           setPublicFolders([]);
           setPublicNotebooks([]);
           setPublicDocuments([]);
+          setPublicCalendars([]);
         }
       } finally {
         if (mounted) {
@@ -102,6 +108,7 @@ export function useProfileData(): UseProfileDataResult {
     publicFolders,
     publicNotebooks,
     publicDocuments,
+    publicCalendars,
     loading,
     error,
     refreshProfile,

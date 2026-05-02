@@ -48,6 +48,16 @@ export interface PublicDocument {
   updatedAt?: string;
 }
 
+export interface PublicCalendar {
+  id: string;
+  name: string;
+  color: string | null;
+  visibility: "PUBLIC" | "PRIVATE";
+  ownerId: string;
+  creatorId: string;
+  updatedAt?: string;
+}
+
 export interface AdminUser {
   id: string;
   username: string;

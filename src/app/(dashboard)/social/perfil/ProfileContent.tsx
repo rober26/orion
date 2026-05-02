@@ -1,6 +1,5 @@
 "use client";
 
-import { Bell, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 import AdminPanel from "./components/AdminPanel";
 import ProfileEdit from "./components/ProfileEdit";
@@ -13,7 +12,7 @@ import type { UserProfile } from "./types";
 type ProfileTab = "profile" | "security" | "admin" | "system";
 
 export default function ProfileContent() {
-  const { profile, publicProjects, publicFolders, publicNotebooks, publicDocuments, loading, error, refreshProfile } =
+  const { profile, publicProjects, publicFolders, publicNotebooks, publicDocuments, publicCalendars, loading, error, refreshProfile } =
     useProfileData();
   const [tab, setTab] = useState<ProfileTab>("profile");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -78,6 +77,7 @@ export default function ProfileContent() {
             publicFolders={publicFolders}
             publicNotebooks={publicNotebooks}
             publicDocuments={publicDocuments}
+            publicCalendars={publicCalendars}
             onEditClick={() => setIsEditModalOpen(true)}
           />
           <ProfileEdit
@@ -86,23 +86,6 @@ export default function ProfileContent() {
             onClose={() => setIsEditModalOpen(false)}
             onProfileUpdated={handleProfileUpdated}
           />
-          <section className="surface-soft p-5">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">Preparado para más funcionalidades</h3>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-orion-border bg-white p-4 dark:border-orion-dark-border dark:bg-slate-900">
-                <p className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  <Bell size={16} /> Notificaciones
-                </p>
-                <p className="mt-1 text-xs text-slate-500">Estructura lista para ajustes de alertas personales y del sistema.</p>
-              </div>
-              <div className="rounded-xl border border-orion-border bg-white p-4 dark:border-orion-dark-border dark:bg-slate-900">
-                <p className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  <UserPlus size={16} /> Conexiones entre usuarios
-                </p>
-                <p className="mt-1 text-xs text-slate-500">Diseño preparado para mostrar solicitudes y red de conexiones.</p>
-              </div>
-            </div>
-          </section>
         </div>
       )}
 

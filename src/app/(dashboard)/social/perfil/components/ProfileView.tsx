@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { FolderKanban, Globe, Lock, Mail, Pencil, User } from "lucide-react";
-import type { PublicDocument, PublicFolder, PublicNotebook, PublicProject, UserProfile } from "../types";
+import { CalendarDays, FolderKanban, Globe, Lock, Mail, Pencil, User } from "lucide-react";
+import type { PublicCalendar, PublicDocument, PublicFolder, PublicNotebook, PublicProject, UserProfile } from "../types";
 import PublicContentExplorer from "./PublicContentExplorer";
 
 interface ProfileViewProps {
@@ -9,6 +9,7 @@ interface ProfileViewProps {
   publicFolders: PublicFolder[];
   publicNotebooks: PublicNotebook[];
   publicDocuments: PublicDocument[];
+  publicCalendars: PublicCalendar[];
   onEditClick: () => void;
 }
 
@@ -18,6 +19,7 @@ export default function ProfileView({
   publicFolders,
   publicNotebooks,
   publicDocuments,
+  publicCalendars,
   onEditClick,
 }: ProfileViewProps) {
   const visibilityLabel = profile.profileVisibility === "PUBLIC" ? "Perfil publico" : "Perfil privado";
@@ -92,6 +94,26 @@ export default function ProfileView({
                   >
                     {project.name}
                   </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </article>
+
+        <article className="surface-soft p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
+            <CalendarDays size={16} /> Calendarios publicos
+          </h2>
+          {publicCalendars.length === 0 ? (
+            <p className="text-sm text-slate-500">No hay calendarios publicos para mostrar.</p>
+          ) : (
+            <ul className="space-y-2">
+              {publicCalendars.map((calendar) => (
+                <li key={calendar.id}>
+                  <div className="rounded-xl border border-orion-border bg-white px-3 py-2 text-sm font-semibold dark:border-orion-dark-border dark:bg-slate-900">
+                    <span className="inline-block h-2.5 w-2.5 rounded-full mr-2" style={{ backgroundColor: calendar.color || "#2563eb" }} />
+                    {calendar.name}
+                  </div>
                 </li>
               ))}
             </ul>

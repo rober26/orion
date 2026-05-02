@@ -10,7 +10,7 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const [projects, notebooks, folders, documents] = await Promise.all([
+    const [projects, notebooks, folders, documents, calendars] = await Promise.all([
       prisma.project.findMany({
         where: {
           isPublic: true,
@@ -78,9 +78,25 @@ export async function GET() {
           updatedAt: true,
         },
       }),
+      prisma.calendar.findMany({
+        where: {
+          visibility: "PUBLIC",
+          OR: [{ ownerId: sessionUser.userId }, { creatorId: sessionUser.userId }],
+        },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          visibility: true,
+          ownerId: true,
+          creatorId: true,
+          updatedAt: true,
+        },
+      }),
     ]);
 
-    return NextResponse.json({ projects, folders, notebooks, documents });
+    return NextResponse.json({ projects, folders, notebooks, documents, calendars });
   } catch (error) {
     console.error("GET_PUBLIC_PROFILE_CONTENT_ERROR", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
