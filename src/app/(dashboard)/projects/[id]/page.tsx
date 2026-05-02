@@ -23,6 +23,10 @@ interface ProjectDetail {
     documents: number;
     tasks: number;
   };
+  permissions?: {
+    canEdit?: boolean;
+    canManage?: boolean;
+  };
 }
 
 export default function ProjectDashboardPage({ params }: { params: Promise<{ id: string }> }) {
@@ -92,6 +96,11 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
               {project.isArchived && (
                 <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">
                   Archivado
+                </span>
+              )}
+              {!project.permissions?.canEdit && (
+                <span className="rounded-full bg-slate-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                  Solo lectura
                 </span>
               )}
            </div>

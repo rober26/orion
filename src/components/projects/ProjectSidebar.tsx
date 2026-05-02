@@ -19,6 +19,10 @@ interface ProjectDocument {
   title: string | null;
 }
 
+interface ProjectPermissions {
+  canManage?: boolean;
+}
+
 export default function ProjectSidebar() {
   const params = useParams();
   const router = useRouter();
@@ -28,21 +32,27 @@ export default function ProjectSidebar() {
 
   const [projectDocs, setProjectDocs] = useState<ProjectDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [canManage, setCanManage] = useState(false);
 
   useEffect(() => {
     const fetchProjectData = async () => {
       if (!projectId) return;
       try {
         setLoading(true);
-        // Filtramos documentos que pertenezcan a este proyecto
-        const res = await fetch(`/api/notebooks/documents?projectId=${projectId}`);
+        const [res, projectRes] = await Promise.all([
+          fetch(`/api/notebooks/documents?projectId=${projectId}`),
+          fetch(`/api/projects/${projectId}`, { cache: "no-store" }),
+        ]);
         if (!res.ok) {
           throw new Error("No se pudieron cargar los documentos del proyecto");
         }
         const data = await res.json();
+        const projectPayload = (await projectRes.json()) as { permissions?: ProjectPermissions };
         setProjectDocs(Array.isArray(data) ? (data as ProjectDocument[]) : []);
+        setCanManage(Boolean(projectPayload.permissions?.canManage));
       } catch (error) {
         console.error("Error al cargar sidebar del proyecto:", error);
+        setCanManage(false);
       } finally {
         setLoading(false);
       }
@@ -133,14 +143,16 @@ export default function ProjectSidebar() {
       </div>
 
       {/* Footer: Configuración */}
-      <div className="p-4 mt-auto border-t border-orion-border dark:border-orion-dark-border">
-          <SidebarLink 
-            href={`/projects/${projectId}/settings`} 
-            icon={<Settings size={18} />} 
-            label="Ajustes" 
-          active={isActive(`/projects/${projectId}/settings`)} 
-        />
-      </div>
+        {canManage && (
+          <div className="p-4 mt-auto border-t border-orion-border dark:border-orion-dark-border">
+            <SidebarLink
+              href={`/projects/${projectId}/settings`}
+              icon={<Settings size={18} />}
+              label="Ajustes"
+              active={isActive(`/projects/${projectId}/settings`)}
+            />
+          </div>
+        )}
     </div>
   );
 }

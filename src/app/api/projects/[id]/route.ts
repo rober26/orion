@@ -2,7 +2,7 @@ import { ProjectRole } from "@prisma/client";
 import { getSessionUser, type SessionUser } from "@/src/lib/auth";
 import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import prisma from "@/src/lib/prisma";
-import { projectReadWhere } from "@/src/lib/permissions";
+import { canEditProjectContent, projectReadWhere } from "@/src/lib/permissions";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -115,9 +115,18 @@ export async function GET(_req: Request, { params }: RouteParams) {
       project.users.map((member) => member.userId),
     );
 
+    const [canEdit, canManage] = await Promise.all([
+      canEditProjectContent(id, actorUserId),
+      canManageProject(id, actorUserId),
+    ]);
+
     return json({
       ...project,
       membersCount,
+      permissions: {
+        canEdit,
+        canManage,
+      },
     });
   } catch (error) {
     console.error("Error al obtener proyecto:", error);

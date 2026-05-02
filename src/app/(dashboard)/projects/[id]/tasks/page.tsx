@@ -66,6 +66,12 @@ interface ApiError {
   error?: string;
 }
 
+interface ProjectPermissions {
+  permissions?: {
+    canEdit?: boolean;
+  };
+}
+
 interface TaskFormState {
   id: string | null;
   title: string;
@@ -112,6 +118,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
   const [selectedBoardId, setSelectedBoardId] = useState("");
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [canEdit, setCanEdit] = useState(false);
   const [newBoardName, setNewBoardName] = useState("");
   const [newColumnName, setNewColumnName] = useState("");
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -153,14 +160,20 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
     setLoading(true);
     setFeedback(null);
     try {
-      const [boardsRes, membersRes] = await Promise.all([
+      const [boardsRes, membersRes, projectRes] = await Promise.all([
         fetch(`/api/projects/${id}/kanban/boards`),
         fetch(`/api/projects/${id}/members`),
+        fetch(`/api/projects/${id}`, { cache: "no-store" }),
       ]);
 
-      const [boardsPayload, membersPayload] = (await Promise.all([boardsRes.json(), membersRes.json()])) as [
+      const [boardsPayload, membersPayload, projectPayload] = (await Promise.all([
+        boardsRes.json(),
+        membersRes.json(),
+        projectRes.json(),
+      ])) as [
         KanbanBoard[] | ApiError,
         { members?: ProjectMember[] } & ApiError,
+        ProjectPermissions & ApiError,
       ];
 
       if (!boardsRes.ok) {
@@ -171,9 +184,14 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
         throw new Error(membersPayload.error || "No se pudieron cargar los miembros");
       }
 
+      if (!projectRes.ok) {
+        throw new Error(projectPayload.error || "No se pudieron cargar permisos del proyecto");
+      }
+
       const nextBoards = Array.isArray(boardsPayload) ? boardsPayload : [];
       setBoards(nextBoards);
       setMembers(Array.isArray(membersPayload.members) ? membersPayload.members : []);
+      setCanEdit(Boolean(projectPayload.permissions?.canEdit));
 
       if (nextBoards.length > 0) {
         const nextBoardId = nextBoards.some((item) => item.id === selectedBoardId) ? selectedBoardId : nextBoards[0].id;
@@ -185,6 +203,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
       setFeedback(error instanceof Error ? error.message : "No se pudo cargar el tablero");
       setBoards([]);
       setMembers([]);
+      setCanEdit(false);
     } finally {
       setLoading(false);
     }
@@ -418,6 +437,11 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
   };
 
   const onDragEnd = async (event: DragEndEvent) => {
+    if (!canEdit) {
+      setActiveTaskId(null);
+      return;
+    }
+
     const { active, over } = event;
     if (!over || !selectedBoard) {
       setActiveTaskId(null);
@@ -538,6 +562,11 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
   };
 
   const onDragStart = (event: DragStartEvent) => {
+    if (!canEdit) {
+      setActiveTaskId(null);
+      return;
+    }
+
     const activeId = String(event.active.id);
     if (activeId.startsWith("task:")) {
       setActiveTaskId(activeId.replace("task:", ""));
@@ -556,6 +585,11 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
           <header>
             <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Tareas</h1>
             <p className="mt-2 text-slate-500">Tablero personalizable con drag & drop y CRUD completo de tareas.</p>
+            {!canEdit && (
+              <p className="mt-2 inline-flex items-center rounded-full bg-slate-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                Solo lectura
+              </p>
+            )}
           </header>
 
           {feedback && (
@@ -578,38 +612,42 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                 ))}
               </select>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setNewBoardName("");
-                  setIsBoardModalOpen(true);
-                }}
-                disabled={saving}
-                className="btn-primary rounded-xl px-3 py-2 text-sm font-bold disabled:opacity-70"
-              >
-                <Plus size={14} /> Crear tablero
-              </button>
+              {canEdit && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewBoardName("");
+                      setIsBoardModalOpen(true);
+                    }}
+                    disabled={saving}
+                    className="btn-primary rounded-xl px-3 py-2 text-sm font-bold disabled:opacity-70"
+                  >
+                    <Plus size={14} /> Crear tablero
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setNewColumnName("");
-                  setIsColumnModalOpen(true);
-                }}
-                disabled={saving || !selectedBoard}
-                className="rounded-xl border border-orion-border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                <Plus size={14} /> Columna
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewColumnName("");
+                      setIsColumnModalOpen(true);
+                    }}
+                    disabled={saving || !selectedBoard}
+                    className="rounded-xl border border-orion-border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    <Plus size={14} /> Columna
+                  </button>
 
-              <button
-                type="button"
-                onClick={openCreateTaskModal}
-                disabled={saving || !selectedBoard}
-                className="rounded-xl border border-orion-border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                <Plus size={14} /> Nueva tarea
-              </button>
+                  <button
+                    type="button"
+                    onClick={openCreateTaskModal}
+                    disabled={saving || !selectedBoard}
+                    className="rounded-xl border border-orion-border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    <Plus size={14} /> Nueva tarea
+                  </button>
+                </>
+              )}
 
               {isDefaultBoard && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -643,27 +681,30 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                         key={column.id}
                         column={column}
                         onDelete={() => {
-                          if (!DEFAULT_COLUMNS.includes(column.name)) {
+                          if (canEdit && !DEFAULT_COLUMNS.includes(column.name)) {
                             void deleteColumn(column.id);
                           }
                         }}
                         onEditTask={openEditTaskModal}
-                        saving={saving}
+                        saving={saving || !canEdit}
+                        readOnly={!canEdit}
                       />
                     ))}
                   </div>
                 </SortableContext>
               </div>
 
-              <DragOverlay>
-                {activeTask ? <TaskCard task={activeTask} onEdit={() => undefined} draggingOverlay /> : null}
-              </DragOverlay>
+              {canEdit && (
+                <DragOverlay>
+                  {activeTask ? <TaskCard task={activeTask} onEdit={() => undefined} draggingOverlay /> : null}
+                </DragOverlay>
+              )}
             </DndContext>
           )}
         </section>
       </main>
 
-      {isBoardModalOpen && (
+      {canEdit && isBoardModalOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
           <div className="surface-panel w-full max-w-lg rounded-[1.75rem] p-6">
             <div className="mb-4 flex items-center justify-between">
@@ -689,7 +730,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {isColumnModalOpen && selectedBoard && (
+      {canEdit && isColumnModalOpen && selectedBoard && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
           <div className="surface-panel w-full max-w-lg rounded-[1.75rem] p-6">
             <div className="mb-4 flex items-center justify-between">
@@ -715,7 +756,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {isTaskModalOpen && selectedBoard && (
+      {canEdit && isTaskModalOpen && selectedBoard && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
           <div className="surface-panel w-full max-w-2xl rounded-[1.75rem] p-6">
             <div className="mb-5 flex items-start justify-between gap-3">
@@ -906,11 +947,13 @@ function SortableColumn({
   onDelete,
   onEditTask,
   saving,
+  readOnly,
 }: {
   column: KanbanColumn;
   onDelete: () => void;
   onEditTask: (task: TaskItem) => void;
   saving: boolean;
+  readOnly: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `column:${column.id}`,
@@ -922,8 +965,8 @@ function SortableColumn({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 }}
       className="surface-panel w-full rounded-[1.5rem] p-4"
-      {...attributes}
-      {...listeners}
+      {...(!readOnly ? attributes : {})}
+      {...(!readOnly ? listeners : {})}
     >
       <div className="flex items-center justify-between gap-2 mb-4">
         <div className="inline-flex items-center gap-2 min-w-0">
@@ -955,8 +998,10 @@ function SortableColumn({
                 Sin tareas
               </div>
             ) : (
-              column.tasks.map((task) => <SortableTask key={task.id} task={task} onEdit={() => onEditTask(task)} />)
-            )}
+               column.tasks.map((task) => (
+                 <SortableTask key={task.id} task={task} onEdit={() => onEditTask(task)} readOnly={readOnly} />
+               ))
+             )}
           </div>
         </SortableContext>
       </ColumnDropZone>
@@ -964,14 +1009,19 @@ function SortableColumn({
   );
 }
 
-function SortableTask({ task, onEdit }: { task: TaskItem; onEdit: () => void }) {
+function SortableTask({ task, onEdit, readOnly }: { task: TaskItem; onEdit: () => void; readOnly: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task:${task.id}`,
   });
 
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 }} {...attributes} {...listeners}>
-      <TaskCard task={task} onEdit={onEdit} />
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 }}
+      {...(!readOnly ? attributes : {})}
+      {...(!readOnly ? listeners : {})}
+    >
+      <TaskCard task={task} onEdit={onEdit} readOnly={readOnly} />
     </div>
   );
 }
@@ -980,10 +1030,12 @@ function TaskCard({
   task,
   onEdit,
   draggingOverlay = false,
+  readOnly = false,
 }: {
   task: TaskItem;
   onEdit: () => void;
   draggingOverlay?: boolean;
+  readOnly?: boolean;
 }) {
   return (
     <div
@@ -993,7 +1045,7 @@ function TaskCard({
     >
       <div className="flex items-start justify-between gap-2">
         <p className="font-semibold text-slate-900 dark:text-white leading-tight">{task.title}</p>
-        {!draggingOverlay && (
+        {!draggingOverlay && !readOnly && (
           <button
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
