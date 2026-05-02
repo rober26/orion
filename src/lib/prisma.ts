@@ -1,15 +1,38 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from "@prisma/client";
 
-const prismaClientSingleton = () => {
-  return new PrismaClient()
+type GlobalWithPrisma = typeof globalThis & {
+  prisma?: PrismaClient;
+};
+
+const prismaGlobal = globalThis as GlobalWithPrisma;
+
+function createPrismaClient() {
+  return new PrismaClient();
 }
 
-declare global {
-  var prisma: undefined | ReturnType<typeof prismaClientSingleton>
+function hasAiDelegates(client: PrismaClient): boolean {
+  const candidate = client as unknown as {
+    userAiConfig?: unknown;
+    aiConversation?: unknown;
+    aiMessage?: unknown;
+  };
+
+  return Boolean(candidate.userAiConfig && candidate.aiConversation && candidate.aiMessage);
 }
 
-const prisma = globalThis.prisma ?? prismaClientSingleton()
+const cachedClient = prismaGlobal.prisma;
 
-export default prisma
+const prisma =
+  cachedClient && hasAiDelegates(cachedClient)
+    ? cachedClient
+    : createPrismaClient();
 
-if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma
+if (cachedClient && cachedClient !== prisma) {
+  void cachedClient.$disconnect().catch(() => undefined);
+}
+
+if (process.env.NODE_ENV !== "production") {
+  prismaGlobal.prisma = prisma;
+}
+
+export default prisma;

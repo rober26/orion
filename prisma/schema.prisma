@@ -32,6 +32,18 @@ enum NotificationType {
   projectInvite
 }
 
+enum AiProvider {
+  GITHUB_MODELS
+  OPENAI_COMPATIBLE
+  SELF_HOSTED_OPENAI
+}
+
+enum AiMessageRole {
+  system
+  user
+  assistant
+}
+
 enum ProjectRole {
   OWNER
    
@@ -75,6 +87,11 @@ enum ResponseStatus {
   REJECTED
 }
 
+enum CalendarVisibility {
+  PUBLIC
+  PRIVATE
+}
+
 model User {
   id                String               @id @default(uuid()) @db.Uuid
   firstName         String?              @map("first_name") @db.VarChar(50)
@@ -94,6 +111,7 @@ model User {
   connectionsSent   Connection[]         @relation("Requester")
   documentsMember   DocumentUser[]
   documentsCreated  Document[]           @relation("DocumentCreator")
+  quickNotes        QuickNote[]
   eventReminders    EventReminder[]
   eventsMember      EventUser[]
   eventsCreated     Event[]              @relation("EventCreator")
@@ -118,6 +136,13 @@ model User {
   teamsOwned        Team[]               @relation("TeamOwner")
   sessionComments   WorkSessionComment[]
   workSessions      WorkSession[]
+  aiConfig          UserAiConfig?
+  aiConnections     UserAiConnection[]
+  aiConversations   AiConversation[]
+  calendarsOwned    Calendar[]           @relation("CalendarOwner")
+  calendarsCreated  Calendar[]           @relation("CalendarCreator")
+  calendarsMember   CalendarUser[]
+  calendarSettings  UserCalendarSettings?
 
   @@map("users")
 }
@@ -391,6 +416,69 @@ model NotebookFolder {
   @@map("notebook_folders")
 }
 
+model UserAiConnection {
+  id               String           @id @default(uuid()) @db.Uuid
+  userId           String           @map("user_id") @db.Uuid
+  name             String           @db.VarChar(80)
+  provider         AiProvider       @default(OPENAI_COMPATIBLE)
+  model            String           @db.VarChar(100)
+  baseUrl          String?          @map("base_url") @db.VarChar(255)
+  encryptedApiKey  String           @map("encrypted_api_key")
+  requiresApiKey   Boolean          @default(true) @map("requires_api_key")
+  isDefault        Boolean          @default(false) @map("is_default")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations    AiConversation[]
+
+  @@map("user_ai_connections")
+}
+
+model UserAiConfig {
+  id               String      @id @default(uuid()) @db.Uuid
+  userId           String      @unique @map("user_id") @db.Uuid
+  provider         AiProvider  @default(OPENAI_COMPATIBLE)
+  model            String      @db.VarChar(100)
+  baseUrl          String?     @map("base_url") @db.VarChar(255)
+  encryptedApiKey  String      @map("encrypted_api_key")
+  requiresApiKey   Boolean     @default(true) @map("requires_api_key")
+  isActive         Boolean     @default(true) @map("is_active")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_ai_configs")
+}
+
+model AiConversation {
+  id         String      @id @default(uuid()) @db.Uuid
+  userId     String      @map("user_id") @db.Uuid
+  connectionId String?   @map("connection_id") @db.Uuid
+  title      String      @db.VarChar(160)
+  provider   AiProvider  @default(OPENAI_COMPATIBLE)
+  model      String      @db.VarChar(100)
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection UserAiConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  messages   AiMessage[]
+
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String          @id @default(uuid()) @db.Uuid
+  conversationId String          @map("conversation_id") @db.Uuid
+  role           AiMessageRole
+  content        String
+  tokensIn       Int?            @map("tokens_in")
+  tokensOut      Int?            @map("tokens_out")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  conversation   AiConversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_messages")
+}
+
 model NotebookFolderUser {
   id       String     @id @default(uuid()) @db.Uuid
   role     AccessRole @default(READER)
@@ -438,6 +526,24 @@ model Document {
   @@map("documents")
 }
 
+model QuickNote {
+  id         String   @id @default(uuid()) @db.Uuid
+  title      String   @default("") @db.VarChar(120)
+  content    String   @default("")
+  color      String   @default("#fef3c7") @db.VarChar(20)
+  isPinned   Boolean  @default(false) @map("is_pinned")
+  isArchived Boolean  @default(false) @map("is_archived")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  ownerId    String   @map("owner_id") @db.Uuid
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, updatedAt])
+  @@index([ownerId, isPinned, updatedAt])
+  @@index([ownerId, isArchived, updatedAt])
+  @@map("quick_notes")
+}
+
 model DocumentUser {
   id         String     @id @default(uuid()) @db.Uuid
   role       AccessRole @default(READER)
@@ -461,14 +567,61 @@ model Event {
   isAllDay    Boolean         @default(false) @map("is_all_day")
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
-  projectId   String          @map("project_id") @db.Uuid
+  projectId   String?         @map("project_id") @db.Uuid
+  calendarId  String?         @map("calendar_id") @db.Uuid
   creatorId   String          @map("creator_id") @db.Uuid
   reminders   EventReminder[]
   users       EventUser[]
   creator     User            @relation("EventCreator", fields: [creatorId], references: [id])
-  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  calendar    Calendar?       @relation(fields: [calendarId], references: [id], onDelete: Cascade)
 
   @@map("events")
+}
+
+model Calendar {
+  id          String             @id @default(uuid()) @db.Uuid
+  name        String             @db.VarChar(100)
+  color       String?            @db.VarChar(50)
+  visibility  CalendarVisibility @default(PRIVATE)
+  isDefault   Boolean            @default(false) @map("is_default")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+  ownerId     String             @map("owner_id") @db.Uuid
+  creatorId   String             @map("creator_id") @db.Uuid
+  owner       User               @relation("CalendarOwner", fields: [ownerId], references: [id])
+  creator     User               @relation("CalendarCreator", fields: [creatorId], references: [id])
+  users       CalendarUser[]
+  events      Event[]
+
+  @@map("calendars")
+}
+
+model CalendarUser {
+  id         String     @id @default(uuid()) @db.Uuid
+  role       AccessRole @default(READER)
+  invitedBy  String?    @map("invited_by") @db.Uuid
+  joinedAt   DateTime   @default(now()) @map("joined_at")
+  calendarId String     @map("calendar_id") @db.Uuid
+  userId     String     @map("user_id") @db.Uuid
+  calendar   Calendar   @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([calendarId, userId])
+  @@map("calendar_users")
+}
+
+model UserCalendarSettings {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @unique @map("user_id") @db.Uuid
+  visibleCalendarIds Json?    @map("visible_calendar_ids")
+  includeTaskLayer   Boolean  @default(true) @map("include_task_layer")
+  includeProjectLayer Boolean @default(true) @map("include_project_layer")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_calendar_settings")
 }
 
 model EventUser {
