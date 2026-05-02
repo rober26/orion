@@ -10,8 +10,10 @@ export interface CalendarEventItem {
   end: string;
   allDay: boolean;
   sourceType: CalendarSourceType;
-  projectId: string;
-  projectName: string;
+  projectId: string | null;
+  projectName: string | null;
+  calendarId: string | null;
+  calendarName: string | null;
   color: string | null;
   isReadOnly: boolean;
   canReschedule: boolean;
@@ -23,6 +25,29 @@ export interface CalendarProjectItem {
   id: string;
   name: string;
   color: string | null;
+}
+
+export interface UserCalendarItem {
+  id: string;
+  name: string;
+  color: string | null;
+  visibility: "PUBLIC" | "PRIVATE";
+  isDefault: boolean;
+  role: "OWNER" | "EDITOR" | "READER";
+  source: "owned" | "shared";
+}
+
+export interface CalendarMemberItem {
+  user: {
+    id: string;
+    username: string;
+    firstName: string | null;
+    lastName: string | null;
+    avatarUrl: string | null;
+  };
+  role: "OWNER" | "EDITOR" | "READER";
+  joinedAt: string | null;
+  inherited: boolean;
 }
 
 export interface CalendarAttendeeItem {

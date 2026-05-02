@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { CalendarEventItem, CalendarProjectItem, EventTimeMode } from "@/src/components/calendar/types";
+import type { CalendarEventItem, CalendarProjectItem, EventTimeMode, UserCalendarItem } from "@/src/components/calendar/types";
 
 interface EventModalProps {
   open: boolean;
+  calendars: UserCalendarItem[];
   projects: CalendarProjectItem[];
   initialDate: Date;
   editingEvent: CalendarEventItem | null;
@@ -32,10 +33,11 @@ function mergeDateAndTimeToIso(dateValue: string, timeValue: string): string {
   return new Date(`${dateValue}T${timeValue}`).toISOString();
 }
 
-export default function EventModal({ open, projects, initialDate, editingEvent, onClose, onSaved }: EventModalProps) {
+export default function EventModal({ calendars, open, projects, initialDate, editingEvent, onClose, onSaved }: EventModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [calendarId, setCalendarId] = useState("");
   const [projectId, setProjectId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -47,6 +49,7 @@ export default function EventModal({ open, projects, initialDate, editingEvent, 
   const [error, setError] = useState<string | null>(null);
 
   const defaultProjectId = useMemo(() => projects[0]?.id ?? "", [projects]);
+  const defaultCalendarId = useMemo(() => calendars[0]?.id ?? "", [calendars]);
 
   useEffect(() => {
     if (!open) {
@@ -66,7 +69,8 @@ export default function EventModal({ open, projects, initialDate, editingEvent, 
       setTitle(editingEvent.title);
       setDescription(editingEvent.description || "");
       setLocation(editingEvent.location || "");
-      setProjectId(editingEvent.projectId);
+      setCalendarId(editingEvent.calendarId || defaultCalendarId);
+      setProjectId(editingEvent.projectId || "");
       setStartDate(toLocalDatetimeInputValue(start));
       setEndDate(toLocalDatetimeInputValue(end));
       setDayOnlyDate(toLocalDateInputValue(start));
@@ -85,6 +89,7 @@ export default function EventModal({ open, projects, initialDate, editingEvent, 
     setTitle("");
     setDescription("");
     setLocation("");
+    setCalendarId(defaultCalendarId);
     setProjectId(defaultProjectId);
     setStartDate(toLocalDatetimeInputValue(start));
     setEndDate(toLocalDatetimeInputValue(end));
@@ -93,7 +98,7 @@ export default function EventModal({ open, projects, initialDate, editingEvent, 
     setIsAllDay(false);
     setTimeMode("range");
     setError(null);
-  }, [open, initialDate, editingEvent, defaultProjectId]);
+  }, [open, initialDate, editingEvent, defaultProjectId, defaultCalendarId]);
 
   useEffect(() => {
     if (timeMode === "all-day") {
@@ -118,8 +123,8 @@ export default function EventModal({ open, projects, initialDate, editingEvent, 
         throw new Error("El titulo es obligatorio");
       }
 
-      if (!projectId) {
-        throw new Error("Selecciona un proyecto");
+      if (!calendarId && !projectId) {
+        throw new Error("Selecciona un calendario o un proyecto");
       }
 
       let finalStart = fromLocalDatetimeInputValue(startDate);
@@ -137,7 +142,8 @@ export default function EventModal({ open, projects, initialDate, editingEvent, 
         title: title.trim(),
         description: description.trim(),
         location: location.trim(),
-        projectId,
+        calendarId: calendarId || null,
+        projectId: projectId || null,
         startDate: finalStart,
         endDate: finalEnd,
         isAllDay,
@@ -197,7 +203,17 @@ export default function EventModal({ open, projects, initialDate, editingEvent, 
             className="input-orion"
           />
 
+          <select value={calendarId} onChange={(event) => setCalendarId(event.target.value)} className="select-orion">
+            <option value="">Sin calendario</option>
+            {calendars.map((calendar) => (
+              <option key={calendar.id} value={calendar.id}>
+                {calendar.name}
+              </option>
+            ))}
+          </select>
+
           <select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="select-orion">
+            <option value="">Sin proyecto</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.name}

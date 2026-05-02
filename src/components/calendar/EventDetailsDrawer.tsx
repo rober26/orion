@@ -173,7 +173,7 @@ export default function EventDetailsDrawer({ open, event, onClose, onRefresh, on
           <div>
             <p className="text-xs text-slate-500 uppercase">{event.sourceType}</p>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">{event.title}</h3>
-            <p className="text-xs text-slate-500">{event.projectName}</p>
+            <p className="text-xs text-slate-500">{event.calendarName || event.projectName || "Sin fuente"}</p>
           </div>
           <button type="button" className="btn-secondary px-2 py-1" onClick={onClose}>
             Cerrar

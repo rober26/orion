@@ -21,13 +21,13 @@ export default function WeekView({ anchorDate, events, onEventClick }: WeekViewP
     events.filter((event) => eventIntersectsDay(new Date(event.start), new Date(event.end), day));
 
   return (
-    <div className="flex-1 surface-panel rounded-[2rem] overflow-hidden">
+    <div className="flex-1 surface-panel rounded-2xl sm:rounded-[2rem] overflow-hidden min-h-0">
       <div className="grid grid-cols-8 border-b border-orion-border dark:border-orion-dark-border bg-slate-50/60 dark:bg-slate-900/40">
-        <div className="p-2 text-xs text-slate-400">Hora</div>
+        <div className="p-1.5 sm:p-2 text-[10px] sm:text-xs text-slate-400">Hora</div>
         {days.map((day) => (
-          <div key={day.toISOString()} className="p-2 text-center border-l border-orion-border dark:border-orion-dark-border">
-            <p className="text-xs text-slate-400 uppercase">{format(day, "EEE")}</p>
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{format(day, "d")}</p>
+          <div key={day.toISOString()} className="p-1.5 sm:p-2 text-center border-l border-orion-border dark:border-orion-dark-border">
+            <p className="text-[10px] sm:text-xs text-slate-400 uppercase">{format(day, "EEE")}</p>
+            <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200">{format(day, "d")}</p>
           </div>
         ))}
       </div>

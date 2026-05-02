@@ -2,6 +2,7 @@ import { ResponseStatus } from "@prisma/client";
 import { getSessionUser } from "@/src/lib/auth";
 import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import { canEditProjectContent, canViewProject, hasAcceptedConnection } from "@/src/lib/permissions";
+import { canEditCalendarContent, canViewCalendar } from "@/src/lib/calendar-access";
 import prisma from "@/src/lib/prisma";
 import { resolveSessionUserId } from "@/src/lib/session-user";
 
@@ -14,6 +15,7 @@ async function resolveEventAndAccess(eventId: string, actorUserId: string) {
       id: true,
       creatorId: true,
       projectId: true,
+      calendarId: true,
       users: {
         where: { userId: actorUserId },
         select: { id: true },
@@ -26,8 +28,13 @@ async function resolveEventAndAccess(eventId: string, actorUserId: string) {
     return { event: null, canRead: false, canManage: false };
   }
 
-  const canRead = event.users.length > 0 || (await canViewProject(event.projectId, actorUserId));
-  const canManage = await canEditProjectContent(event.projectId, actorUserId);
+  const canRead =
+    event.users.length > 0 ||
+    (event.projectId ? await canViewProject(event.projectId, actorUserId) : false) ||
+    (event.calendarId ? await canViewCalendar(event.calendarId, actorUserId) : false);
+  const canManage =
+    (event.projectId ? await canEditProjectContent(event.projectId, actorUserId) : false) ||
+    (event.calendarId ? await canEditCalendarContent(event.calendarId, actorUserId) : false);
 
   return { event, canRead, canManage };
 }

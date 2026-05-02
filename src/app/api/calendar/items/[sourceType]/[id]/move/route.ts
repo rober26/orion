@@ -1,6 +1,7 @@
 import { getSessionUser } from "@/src/lib/auth";
 import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import { canEditProjectContent } from "@/src/lib/permissions";
+import { canEditCalendarContent } from "@/src/lib/calendar-access";
 import prisma from "@/src/lib/prisma";
 import { resolveSessionUserId } from "@/src/lib/session-user";
 
@@ -29,15 +30,24 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       allDay?: unknown;
       dueDate?: unknown;
       projectId?: unknown;
+      calendarId?: unknown;
     };
 
     const projectId = typeof body.projectId === "string" ? body.projectId : "";
-    if (!projectId) {
-      return badRequest("projectId obligatorio");
+    const calendarId = typeof body.calendarId === "string" ? body.calendarId : "";
+
+    if (!projectId && !calendarId) {
+      return badRequest("projectId o calendarId obligatorio");
     }
 
-    if (!(await canEditProjectContent(projectId, actorUserId))) {
-      return forbidden();
+    if (calendarId) {
+      if (!(await canEditCalendarContent(calendarId, actorUserId))) {
+        return forbidden();
+      }
+    } else if (projectId) {
+      if (!(await canEditProjectContent(projectId, actorUserId))) {
+        return forbidden();
+      }
     }
 
     if (sourceType === "event") {
@@ -53,8 +63,12 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         return badRequest("La fecha de fin no puede ser menor a la de inicio");
       }
 
-      const existing = await prisma.event.findUnique({ where: { id }, select: { projectId: true } });
-      if (!existing || existing.projectId !== projectId) {
+      const existing = await prisma.event.findUnique({ where: { id }, select: { projectId: true, calendarId: true } });
+      if (
+        !existing ||
+        (projectId && existing.projectId !== projectId) ||
+        (calendarId && existing.calendarId !== calendarId)
+      ) {
         return badRequest("Evento no encontrado");
       }
 
@@ -74,7 +88,9 @@ export async function PATCH(req: Request, { params }: RouteParams) {
           endDate: true,
           isAllDay: true,
           projectId: true,
+          calendarId: true,
           project: { select: { name: true, color: true } },
+          calendar: { select: { name: true, color: true } },
         },
       });
 
@@ -88,8 +104,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         allDay: event.isAllDay,
         sourceType: "event",
         projectId: event.projectId,
-        projectName: event.project.name,
-        color: event.project.color,
+        projectName: event.project?.name ?? null,
+        calendarId: event.calendarId,
+        calendarName: event.calendar?.name ?? null,
+        color: event.calendar?.color ?? event.project?.color ?? null,
         isReadOnly: false,
         canReschedule: true,
       });
@@ -128,6 +146,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       sourceType: "task",
       projectId: task.projectId,
       projectName: task.project.name,
+      calendarId: null,
+      calendarName: null,
       color: task.project.color,
       isReadOnly: false,
       canReschedule: true,

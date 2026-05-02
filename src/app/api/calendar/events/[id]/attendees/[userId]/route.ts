@@ -2,6 +2,7 @@ import { ResponseStatus } from "@prisma/client";
 import { getSessionUser } from "@/src/lib/auth";
 import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import { canEditProjectContent, canViewProject } from "@/src/lib/permissions";
+import { canEditCalendarContent, canViewCalendar } from "@/src/lib/calendar-access";
 import prisma from "@/src/lib/prisma";
 import { resolveSessionUserId } from "@/src/lib/session-user";
 
@@ -31,20 +32,26 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     const event = await prisma.event.findUnique({
       where: { id },
-      select: { id: true, projectId: true },
+      select: { id: true, projectId: true, calendarId: true },
     });
 
     if (!event) {
       return badRequest("Evento no encontrado");
     }
 
-    const canManage = await canEditProjectContent(event.projectId, actorUserId);
+    const canManage =
+      (event.projectId ? await canEditProjectContent(event.projectId, actorUserId) : false) ||
+      (event.calendarId ? await canEditCalendarContent(event.calendarId, actorUserId) : false);
     const isSelf = userId === actorUserId;
     if (!canManage && !isSelf) {
       return forbidden();
     }
 
-    if (!canManage && !(await canViewProject(event.projectId, actorUserId))) {
+    const canRead =
+      (event.projectId ? await canViewProject(event.projectId, actorUserId) : false) ||
+      (event.calendarId ? await canViewCalendar(event.calendarId, actorUserId) : false);
+
+    if (!canManage && !canRead) {
       return forbidden();
     }
 
@@ -102,14 +109,16 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
 
     const event = await prisma.event.findUnique({
       where: { id },
-      select: { id: true, projectId: true },
+      select: { id: true, projectId: true, calendarId: true },
     });
 
     if (!event) {
       return badRequest("Evento no encontrado");
     }
 
-    const canManage = await canEditProjectContent(event.projectId, actorUserId);
+    const canManage =
+      (event.projectId ? await canEditProjectContent(event.projectId, actorUserId) : false) ||
+      (event.calendarId ? await canEditCalendarContent(event.calendarId, actorUserId) : false);
     const isSelf = userId === actorUserId;
     if (!canManage && !isSelf) {
       return forbidden();

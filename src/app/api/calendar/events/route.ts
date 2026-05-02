@@ -1,8 +1,9 @@
-import { ProjectRole } from "@prisma/client";
+import { AccessRole, ProjectRole } from "@prisma/client";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
 import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import { canEditProjectContent, projectAccessWhere } from "@/src/lib/permissions";
+import { calendarAccessWhere, canEditCalendarContent, ensureDefaultCalendar } from "@/src/lib/calendar-access";
 import { resolveSessionUserId } from "@/src/lib/session-user";
 
 const EVENT_TITLE_MAX_LENGTH = 100;
@@ -68,8 +69,43 @@ function parseProjectFilter(projectIdRaw: string | null): string | null {
   return value || null;
 }
 
+function parseCalendarFilter(value: string | null): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseFlag(value: string | null, fallback = true): boolean {
+  if (value === null) {
+    return fallback;
+  }
+
+  return value === "true";
+}
+
 function parseBoolean(value: unknown): boolean {
   return value === true;
+}
+
+function isMissingCalendarSchemaError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return false;
+  }
+
+  const code = (error as { code?: unknown }).code;
+  if (code !== "P2021" && code !== "P2022") {
+    return false;
+  }
+
+  const meta = (error as { meta?: unknown }).meta;
+  const metaText = typeof meta === "object" && meta !== null ? JSON.stringify(meta).toLowerCase() : "";
+
+  return metaText.includes("calendar");
 }
 
 export async function GET(req: Request) {
@@ -87,11 +123,25 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const normalized = normalizeDateRange(searchParams.get("from"), searchParams.get("to"));
     const projectFilter = parseProjectFilter(searchParams.get("projectId"));
+    const calendarFilter = parseCalendarFilter(searchParams.get("calendarIds"));
+    const includeTasks = parseFlag(searchParams.get("includeTasks"), true);
+    const includeProjects = parseFlag(searchParams.get("includeProjects"), true);
     if (!normalized) {
       return badRequest("Rango de fechas invalido");
     }
 
     const { from, to } = normalized;
+
+    let calendarFeaturesAvailable = true;
+    try {
+      await ensureDefaultCalendar(actorUserId);
+    } catch (error) {
+      if (isMissingCalendarSchemaError(error)) {
+        calendarFeaturesAvailable = false;
+      } else {
+        throw error;
+      }
+    }
 
     const projects = await prisma.project.findMany({
       where: {
@@ -116,40 +166,115 @@ export async function GET(req: Request) {
     const selectedProjectIds = projectFilter ? projectIds.filter((projectId) => projectId === projectFilter) : projectIds;
     const editableProjectIds = buildProjectPermissionMap(projects, actorUserId);
 
-    if (selectedProjectIds.length === 0) {
+    let selectedCalendarIds: string[] = [];
+    const editableCalendarIds = new Set<string>();
+
+    if (calendarFeaturesAvailable) {
+      try {
+        const calendars = await prisma.calendar.findMany({
+          where: calendarAccessWhere(actorUserId),
+          select: {
+            id: true,
+            name: true,
+            color: true,
+            ownerId: true,
+            creatorId: true,
+            users: {
+              where: { userId: actorUserId },
+              select: { role: true },
+              take: 1,
+            },
+          },
+        });
+
+        const calendarIds = calendars.map((calendar) => calendar.id);
+        selectedCalendarIds = calendarFilter.length > 0 ? calendarIds.filter((id) => calendarFilter.includes(id)) : calendarIds;
+
+        for (const calendar of calendars) {
+          const role = calendar.users[0]?.role;
+          const canEdit =
+            calendar.ownerId === actorUserId ||
+            calendar.creatorId === actorUserId ||
+            role === AccessRole.OWNER ||
+            role === AccessRole.EDITOR;
+
+          if (canEdit) {
+            editableCalendarIds.add(calendar.id);
+          }
+        }
+      } catch (error) {
+        if (isMissingCalendarSchemaError(error)) {
+          calendarFeaturesAvailable = false;
+          selectedCalendarIds = [];
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    if (selectedProjectIds.length === 0 && selectedCalendarIds.length === 0) {
       return json([]);
     }
 
-    const tasks = await prisma.task.findMany({
-      where: {
-        projectId: { in: selectedProjectIds },
-        dueDate: {
-          not: null,
-          gte: from,
-          lte: to,
-        },
-      },
-      select: { id: true, title: true, dueDate: true, projectId: true, project: { select: { name: true, color: true } } },
-    });
+    const tasks = includeTasks
+      ? await prisma.task.findMany({
+          where: {
+            projectId: { in: selectedProjectIds },
+            dueDate: {
+              not: null,
+              gte: from,
+              lte: to,
+            },
+          },
+          select: {
+            id: true,
+            title: true,
+            dueDate: true,
+            projectId: true,
+            project: { select: { name: true, color: true } },
+          },
+        })
+      : [];
 
-    const events = await prisma.event.findMany({
-      where: {
-        projectId: { in: selectedProjectIds },
-        startDate: { lte: to },
-        endDate: { gte: from },
-      },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        location: true,
-        startDate: true,
-        endDate: true,
-        isAllDay: true,
-        projectId: true,
-        project: { select: { name: true, color: true } },
-      },
-    });
+    const events = calendarFeaturesAvailable
+      ? await prisma.event.findMany({
+          where: {
+            OR: [{ calendarId: { in: selectedCalendarIds } }, { projectId: { in: selectedProjectIds } }],
+            startDate: { lte: to },
+            endDate: { gte: from },
+          },
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            location: true,
+            startDate: true,
+            endDate: true,
+            isAllDay: true,
+            projectId: true,
+            calendarId: true,
+            project: { select: { name: true, color: true } },
+            calendar: { select: { name: true, color: true } },
+          },
+        })
+      : await prisma.event.findMany({
+          where: {
+            projectId: { in: selectedProjectIds },
+            startDate: { lte: to },
+            endDate: { gte: from },
+          },
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            location: true,
+            startDate: true,
+            endDate: true,
+            isAllDay: true,
+            projectId: true,
+            project: { select: { name: true, color: true } },
+          },
+        });
 
     const mergedEvents = [
       ...events.map((event) => ({
@@ -162,10 +287,20 @@ export async function GET(req: Request) {
         allDay: event.isAllDay,
         sourceType: "event" as const,
         projectId: event.projectId,
-        projectName: event.project.name,
-        color: event.project.color,
-        isReadOnly: !editableProjectIds.has(event.projectId),
-        canReschedule: editableProjectIds.has(event.projectId),
+        projectName: event.project?.name ?? null,
+        calendarId: ("calendarId" in event ? event.calendarId : null) ?? null,
+        calendarName: ("calendar" in event ? event.calendar?.name : null) ?? null,
+        color: ("calendar" in event ? event.calendar?.color : null) ?? event.project?.color ?? null,
+        isReadOnly: ("calendarId" in event ? event.calendarId : null)
+          ? !editableCalendarIds.has(event.calendarId as string)
+          : event.projectId
+            ? !editableProjectIds.has(event.projectId)
+            : true,
+        canReschedule: ("calendarId" in event ? event.calendarId : null)
+          ? editableCalendarIds.has(event.calendarId as string)
+          : event.projectId
+            ? editableProjectIds.has(event.projectId)
+            : false,
       })),
       ...tasks.flatMap((task) => {
         if (!task.dueDate) {
@@ -184,32 +319,38 @@ export async function GET(req: Request) {
             sourceType: "task" as const,
             projectId: task.projectId,
             projectName: task.project.name,
+            calendarId: null,
+            calendarName: null,
             color: task.project.color,
             isReadOnly: !editableProjectIds.has(task.projectId),
             canReschedule: editableProjectIds.has(task.projectId),
           },
         ];
       }),
-      ...projects
-        .filter(
-          (project) =>
-            selectedProjectIds.includes(project.id) && project.createdAt >= from && project.createdAt <= to,
-        )
-        .map((project) => ({
-          id: project.id,
-          title: project.name,
-          description: null,
-          location: null,
-          start: project.createdAt,
-          end: project.createdAt,
-          allDay: true,
-          sourceType: "project" as const,
-          projectId: project.id,
-          projectName: project.name,
-          color: project.color,
-          isReadOnly: true,
-          canReschedule: false,
-        })),
+      ...(includeProjects
+        ? projects
+            .filter(
+              (project) =>
+                selectedProjectIds.includes(project.id) && project.createdAt >= from && project.createdAt <= to,
+            )
+            .map((project) => ({
+              id: project.id,
+              title: project.name,
+              description: null,
+              location: null,
+              start: project.createdAt,
+              end: project.createdAt,
+              allDay: true,
+              sourceType: "project" as const,
+              projectId: project.id,
+              projectName: project.name,
+              calendarId: null,
+              calendarName: null,
+              color: project.color,
+              isReadOnly: true,
+              canReschedule: false,
+            }))
+        : []),
     ];
 
     mergedEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
@@ -241,12 +382,14 @@ export async function POST(req: Request) {
       endDate?: unknown;
       isAllDay?: unknown;
       projectId?: unknown;
+      calendarId?: unknown;
     };
 
     const title = typeof body.title === "string" ? body.title.trim() : "";
     const description = typeof body.description === "string" ? body.description.trim() : "";
     const location = typeof body.location === "string" ? body.location.trim() : "";
     const projectId = typeof body.projectId === "string" ? body.projectId : "";
+    const calendarId = typeof body.calendarId === "string" ? body.calendarId : "";
 
     if (!title) {
       return badRequest("Titulo obligatorio");
@@ -256,8 +399,8 @@ export async function POST(req: Request) {
       return badRequest("El titulo no puede superar 100 caracteres");
     }
 
-    if (!projectId) {
-      return badRequest("projectId obligatorio");
+    if (!projectId && !calendarId) {
+      return badRequest("calendarId o projectId obligatorio");
     }
 
     const startDate = typeof body.startDate === "string" ? new Date(body.startDate) : null;
@@ -271,8 +414,22 @@ export async function POST(req: Request) {
       return badRequest("La fecha de fin no puede ser menor a la de inicio");
     }
 
-    if (!(await canEditProjectContent(projectId, actorUserId))) {
-      return forbidden();
+    if (calendarId) {
+      try {
+        if (!(await canEditCalendarContent(calendarId, actorUserId))) {
+          return forbidden();
+        }
+      } catch (error) {
+        if (isMissingCalendarSchemaError(error)) {
+          return badRequest("Los calendarios no estan disponibles en esta instalacion");
+        }
+
+        throw error;
+      }
+    } else if (projectId) {
+      if (!(await canEditProjectContent(projectId, actorUserId))) {
+        return forbidden();
+      }
     }
 
     const created = await prisma.event.create({
@@ -283,7 +440,8 @@ export async function POST(req: Request) {
         startDate,
         endDate,
         isAllDay: parseBoolean(body.isAllDay),
-        projectId,
+        projectId: projectId || null,
+        calendarId: calendarId || null,
         creatorId: actorUserId,
       },
       select: {
@@ -295,7 +453,9 @@ export async function POST(req: Request) {
         endDate: true,
         isAllDay: true,
         projectId: true,
+        calendarId: true,
         project: { select: { name: true, color: true } },
+        calendar: { select: { name: true, color: true } },
       },
     });
 
@@ -310,8 +470,10 @@ export async function POST(req: Request) {
         allDay: created.isAllDay,
         sourceType: "event",
         projectId: created.projectId,
-        projectName: created.project.name,
-        color: created.project.color,
+        projectName: created.project?.name ?? null,
+        calendarId: created.calendarId,
+        calendarName: created.calendar?.name ?? null,
+        color: created.calendar?.color ?? created.project?.color ?? null,
         isReadOnly: false,
         canReschedule: true,
       },

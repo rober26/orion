@@ -20,10 +20,10 @@ export default function MonthView({ days, currentMonth, events, onDayClick, onEv
   };
 
   return (
-    <div className="flex-1 flex flex-col surface-panel dark:bg-slate-900/50 rounded-[2.5rem] overflow-hidden shadow-2xl">
+    <div className="flex-1 flex flex-col surface-panel dark:bg-slate-900/50 rounded-2xl sm:rounded-[2.5rem] overflow-hidden shadow-2xl min-h-0">
       <div className="grid grid-cols-7 bg-slate-50/50 dark:bg-slate-800/30 border-b border-orion-border dark:border-orion-dark-border">
         {["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"].map((d) => (
-          <div key={d} className="py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+          <div key={d} className="py-2 sm:py-4 text-center text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
             {d}
           </div>
         ))}
@@ -103,7 +103,7 @@ function MonthDayCell({
       ref={setNodeRef}
       onClick={() => onDayClick(day)}
       className={`
-        min-h-[130px] p-2 border-r border-b border-orion-border dark:border-orion-dark-border group transition-all cursor-pointer
+        min-h-[96px] sm:min-h-[130px] p-1.5 sm:p-2 border-r border-b border-orion-border dark:border-orion-dark-border group transition-all cursor-pointer
         ${!isCurrentMonth ? "bg-slate-50/30 dark:bg-slate-950/10 opacity-35" : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"}
         ${isOver ? "ring-2 ring-orion-primary/40" : ""}
       `}

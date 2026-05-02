@@ -17,15 +17,15 @@ export default function AgendaView({ anchorDate, events, onEventClick }: AgendaV
 
   if (sorted.length === 0) {
     return (
-      <div className="flex-1 surface-panel rounded-[2rem] p-6 text-sm text-slate-500 dark:text-slate-300">
+      <div className="flex-1 surface-panel rounded-2xl sm:rounded-[2rem] p-4 sm:p-6 text-sm text-slate-500 dark:text-slate-300">
         No hay eventos en el rango seleccionado.
       </div>
     );
   }
 
   return (
-    <div className="flex-1 surface-panel rounded-[2rem] overflow-hidden grid grid-cols-1 md:grid-cols-[260px_1fr]">
-      <div className="border-r border-orion-border dark:border-orion-dark-border divide-y divide-orion-border dark:divide-orion-dark-border">
+    <div className="flex-1 surface-panel rounded-2xl sm:rounded-[2rem] overflow-hidden grid grid-cols-1 lg:grid-cols-[260px_1fr] min-h-0">
+      <div className="border-b lg:border-b-0 lg:border-r border-orion-border dark:border-orion-dark-border divide-y divide-orion-border dark:divide-orion-dark-border overflow-x-auto lg:overflow-visible">
         {dropDays.map((day) => (
           <AgendaDropLane key={day.toISOString()} day={day} />
         ))}
@@ -47,7 +47,7 @@ function AgendaDropLane({ day }: { day: Date }) {
   });
 
   return (
-    <div ref={setNodeRef} className={`px-3 py-3 min-h-12 ${isOver ? "bg-orion-primary/10" : ""}`}>
+    <div ref={setNodeRef} className={`px-3 py-2.5 min-h-12 ${isOver ? "bg-orion-primary/10" : ""}`}>
       <p className="text-xs uppercase tracking-wider text-slate-500">{format(day, "EEEE")}</p>
       <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{format(day, "dd/MM")}</p>
     </div>
@@ -86,7 +86,7 @@ function DraggableAgendaEvent({
         {format(new Date(item.start), "dd/MM HH:mm")} - {format(new Date(item.end), "HH:mm")}
       </p>
       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.title}</p>
-      <p className="text-xs text-slate-500 dark:text-slate-300">{item.projectName}</p>
+      <p className="text-xs text-slate-500 dark:text-slate-300">{item.calendarName || item.projectName || "Sin fuente"}</p>
     </button>
   );
 }

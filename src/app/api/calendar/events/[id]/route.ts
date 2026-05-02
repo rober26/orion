@@ -2,6 +2,7 @@ import { ResponseStatus } from "@prisma/client";
 import { getSessionUser } from "@/src/lib/auth";
 import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import { canEditProjectContent, canViewProject } from "@/src/lib/permissions";
+import { canEditCalendarContent, canViewCalendar } from "@/src/lib/calendar-access";
 import prisma from "@/src/lib/prisma";
 import { resolveSessionUserId } from "@/src/lib/session-user";
 
@@ -14,6 +15,7 @@ async function canViewEvent(eventId: string, actorUserId: string): Promise<boole
     where: { id: eventId },
     select: {
       projectId: true,
+      calendarId: true,
       users: {
         where: { userId: actorUserId },
         select: { id: true },
@@ -30,7 +32,15 @@ async function canViewEvent(eventId: string, actorUserId: string): Promise<boole
     return true;
   }
 
-  return canViewProject(event.projectId, actorUserId);
+  if (event.projectId && (await canViewProject(event.projectId, actorUserId))) {
+    return true;
+  }
+
+  if (event.calendarId && (await canViewCalendar(event.calendarId, actorUserId))) {
+    return true;
+  }
+
+  return false;
 }
 
 export async function GET(_req: Request, { params }: RouteParams) {
@@ -61,8 +71,10 @@ export async function GET(_req: Request, { params }: RouteParams) {
         endDate: true,
         isAllDay: true,
         projectId: true,
+        calendarId: true,
         creatorId: true,
         project: { select: { name: true, color: true } },
+        calendar: { select: { name: true, color: true } },
         users: {
           include: {
             user: {
@@ -78,7 +90,9 @@ export async function GET(_req: Request, { params }: RouteParams) {
       return badRequest("Evento no encontrado");
     }
 
-    const canEdit = await canEditProjectContent(event.projectId, actorUserId);
+    const canEdit =
+      (event.projectId ? await canEditProjectContent(event.projectId, actorUserId) : false) ||
+      (event.calendarId ? await canEditCalendarContent(event.calendarId, actorUserId) : false);
 
     return json({
       id: event.id,
@@ -90,8 +104,10 @@ export async function GET(_req: Request, { params }: RouteParams) {
       allDay: event.isAllDay,
       sourceType: "event",
       projectId: event.projectId,
-      projectName: event.project.name,
-      color: event.project.color,
+      projectName: event.project?.name ?? null,
+      calendarId: event.calendarId,
+      calendarName: event.calendar?.name ?? null,
+      color: event.calendar?.color ?? event.project?.color ?? null,
       isReadOnly: !canEdit,
       canReschedule: canEdit,
       creatorId: event.creatorId,
@@ -124,14 +140,18 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     const existing = await prisma.event.findUnique({
       where: { id },
-      select: { id: true, projectId: true, startDate: true, endDate: true },
+      select: { id: true, projectId: true, calendarId: true, startDate: true, endDate: true },
     });
 
     if (!existing) {
       return badRequest("Evento no encontrado");
     }
 
-    if (!(await canEditProjectContent(existing.projectId, actorUserId))) {
+    const canEdit =
+      (existing.projectId ? await canEditProjectContent(existing.projectId, actorUserId) : false) ||
+      (existing.calendarId ? await canEditCalendarContent(existing.calendarId, actorUserId) : false);
+
+    if (!canEdit) {
       return forbidden();
     }
 
@@ -192,7 +212,9 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         endDate: true,
         isAllDay: true,
         projectId: true,
+        calendarId: true,
         project: { select: { name: true, color: true } },
+        calendar: { select: { name: true, color: true } },
       },
     });
 
@@ -206,8 +228,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       allDay: updated.isAllDay,
       sourceType: "event",
       projectId: updated.projectId,
-      projectName: updated.project.name,
-      color: updated.project.color,
+      projectName: updated.project?.name ?? null,
+      calendarId: updated.calendarId,
+      calendarName: updated.calendar?.name ?? null,
+      color: updated.calendar?.color ?? updated.project?.color ?? null,
       isReadOnly: false,
       canReschedule: true,
     });
@@ -232,14 +256,18 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
     const { id } = await params;
     const existing = await prisma.event.findUnique({
       where: { id },
-      select: { projectId: true },
+      select: { projectId: true, calendarId: true },
     });
 
     if (!existing) {
       return badRequest("Evento no encontrado");
     }
 
-    if (!(await canEditProjectContent(existing.projectId, actorUserId))) {
+    const canEdit =
+      (existing.projectId ? await canEditProjectContent(existing.projectId, actorUserId) : false) ||
+      (existing.calendarId ? await canEditCalendarContent(existing.calendarId, actorUserId) : false);
+
+    if (!canEdit) {
       return forbidden();
     }
 
