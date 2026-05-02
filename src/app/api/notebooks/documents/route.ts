@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
-import { documentAccessWhere, notebookAccessWhere, notebookEditorWhere, projectAccessWhere } from "@/src/lib/permissions";
+import {
+  canEditProjectContent,
+  canViewProject,
+  documentAccessWhere,
+  notebookAccessWhere,
+  notebookEditorWhere,
+  projectReadWhere,
+} from "@/src/lib/permissions";
 
 export async function GET(req: Request) {
   try {
@@ -30,15 +37,7 @@ export async function GET(req: Request) {
     }
 
     if (projectId) {
-      const canAccessProject = await prisma.project.findFirst({
-        where: {
-          id: projectId,
-          ...projectAccessWhere(sessionUser.userId),
-        },
-        select: { id: true },
-      });
-
-      if (!canAccessProject) {
+      if (!(await canViewProject(projectId, sessionUser.userId))) {
         return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
       }
     }
@@ -48,7 +47,7 @@ export async function GET(req: Request) {
     const where = projectId
       ? {
           projectId,
-          OR: [{ creatorId: sessionUser.userId }, { project: projectAccessWhere(sessionUser.userId) }],
+          OR: [{ creatorId: sessionUser.userId }, { project: projectReadWhere(sessionUser.userId) }],
         }
       : {
           projectId: null,
@@ -151,15 +150,7 @@ export async function POST(req: Request) {
     }
 
     if (projectId) {
-      const canUseProject = await prisma.project.findFirst({
-        where: {
-          id: projectId,
-          ...projectAccessWhere(sessionUser.userId),
-        },
-        select: { id: true },
-      });
-
-      if (!canUseProject) {
+      if (!(await canEditProjectContent(projectId, sessionUser.userId))) {
         return NextResponse.json({ error: "Acceso denegado al proyecto" }, { status: 403 });
       }
     }

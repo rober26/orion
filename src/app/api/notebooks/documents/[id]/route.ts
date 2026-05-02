@@ -55,12 +55,13 @@ export async function GET(
       select: { role: true },
     });
 
+    const editableDocument = await findEditableDocument(id, sessionUser.userId);
+    const canEdit = Boolean(editableDocument);
+
     const response = {
       ...document,
       currentUserRole:
-        document.creatorId === sessionUser.userId
-          ? "OWNER"
-          : directMembership?.role ?? (document.isPublic ? "READER" : null),
+        document.creatorId === sessionUser.userId ? "OWNER" : canEdit ? directMembership?.role ?? "EDITOR" : "READER",
       isSharedWithMe: document.creatorId !== sessionUser.userId && Boolean(directMembership),
     };
 

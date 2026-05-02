@@ -14,7 +14,6 @@ export async function GET() {
 
     const folders = await prisma.notebookFolder.findMany({
       where: {
-        projectId: null,
         OR: [
           baseAccess,
           {
