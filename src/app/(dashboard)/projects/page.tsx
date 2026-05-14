@@ -294,13 +294,14 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <header className="flex justify-between items-center mb-10">
+    <div className="app-page">
+      <div className="app-page-content">
+      <header className="page-head flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+          <h1 className="page-title leading-none">
             Proyectos
           </h1>
-          <p className="text-slate-500 mt-2 text-lg">
+          <p className="page-subtitle">
             Gestiona tus espacios de trabajo y objetivos.
           </p>
         </div>
@@ -308,20 +309,20 @@ export default function ProjectsPage() {
         <button 
           onClick={openCreateModal}
           disabled={isCreating}
-          className="btn-primary px-6 py-3 rounded-2xl font-bold shadow-lg shadow-blue-500/20 disabled:cursor-not-allowed"
+          className="btn-primary px-6 py-3 rounded-2xl font-bold disabled:cursor-not-allowed"
         >
           <Plus size={20} />
           Nuevo Proyecto
         </button>
       </header>
 
-      <div className="mb-6 flex flex-wrap items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         {PROJECT_STATUS_FILTERS.map((filterOption) => (
           <button
             key={filterOption.value}
             type="button"
             onClick={() => setStatusFilter(filterOption.value)}
-            className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${
+            className={`filter-chip ${
               statusFilter === filterOption.value
                 ? "bg-orion-primary text-white"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
@@ -338,13 +339,13 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
            [1, 2, 3].map((i) => (
-             <div key={i} className="h-44 surface-soft animate-pulse rounded-[2rem]" />
+             <div key={i} className="h-44 animate-pulse rounded-3xl bg-slate-100 dark:bg-slate-800" />
             ))
         ) : projects.length === 0 ? (
-          <div className="col-span-full py-20 text-center border-2 border-dashed border-orion-border dark:border-orion-dark-border rounded-[2rem]">
+          <div className="col-span-full rounded-3xl border-2 border-dashed border-orion-border py-20 text-center dark:border-orion-dark-border">
             <FolderKanban className="mx-auto text-slate-300 mb-4" size={48} />
             <p className="text-slate-500 font-medium">No hay proyectos todavía. ¡Crea el primero!</p>
           </div>
@@ -357,7 +358,7 @@ export default function ProjectsPage() {
                 setOpenMenu(project.id);
               }}
               onClick={() => router.push(`/projects/${project.id}`)}
-                className="group surface-panel p-6 rounded-[2rem] hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden"
+                className="group surface-panel relative cursor-pointer overflow-hidden rounded-3xl p-6 transition-all hover:-translate-y-1 hover:shadow-xl"
               >
             <div 
                 className="absolute top-0 left-0 w-2 h-full transition-all group-hover:w-3" 
@@ -380,7 +381,7 @@ export default function ProjectsPage() {
                      <MoreHorizontal size={16} />
                    </button>
                    {openMenu === project.id && (
-                     <div className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-xl border border-orion-border bg-white shadow-xl dark:border-orion-dark-border dark:bg-slate-900">
+                      <div className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-2xl border border-orion-border bg-white shadow-xl dark:border-orion-dark-border dark:bg-slate-900">
                        <button
                          type="button"
                          onClick={(event) => {
@@ -447,8 +448,8 @@ export default function ProjectsPage() {
       </div>
 
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
-          <div className="surface-panel w-full max-w-xl rounded-[2rem] p-6 sm:p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="surface-panel w-full max-w-xl rounded-3xl p-6 sm:p-8">
             <div className="flex items-start justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white">Crear proyecto</h2>
@@ -501,7 +502,7 @@ export default function ProjectsPage() {
                 type="button"
                 onClick={closeCreateModal}
                 disabled={isCreating}
-                className="rounded-xl border border-orion-border px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-200 dark:hover:bg-slate-800"
+                className="btn-secondary text-sm"
               >
                 Cancelar
               </button>
@@ -526,8 +527,8 @@ export default function ProjectsPage() {
       )}
 
       {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
-          <div className="surface-panel w-full max-w-xl rounded-[2rem] p-6 sm:p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="surface-panel w-full max-w-xl rounded-3xl p-6 sm:p-8">
             <div className="flex items-start justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white">Editar proyecto</h2>
@@ -578,7 +579,7 @@ export default function ProjectsPage() {
                 type="button"
                 onClick={closeEditModal}
                 disabled={isCreating}
-                className="rounded-xl border border-orion-border px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-200 dark:hover:bg-slate-800"
+                className="btn-secondary text-sm"
               >
                 Cancelar
               </button>
@@ -603,11 +604,11 @@ export default function ProjectsPage() {
       )}
 
       {projectToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
-          <div className="surface-panel w-full max-w-md rounded-[2rem] p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="surface-panel w-full max-w-md rounded-3xl p-6">
             <h2 className="text-xl font-black text-slate-900 dark:text-white">Eliminar proyecto</h2>
             <p className="mt-2 text-sm text-slate-500">
-              Se eliminara definitivamente <span className="font-semibold text-slate-700 dark:text-slate-200">"{projectToDelete.name}"</span>. Esta accion no se puede deshacer.
+              Se eliminara definitivamente <span className="font-semibold text-slate-700 dark:text-slate-200">{projectToDelete.name}</span>. Esta accion no se puede deshacer.
             </p>
 
             <div className="mt-6 flex items-center justify-end gap-3">
@@ -615,7 +616,7 @@ export default function ProjectsPage() {
                 type="button"
                 onClick={() => setProjectToDelete(null)}
                 disabled={isUpdatingProject === projectToDelete.id}
-                className="rounded-xl border border-orion-border px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-200 dark:hover:bg-slate-800"
+                className="btn-secondary text-sm"
               >
                 Cancelar
               </button>
@@ -637,6 +638,7 @@ export default function ProjectsPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -207,15 +207,16 @@ export default function NotesPage() {
   }, []);
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto">
-      <div className="mx-auto w-full max-w-[1700px] p-4 sm:p-6 lg:p-8 space-y-5">
-        <section className="surface-panel rounded-[2rem] border-none p-5 sm:p-6 bg-gradient-to-r from-amber-300/70 via-orange-200/80 to-yellow-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
+    <div className="app-page">
+      <div className="app-page-content">
+        <section className="page-head bg-gradient-to-r from-amber-300/65 via-orange-200/70 to-yellow-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
           <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Notas</h1>
+            <h1 className="page-title">Notas</h1>
+            <p className="page-subtitle">Captura ideas, organiza pendientes y recupera contexto rapido.</p>
           </div>
         </section>
 
-        <section className="surface-panel rounded-[2rem] p-4 sm:p-5 space-y-3">
+        <section className="section-panel space-y-3">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3">
             <div className="space-y-2">
               <input
@@ -281,7 +282,7 @@ export default function NotesPage() {
                 key={item.id}
                 type="button"
                 onClick={() => setFilter(item.id)}
-                className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${
+                className={`filter-chip ${
                   filter === item.id
                     ? "bg-orion-primary text-white"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
@@ -317,17 +318,17 @@ export default function NotesPage() {
             ))}
           </div>
         ) : notes.length === 0 ? (
-          <div className="rounded-[2rem] border-2 border-dashed border-orion-border dark:border-orion-dark-border px-6 py-16 text-center">
+          <div className="rounded-3xl border-2 border-dashed border-orion-border px-6 py-16 text-center dark:border-orion-dark-border">
             <p className="text-slate-500 font-medium">Aun no hay notas en esta vista.</p>
           </div>
         ) : (
           <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-3 [column-fill:_balance]">
             {notes.map((note) => (
-              <article
-                key={note.id}
-                className="mb-3 break-inside-avoid rounded-2xl border border-black/10 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-                style={{ backgroundColor: note.color }}
-              >
+               <article
+                 key={note.id}
+                 className="mb-3 break-inside-avoid rounded-3xl border border-black/10 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                 style={{ backgroundColor: note.color }}
+               >
                 <div className="mb-2 flex items-start gap-2">
                   <button
                     type="button"
@@ -462,8 +463,8 @@ function EditNoteModal({
   }, [note]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl rounded-[2rem] border border-black/10 shadow-2xl" style={{ backgroundColor: color }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-3xl border border-black/10 shadow-2xl" style={{ backgroundColor: color }}>
         <div className="flex items-center justify-between gap-3 border-b border-black/10 px-5 py-4">
           <h2 className="text-lg font-black text-slate-900">Editar nota</h2>
           <button type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-black/5" aria-label="Cerrar">

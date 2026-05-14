@@ -162,34 +162,35 @@ export default function ConnectionsPage() {
   }, [connections, tab]);
 
   return (
-    <div className="h-full overflow-hidden surface-panel rounded-[2rem] p-6 md:p-8 flex flex-col gap-6 bg-slate-900">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">Conexiones</h1>
-        <p className="text-slate-300 max-w-2xl">Invita usuarios, acepta solicitudes y usa estas conexiones para compartir carpetas, notebooks y documentos.</p>
+    <div className="app-page">
+      <div className="app-page-content">
+      <div className="page-head bg-gradient-to-r from-cyan-100 to-sky-50 dark:from-slate-900 dark:to-slate-800">
+        <h1 className="page-title">Conexiones</h1>
+        <p className="page-subtitle max-w-2xl">Invita usuarios, acepta solicitudes y comparte recursos con tus contactos.</p>
       </div>
 
-      <div className="rounded-2xl border border-orion-border dark:border-orion-dark-border p-4 md:p-5 space-y-4 bg-slate-900/80">
-        <p className="text-xs uppercase tracking-widest font-bold text-slate-400">Buscar personas</p>
+      <div className="section-panel space-y-4">
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Buscar personas</p>
         <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Buscar por username, email o nombre"
-            className="w-full input-orion pl-9"
+            className="input-orion w-full pl-9"
           />
         </div>
         {query.trim().length >= 2 && (
-          <div className="rounded-xl border border-orion-border dark:border-orion-dark-border divide-y divide-orion-border dark:divide-orion-dark-border max-h-56 overflow-y-auto">
+          <div className="max-h-56 overflow-y-auto divide-y divide-orion-border rounded-2xl border border-orion-border dark:divide-orion-dark-border dark:border-orion-dark-border">
             {searching ? (
-              <div className="p-3 text-sm text-slate-300 flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Buscando...</div>
+              <div className="flex items-center gap-2 p-3 text-sm text-slate-500 dark:text-slate-300"><Loader2 size={14} className="animate-spin" /> Buscando...</div>
             ) : results.length === 0 ? (
-              <div className="p-3 text-sm text-slate-400">No hay resultados.</div>
+              <div className="p-3 text-sm text-slate-500 dark:text-slate-400">No hay resultados.</div>
             ) : (
               results.map((user) => (
                 <div key={user.id} className="p-3 flex items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold text-white">{displayName(user)}</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">{displayName(user)}</p>
                     <p className="text-xs text-slate-400">@{user.username}</p>
                   </div>
                   {user.connectionStatus === "ACCEPTED" ? (
@@ -219,25 +220,25 @@ export default function ConnectionsPage() {
         <TabButton label={`Pendientes (${connections.incomingPending.length})`} active={tab === "incoming"} onClick={() => setTab("incoming")} />
       </div>
 
-      <div className="flex-1 min-h-0 rounded-2xl border border-orion-border dark:border-orion-dark-border bg-slate-900/70 overflow-y-auto divide-y divide-orion-border dark:divide-orion-dark-border">
+      <div className="surface-panel flex-1 min-h-0 overflow-y-auto divide-y divide-orion-border rounded-3xl border border-orion-border dark:divide-orion-dark-border dark:border-orion-dark-border">
         {loading ? (
-          <div className="h-full min-h-[220px] flex items-center justify-center text-slate-300 gap-2">
+          <div className="flex h-full min-h-[220px] items-center justify-center gap-2 text-slate-500 dark:text-slate-300">
             <Loader2 size={16} className="animate-spin" /> Cargando conexiones...
           </div>
         ) : activeList.length === 0 ? (
-          <div className="h-full min-h-[220px] flex items-center justify-center text-slate-400 gap-2">
+          <div className="flex h-full min-h-[220px] items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
             <Users size={16} /> No hay elementos en esta vista.
           </div>
         ) : (
           activeList.map((item) => (
             <div key={item.id} className="p-4 flex items-center justify-between gap-3">
               <div>
-                <Link
-                  href={`/social/perfil/${item.user.id}`}
-                  className="font-semibold text-white hover:text-blue-300 transition-colors"
-                >
-                  {displayName(item.user)}
-                </Link>
+                  <Link
+                    href={`/social/perfil/${item.user.id}`}
+                    className="font-semibold text-slate-900 transition-colors hover:text-blue-600 dark:text-white dark:hover:text-blue-300"
+                  >
+                    {displayName(item.user)}
+                  </Link>
                 <p className="text-xs text-slate-400">@{item.user.username}</p>
               </div>
 
@@ -281,6 +282,7 @@ export default function ConnectionsPage() {
           ))
         )}
       </div>
+      </div>
     </div>
   );
 }
@@ -290,10 +292,10 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-2 rounded-lg border transition-colors ${
+      className={`rounded-lg border px-3 py-2 transition-colors ${
         active
-          ? "border-orion-primary bg-orion-primary/20 text-white"
-          : "border-orion-border dark:border-orion-dark-border text-slate-300 hover:bg-slate-800"
+          ? "border-orion-primary bg-orion-primary-soft text-orion-primary dark:bg-orion-primary/25 dark:text-blue-100"
+          : "border-orion-border text-slate-600 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-300 dark:hover:bg-slate-800"
       }`}
     >
       {label}

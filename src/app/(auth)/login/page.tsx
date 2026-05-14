@@ -47,21 +47,22 @@ function LoginContent() {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Iniciar Sesión</h2>
+        <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Iniciar sesion</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-300">Accede para continuar en tu espacio de trabajo.</p>
         {message && (
-          <p className="mt-2 rounded bg-green-50 p-2 text-sm text-green-600 dark:bg-green-900/30">{message}</p>
+          <p className="mt-3 rounded-xl bg-green-50 p-2 text-sm text-green-600 dark:bg-green-900/30">{message}</p>
         )}
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-500 dark:border-red-800 dark:bg-red-900/30">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-500 dark:border-red-800 dark:bg-red-900/30">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Correo Electrónico</label>
+          <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-300">Correo electronico</label>
           <input
             type="email"
             name="email"
@@ -73,7 +74,7 @@ function LoginContent() {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Contraseña</label>
+          <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-300">Contrasena</label>
           <input
             type="password"
             name="password"
@@ -84,7 +85,7 @@ function LoginContent() {
           />
         </div>
 
-        <button disabled={loading} type="submit" className="btn-primary w-full py-2.5 shadow-lg shadow-blue-500/20">
+        <button disabled={loading} type="submit" className="btn-primary w-full py-2.5">
           {loading ? "Verificando..." : "Entrar a Orion"}
         </button>
       </form>
