@@ -306,40 +306,41 @@ export default function ProjectsPage() {
           </p>
         </div>
         
-        <button 
+        <button
           onClick={openCreateModal}
           disabled={isCreating}
-          className="btn-primary px-6 py-3 rounded-2xl font-bold disabled:cursor-not-allowed"
+          className="btn-primary min-h-10 px-6 py-3 rounded-2xl font-bold disabled:cursor-not-allowed"
         >
           <Plus size={20} />
           Nuevo Proyecto
         </button>
       </header>
 
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        {PROJECT_STATUS_FILTERS.map((filterOption) => (
-          <button
-            key={filterOption.value}
-            type="button"
-            onClick={() => setStatusFilter(filterOption.value)}
-            className={`filter-chip ${
-              statusFilter === filterOption.value
-                ? "bg-orion-primary text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
-            }`}
-          >
-            {filterOption.label}
-          </button>
-        ))}
-      </div>
-
-      {listError && (
-        <div className="mb-6 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
-          {listError}
+      <section className="section-panel space-y-5">
+        <div className="flex flex-wrap items-center gap-2">
+          {PROJECT_STATUS_FILTERS.map((filterOption) => (
+            <button
+              key={filterOption.value}
+              type="button"
+              onClick={() => setStatusFilter(filterOption.value)}
+              className={`filter-chip min-h-10 ${
+                statusFilter === filterOption.value
+                  ? "bg-orion-primary text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+              }`}
+            >
+              {filterOption.label}
+            </button>
+          ))}
         </div>
-      )}
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+        {listError && (
+          <div className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
+            {listError}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
            [1, 2, 3].map((i) => (
              <div key={i} className="h-44 animate-pulse rounded-3xl bg-slate-100 dark:bg-slate-800" />
@@ -371,15 +372,18 @@ export default function ProjectsPage() {
                   </div>
                  <div className="relative" data-project-menu="true">
                    <button
-                     type="button"
-                     onClick={(event) => {
-                       event.stopPropagation();
-                       setOpenMenu((prev) => (prev === project.id ? null : project.id));
-                     }}
-                     className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-white"
-                   >
-                     <MoreHorizontal size={16} />
-                   </button>
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenMenu((prev) => (prev === project.id ? null : project.id));
+                      }}
+                      className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-white"
+                      aria-haspopup="menu"
+                      aria-expanded={openMenu === project.id}
+                      aria-label={`Acciones de ${project.name}`}
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
                    {openMenu === project.id && (
                       <div className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-2xl border border-orion-border bg-white shadow-xl dark:border-orion-dark-border dark:bg-slate-900">
                        <button
@@ -422,7 +426,7 @@ export default function ProjectsPage() {
                  </div>
                 </div>
 
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2 truncate">
+                <h3 className="mb-2 text-xl font-bold text-slate-900 dark:text-white truncate">
                   {project.name}
                 </h3>
 
@@ -432,20 +436,21 @@ export default function ProjectsPage() {
                  </span>
                )}
                 
-                <div className="flex items-center gap-4 mt-6 pt-4 border-t border-slate-100 dark:border-orion-dark-border text-xs font-bold text-slate-400">
-                 <span className="flex items-center gap-1.5">
-                   <LayoutGrid size={14} className="text-purple-400" /> 
-                   {project._count?.tasks || 0} Tareas
-                 </span>
+                 <div className="mt-6 flex items-center gap-4 border-t border-slate-100 pt-4 text-xs font-bold text-slate-500 dark:border-orion-dark-border">
+                  <span className="flex items-center gap-1.5">
+                    <LayoutGrid size={14} className="text-orion-primary" />
+                    {project._count?.tasks || 0} Tareas
+                  </span>
                  <span className="flex items-center gap-1.5">
                    <Users size={14} className="text-emerald-500" />
                    {(project._count?.users || 0) + 1} Usuarios
                  </span>
                </div>
-             </div>
-          ))
+              </div>
+           ))
         )}
-      </div>
+        </div>
+      </section>
 
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
@@ -453,14 +458,14 @@ export default function ProjectsPage() {
             <div className="flex items-start justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white">Crear proyecto</h2>
-                <p className="text-sm text-slate-500 mt-1">Define un nombre y una descripcion para tu nuevo espacio.</p>
+                 <p className="mt-1 text-sm text-slate-500">Define un nombre y una descripción para tu nuevo espacio.</p>
               </div>
               <button
                 onClick={closeCreateModal}
                 disabled={isCreating}
-                className="icon-btn rounded-xl text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white"
-                aria-label="Cerrar modal"
-              >
+                  className="icon-btn min-h-10 rounded-xl text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white"
+                  aria-label="Cerrar modal"
+                >
                 <X size={18} />
               </button>
             </div>
@@ -480,7 +485,7 @@ export default function ProjectsPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Descripcion</span>
+                 <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Descripción</span>
                 <textarea
                   value={newProjectDescription}
                   onChange={(event) => setNewProjectDescription(event.target.value)}
@@ -502,7 +507,7 @@ export default function ProjectsPage() {
                 type="button"
                 onClick={closeCreateModal}
                 disabled={isCreating}
-                className="btn-secondary text-sm"
+                 className="btn-secondary min-h-10 text-sm"
               >
                 Cancelar
               </button>
@@ -510,7 +515,7 @@ export default function ProjectsPage() {
                 type="button"
                 onClick={handleCreateProject}
                 disabled={isCreating}
-                className="btn-primary rounded-xl px-5 py-2.5 text-sm font-bold disabled:cursor-not-allowed"
+                 className="btn-primary min-h-10 rounded-xl px-5 py-2.5 text-sm font-bold disabled:cursor-not-allowed"
               >
                 {isCreating ? (
                   <span className="inline-flex items-center gap-2">
@@ -532,14 +537,14 @@ export default function ProjectsPage() {
             <div className="flex items-start justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white">Editar proyecto</h2>
-                <p className="text-sm text-slate-500 mt-1">Actualiza nombre y descripcion.</p>
+                 <p className="mt-1 text-sm text-slate-500">Actualiza nombre y descripción.</p>
               </div>
               <button
                 onClick={closeEditModal}
                 disabled={isCreating}
-                className="icon-btn rounded-xl text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white"
-                aria-label="Cerrar modal"
-              >
+                  className="icon-btn min-h-10 rounded-xl text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white"
+                  aria-label="Cerrar modal"
+                >
                 <X size={18} />
               </button>
             </div>
@@ -558,7 +563,7 @@ export default function ProjectsPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Descripcion</span>
+                 <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Descripción</span>
                 <textarea
                   value={editProjectDescription}
                   onChange={(event) => setEditProjectDescription(event.target.value)}
@@ -579,7 +584,7 @@ export default function ProjectsPage() {
                 type="button"
                 onClick={closeEditModal}
                 disabled={isCreating}
-                className="btn-secondary text-sm"
+                 className="btn-secondary min-h-10 text-sm"
               >
                 Cancelar
               </button>
@@ -587,7 +592,7 @@ export default function ProjectsPage() {
                 type="button"
                 onClick={saveProjectEdit}
                 disabled={isCreating}
-                className="btn-primary rounded-xl px-5 py-2.5 text-sm font-bold disabled:cursor-not-allowed"
+                 className="btn-primary min-h-10 rounded-xl px-5 py-2.5 text-sm font-bold disabled:cursor-not-allowed"
               >
                 {isCreating ? (
                   <span className="inline-flex items-center gap-2">
@@ -608,7 +613,7 @@ export default function ProjectsPage() {
           <div className="surface-panel w-full max-w-md rounded-3xl p-6">
             <h2 className="text-xl font-black text-slate-900 dark:text-white">Eliminar proyecto</h2>
             <p className="mt-2 text-sm text-slate-500">
-              Se eliminara definitivamente <span className="font-semibold text-slate-700 dark:text-slate-200">{projectToDelete.name}</span>. Esta accion no se puede deshacer.
+               Se eliminará definitivamente <span className="font-semibold text-slate-700 dark:text-slate-200">{projectToDelete.name}</span>. Esta acción no se puede deshacer.
             </p>
 
             <div className="mt-6 flex items-center justify-end gap-3">
@@ -616,7 +621,7 @@ export default function ProjectsPage() {
                 type="button"
                 onClick={() => setProjectToDelete(null)}
                 disabled={isUpdatingProject === projectToDelete.id}
-                className="btn-secondary text-sm"
+                 className="btn-secondary min-h-10 text-sm"
               >
                 Cancelar
               </button>

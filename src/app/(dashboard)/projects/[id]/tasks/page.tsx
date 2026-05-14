@@ -325,7 +325,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
   const saveTask = async () => {
     const title = taskForm.title.trim();
     if (!title) {
-      setFeedback("El titulo de la tarea es obligatorio");
+      setFeedback("El título de la tarea es obligatorio");
       return;
     }
 
@@ -582,9 +582,9 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
 
       <main className="flex-1 overflow-y-auto p-6 lg:p-8">
         <section className="w-full space-y-6">
-          <header>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Tareas</h1>
-            <p className="mt-2 text-slate-500">Tablero personalizable con drag & drop y CRUD completo de tareas.</p>
+          <header className="page-head">
+            <h1 className="page-title">Tareas</h1>
+            <p className="page-subtitle">Tablero personalizable con drag & drop y CRUD completo de tareas.</p>
             {!canEdit && (
               <p className="mt-2 inline-flex items-center rounded-full bg-slate-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                 Solo lectura
@@ -598,7 +598,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
             </div>
           )}
 
-          <div className="surface-panel rounded-[1.75rem] p-5 space-y-4">
+          <div className="section-panel space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={selectedBoardId}
@@ -633,7 +633,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                       setIsColumnModalOpen(true);
                     }}
                     disabled={saving || !selectedBoard}
-                    className="rounded-xl border border-orion-border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-200 dark:hover:bg-slate-800"
+                    className="btn-secondary text-sm"
                   >
                     <Plus size={14} /> Columna
                   </button>
@@ -642,7 +642,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                     type="button"
                     onClick={openCreateTaskModal}
                     disabled={saving || !selectedBoard}
-                    className="rounded-xl border border-orion-border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-200 dark:hover:bg-slate-800"
+                    className="btn-secondary text-sm"
                   >
                     <Plus size={14} /> Nueva tarea
                   </button>
@@ -764,7 +764,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white">
                   {taskForm.id ? "Editar tarea" : "Nueva tarea"}
                 </h2>
-                <p className="text-sm text-slate-500">Define titulo, prioridad, fecha, columna y responsables.</p>
+                <p className="text-sm text-slate-500">Define título, prioridad, fecha, columna y responsables.</p>
               </div>
               <button
                 type="button"
@@ -778,7 +778,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <label className="block md:col-span-2">
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Titulo</span>
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Título</span>
                 <input
                   value={taskForm.title}
                   onChange={(event) => setTaskForm((prev) => ({ ...prev, title: event.target.value }))}
@@ -788,7 +788,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
               </label>
 
               <label className="block md:col-span-2">
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Descripcion</span>
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Descripción</span>
                 <textarea
                   value={taskForm.description}
                   onChange={(event) => setTaskForm((prev) => ({ ...prev, description: event.target.value }))}
@@ -810,7 +810,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Fecha limite</span>
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Fecha límite</span>
                 <input
                   type="date"
                   value={taskForm.dueDate}

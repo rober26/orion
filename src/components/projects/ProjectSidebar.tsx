@@ -61,48 +61,45 @@ export default function ProjectSidebar() {
     fetchProjectData();
   }, [projectId]);
 
-  // Función para determinar si un link está activo
   const isActive = (path: string) => pathname === path;
 
   return (
-    <div className="w-72 border-r border-orion-border dark:border-orion-dark-border h-full flex flex-col bg-slate-50/50 dark:bg-slate-900/10">
-      
-      {/* Header: Volver y Nombre del Proyecto */}
-      <div className="p-4 border-b border-orion-border dark:border-orion-dark-border">
-        <button 
-          onClick={() => router.push('/projects')}
-          className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-orion-primary transition-colors mb-4 uppercase tracking-widest"
+    <aside className="h-full w-72 border-r border-orion-border bg-slate-50/60 dark:border-orion-dark-border dark:bg-slate-900/20">
+      <div className="flex h-full flex-col">
+      <div className="border-b border-orion-border p-4 dark:border-orion-dark-border">
+        <button
+          type="button"
+          onClick={() => router.push("/projects")}
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl px-2 text-xs font-bold uppercase tracking-widest text-slate-500 transition-colors hover:bg-slate-100 hover:text-orion-primary dark:text-slate-300 dark:hover:bg-slate-800/60"
         >
           <ChevronLeft size={14} /> Volver a proyectos
         </button>
         <div className="flex items-center justify-between">
-          <h2 className="font-black text-slate-900 dark:text-white truncate">
+          <h2 className="truncate font-black text-slate-900 dark:text-white">
             Espacio de Trabajo
           </h2>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-6">
-        
-        {/* SECCIÓN: VISTAS PRINCIPALES */}
+      <div className="flex-1 space-y-6 overflow-y-auto p-3">
         <nav className="space-y-1">
           <p className="px-3 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">General</p>
-          <SidebarLink 
-            href={`/projects/${projectId}`} 
-            icon={<LayoutDashboard size={18} />} 
-            label="Dashboard" 
-            active={isActive(`/projects/${projectId}`)} 
+          <SidebarLink
+            href={`/projects/${projectId}`}
+            icon={<LayoutDashboard size={18} />}
+            label="Dashboard"
+            active={isActive(`/projects/${projectId}`)}
           />
-          <SidebarLink 
-            href={`/projects/${projectId}/tasks`} 
-            icon={<CheckSquare size={18} />} 
-            label="Tareas" 
-            active={isActive(`/projects/${projectId}/tasks`)} 
+          <SidebarLink
+            href={`/projects/${projectId}/tasks`}
+            icon={<CheckSquare size={18} />}
+            label="Tareas"
+            active={isActive(`/projects/${projectId}/tasks`)}
           />
           <SidebarLink
             href={`/projects/${projectId}/documentation`}
             icon={<BookOpen size={18} />}
-            label="Documentacion"
+            label="Documentación"
             active={isActive(`/projects/${projectId}/documentation`)}
           />
           <SidebarLink
@@ -113,28 +110,27 @@ export default function ProjectSidebar() {
           />
         </nav>
 
-        {/* SECCIÓN: DOCUMENTACIÓN DEL PROYECTO */}
         <div className="space-y-1">
           <div className="flex items-center justify-between px-3 pb-2">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Documentos</p>
-            <Search size={12} className="text-slate-400 cursor-pointer hover:text-slate-600" />
+            <Search size={12} className="cursor-pointer text-slate-400 hover:text-slate-600" aria-hidden="true" />
           </div>
 
           {loading ? (
-            <div className="flex items-center gap-2 px-3 py-2 text-xs text-slate-400 italic">
+            <div className="flex items-center gap-2 px-3 py-2 text-xs italic text-slate-400">
               <Loader2 size={12} className="animate-spin" /> Cargando archivos...
             </div>
           ) : projectDocs.length === 0 ? (
-            <div className="px-3 py-4 text-xs text-slate-400 italic bg-slate-100/50 dark:bg-slate-800/30 rounded-xl border border-dashed border-orion-border dark:border-orion-dark-border text-center">
+            <div className="rounded-xl border border-dashed border-orion-border bg-slate-100/50 px-3 py-4 text-center text-xs italic text-slate-400 dark:border-orion-dark-border dark:bg-slate-800/30">
               No hay documentos aún.
             </div>
           ) : (
             projectDocs.map((doc) => (
-              <SidebarLink 
+              <SidebarLink
                 key={doc.id}
-                href={`/notebooks?doc=${doc.id}`} 
-                icon={<FileText size={18} />} 
-                label={doc.title || "Sin título"} 
+                href={`/notebooks?doc=${doc.id}`}
+                icon={<FileText size={18} />}
+                label={doc.title || "Sin título"}
                 active={pathname === "/notebooks" && searchParams.get("doc") === doc.id}
               />
             ))
@@ -142,33 +138,30 @@ export default function ProjectSidebar() {
         </div>
       </div>
 
-      {/* Footer: Configuración */}
-        {canManage && (
-          <div className="p-4 mt-auto border-t border-orion-border dark:border-orion-dark-border">
-            <SidebarLink
-              href={`/projects/${projectId}/settings`}
-              icon={<Settings size={18} />}
-              label="Ajustes"
-              active={isActive(`/projects/${projectId}/settings`)}
-            />
-          </div>
-        )}
-    </div>
+      {canManage && (
+        <div className="mt-auto border-t border-orion-border p-4 dark:border-orion-dark-border">
+          <SidebarLink
+            href={`/projects/${projectId}/settings`}
+            icon={<Settings size={18} />}
+            label="Ajustes"
+            active={isActive(`/projects/${projectId}/settings`)}
+          />
+        </div>
+      )}
+      </div>
+    </aside>
   );
 }
 
-// Subcomponente de Link para el Sidebar
 function SidebarLink({ href, icon, label, active }: { href: string; icon: ReactNode; label: string; active: boolean }) {
   return (
-    <Link 
+    <Link
       href={href}
-      className={`
-        flex items-center gap-3 px-3 py-2 text-sm rounded-xl transition-all duration-200
-        ${active 
-          ? "bg-orion-surface dark:bg-slate-800 text-orion-primary shadow-sm border border-orion-border dark:border-orion-dark-border font-semibold" 
+      className={`flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orion-primary/40 ${
+        active
+          ? "border border-orion-border bg-orion-surface font-semibold text-orion-primary shadow-sm dark:border-orion-dark-border dark:bg-slate-800"
           : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200"
-        }
-      `}
+      }`}
     >
       <span className={active ? "text-orion-primary" : "text-slate-400"}>
         {icon}

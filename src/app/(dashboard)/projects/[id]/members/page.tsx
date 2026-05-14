@@ -198,11 +198,11 @@ export default function ProjectMembersPage({ params }: { params: Promise<{ id: s
   return (
     <div className="flex h-full rounded-[1rem] bg-orion-surface dark:bg-slate-950 overflow-hidden">
       <ProjectSidebar />
-      <main className="flex-1 overflow-y-auto p-8">
+      <main className="flex-1 overflow-y-auto p-6 lg:p-8">
         <section className="mx-auto w-full max-w-4xl space-y-6">
-          <header>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Miembros del proyecto</h1>
-            <p className="mt-2 text-slate-500">Invita usuarios y define permisos de colaboracion.</p>
+          <header className="page-head">
+            <h1 className="page-title">Miembros del proyecto</h1>
+            <p className="page-subtitle">Invita usuarios y define permisos de colaboración.</p>
             {!canManage && (
               <p className="mt-2 inline-flex items-center rounded-full bg-slate-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                 Solo lectura
@@ -217,7 +217,7 @@ export default function ProjectMembersPage({ params }: { params: Promise<{ id: s
           )}
 
           {canManage && (
-            <div className="surface-panel rounded-[2rem] p-6 space-y-3">
+            <div className="section-panel space-y-3">
               <div className="flex flex-wrap gap-3">
                 <input
                   value={query}
@@ -228,7 +228,7 @@ export default function ProjectMembersPage({ params }: { params: Promise<{ id: s
                 <select
                   value={inviteRole}
                   onChange={(event) => setInviteRole(event.target.value as "MEMBER" | "VIEWER")}
-                  className="rounded-xl border border-orion-border bg-white px-3 py-2 text-sm dark:bg-slate-900 dark:border-orion-dark-border"
+                  className="select-orion"
                 >
                   <option value="MEMBER">Member</option>
                   <option value="VIEWER">Viewer</option>
@@ -266,7 +266,7 @@ export default function ProjectMembersPage({ params }: { params: Promise<{ id: s
             </div>
           )}
 
-          <div className="surface-panel rounded-[2rem] p-6">
+          <div className="section-panel">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Lista de miembros</h2>
 
             {loading ? (

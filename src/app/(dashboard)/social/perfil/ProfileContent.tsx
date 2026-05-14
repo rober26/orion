@@ -1,36 +1,32 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 import AdminPanel from "./components/AdminPanel";
 import ProfileEdit from "./components/ProfileEdit";
-import ProfileSecurity from "./components/ProfileSecurity";
 import ProfileView from "./components/ProfileView";
 import SystemSettings from "./components/SystemSettings";
 import { useProfileData } from "./hooks/useProfileData";
 import type { UserProfile } from "./types";
 
-type ProfileTab = "profile" | "security" | "admin" | "system";
+type ProfileTab = "profile" | "admin" | "system";
 
 export default function ProfileContent() {
+  const searchParams = useSearchParams();
   const { profile, publicProjects, publicFolders, publicNotebooks, publicDocuments, publicCalendars, loading, error, refreshProfile } =
     useProfileData();
-  const [tab, setTab] = useState<ProfileTab>("profile");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [localProfile, setLocalProfile] = useState<UserProfile | null>(null);
 
   const activeProfile = localProfile || profile;
   const isAdmin = activeProfile?.role === "ADMIN";
-  const activeTab: ProfileTab = (tab === "admin" || tab === "system") && !isAdmin ? "profile" : tab;
-
-  const tabs = useMemo(
-    () => [
-      { id: "profile" as const, label: "Perfil" },
-      { id: "security" as const, label: "Seguridad" },
-      ...(isAdmin ? [{ id: "admin" as const, label: "Administración" }] : []),
-      ...(isAdmin ? [{ id: "system" as const, label: "Config. sistema" }] : []),
-    ],
-    [isAdmin],
-  );
+  const requestedTab = searchParams.get("tab");
+  const activeTab: ProfileTab =
+    requestedTab === "admin" && isAdmin
+      ? "admin"
+      : requestedTab === "system" && isAdmin
+        ? "system"
+        : "profile";
 
   const handleProfileUpdated = (updatedProfile: UserProfile) => {
     setLocalProfile(updatedProfile);
@@ -53,22 +49,6 @@ export default function ProfileContent() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-orion-border bg-white p-2 dark:border-orion-dark-border dark:bg-slate-950">
-        {tabs.map((item) => (
-          <button
-            key={item.id}
-              onClick={() => setTab(item.id)}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-              activeTab === item.id
-                ? "bg-orion-primary text-white"
-                : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-
       {activeTab === "profile" && (
         <div className="space-y-6">
           <ProfileView
@@ -89,7 +69,6 @@ export default function ProfileContent() {
         </div>
       )}
 
-      {activeTab === "security" && <ProfileSecurity />}
       {activeTab === "admin" && isAdmin && <AdminPanel />}
       {activeTab === "system" && isAdmin && <SystemSettings />}
     </div>

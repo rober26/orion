@@ -58,10 +58,29 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
     fetchProject();
   }, [id]);
 
-  if (loading) return <div className="p-10">Cargando proyecto...</div>;
+  if (loading) {
+    return (
+      <div className="app-page">
+        <div className="app-page-content">
+          <div className="section-panel">
+            <div className="h-10 w-52 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
+            <div className="mt-3 h-4 w-80 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (error || !project) {
-    return <div className="p-10 text-red-400">{error ?? "Acceso denegado"}</div>;
+    return (
+      <div className="app-page">
+        <div className="app-page-content">
+          <div className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
+            {error ?? "Acceso denegado"}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const recentActivity: ProjectActivityItem[] = [
@@ -85,8 +104,8 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
     <div className="flex h-full rounded-[1rem] bg-orion-surface dark:bg-slate-950 overflow-hidden">
       <ProjectSidebar />
 
-      <main className="flex-1 overflow-y-auto p-8">
-        <header className="mb-8">
+      <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+        <header className="page-head mb-6">
            <div className="flex items-center gap-3 mb-2">
               <div
                 className="w-4 h-4 rounded-full" 
@@ -104,23 +123,23 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
                 </span>
               )}
            </div>
-           <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+           <h1 className="page-title">
              {project.name}
            </h1>
-          <p className="text-slate-500 mt-2">{project.description}</p>
+          <p className="page-subtitle">{project.description}</p>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <StatCard icon={<FileText />} label="Documentos" value={project._count?.documents || 0} color="text-blue-500" />
-          <StatCard icon={<CheckSquare />} label="Tareas Pendientes" value={project._count?.tasks || 0} color="text-purple-500" />
+          <StatCard icon={<CheckSquare />} label="Tareas pendientes" value={project._count?.tasks || 0} color="text-orion-primary" />
           <StatCard icon={<Users />} label="Colaboradores" value={project.membersCount || 1} color="text-emerald-500" />
         </div>
 
-        <section className="mt-12">
+        <section className="mt-8 section-panel">
           <h2 className="text-xl font-bold mb-4">Actividad reciente</h2>
           {recentActivity.length === 0 ? (
             <div className="surface-soft rounded-[2rem] p-8 text-center text-slate-400 italic">
-              Aun no hay actividad reciente en este proyecto.
+              Aún no hay actividad reciente en este proyecto.
             </div>
           ) : (
             <div className="surface-panel rounded-[2rem] p-4 space-y-2">

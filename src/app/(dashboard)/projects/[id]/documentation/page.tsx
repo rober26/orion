@@ -104,7 +104,7 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
       ];
 
       if (!docRes.ok) {
-        throw new Error((docPayload as ApiError).error || "No se pudo cargar la documentacion");
+        throw new Error((docPayload as ApiError).error || "No se pudo cargar la documentación");
       }
 
       if (!notebooksRes.ok) {
@@ -119,7 +119,7 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
       setNotebookOptions((Array.isArray(notebooksPayload) ? notebooksPayload : []).map((item) => ({ id: item.id, title: item.title })));
       setCanEdit(Boolean(projectPayload.permissions?.canEdit));
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : "No se pudo cargar la documentacion");
+      setFeedback(error instanceof Error ? error.message : "No se pudo cargar la documentación");
       setData(null);
       setNotebookOptions([]);
       setCanEdit(false);
@@ -234,12 +234,12 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
     <div className="flex h-full rounded-[1rem] bg-orion-surface dark:bg-slate-950 overflow-hidden">
       <ProjectSidebar />
 
-      <main className="flex-1 overflow-y-auto p-8">
+      <main className="flex-1 overflow-y-auto p-6 lg:p-8">
         <section className="mx-auto w-full max-w-6xl space-y-6">
-          <header>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Documentacion</h1>
-            <p className="mt-2 text-slate-500">
-              Gestiona documentacion de proyecto y documentacion relacionada en una sola vista.
+          <header className="page-head">
+            <h1 className="page-title">Documentación</h1>
+            <p className="page-subtitle">
+              Gestiona documentación de proyecto y documentación relacionada en una sola vista.
             </p>
             {!canEdit && (
               <p className="mt-2 inline-flex items-center rounded-full bg-slate-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
@@ -256,17 +256,17 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
 
           {loading ? (
             <div className="inline-flex items-center gap-2 text-slate-500">
-              <Loader2 size={16} className="animate-spin" /> Cargando documentacion...
+              <Loader2 size={16} className="animate-spin" /> Cargando documentación...
             </div>
           ) : !data ? (
             <div className="rounded-xl border border-dashed border-orion-border px-4 py-10 text-center text-sm text-slate-500 dark:border-orion-dark-border">
-              No se pudo cargar la documentacion.
+              No se pudo cargar la documentación.
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <section className="surface-panel rounded-[2rem] p-5 space-y-4">
+              <section className="section-panel space-y-4">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Documentacion de proyecto</h2>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Documentación de proyecto</h2>
                   <p className="text-sm text-slate-500">Recursos propios de este proyecto.</p>
                 </div>
 
@@ -345,9 +345,9 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
                 </div>
               </section>
 
-              <section className="surface-panel rounded-[2rem] p-5 space-y-4">
+              <section className="section-panel space-y-4">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Documentacion relacionada</h2>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Documentación relacionada</h2>
                   <p className="text-sm text-slate-500">Cuadernos vinculados y sus documentos relacionados.</p>
                 </div>
 
@@ -356,7 +356,7 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
                     <select
                       value={selectedNotebookId}
                       onChange={(event) => setSelectedNotebookId(event.target.value)}
-                      className="rounded-xl border border-orion-border bg-white px-3 py-2 text-sm flex-1 dark:bg-slate-900 dark:border-orion-dark-border"
+                      className="select-orion flex-1"
                     >
                       <option value="">Selecciona cuaderno para vincular</option>
                       {availableNotebooks.map((notebook) => (
