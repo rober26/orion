@@ -2,6 +2,7 @@
 
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { addDays, format, startOfWeek } from "date-fns";
+import { es } from "date-fns/locale";
 import type { CalendarEventItem } from "@/src/components/calendar/types";
 import { eventIntersectsDay, formatHourLabel } from "@/src/lib/calendar-utils";
 
@@ -26,7 +27,7 @@ export default function WeekView({ anchorDate, events, onEventClick }: WeekViewP
         <div className="p-1.5 sm:p-2 text-[10px] sm:text-xs text-slate-400">Hora</div>
         {days.map((day) => (
           <div key={day.toISOString()} className="p-1.5 sm:p-2 text-center border-l border-orion-border dark:border-orion-dark-border">
-            <p className="text-[10px] sm:text-xs text-slate-400 uppercase">{format(day, "EEE")}</p>
+            <p className="text-[10px] sm:text-xs text-slate-400 uppercase">{format(day, "EEE", { locale: es })}</p>
             <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200">{format(day, "d")}</p>
           </div>
         ))}
@@ -74,7 +75,7 @@ function WeekDropCell({ day, hour, children }: { day: Date; hour: number; childr
     <div
       ref={setNodeRef}
       className={`px-1 py-1 border-l border-orion-border/60 dark:border-orion-dark-border/60 ${
-        isOver ? "bg-orion-primary/10" : ""
+        isOver ? "bg-cyan-100/70 dark:bg-cyan-950/35" : ""
       }`}
     >
       {children}

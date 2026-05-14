@@ -12,6 +12,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { es } from "date-fns/locale";
+import type { CalendarView } from "@/src/components/calendar/types";
 
 export const getCalendarDays = (date: Date) => {
   const monthStart = startOfMonth(date);
@@ -25,8 +26,6 @@ export const getCalendarDays = (date: Date) => {
 export const formatMonth = (date: Date) => {
   return format(date, "MMMM yyyy", { locale: es });
 };
-
-export type CalendarView = "month" | "week" | "day" | "agenda";
 
 export function getViewDateRange(anchor: Date, view: CalendarView): { from: Date; to: Date } {
   if (view === "day") {

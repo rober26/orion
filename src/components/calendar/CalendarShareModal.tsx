@@ -191,7 +191,7 @@ export default function CalendarShareModal({ open, calendars, onClose, onChanged
 
   return (
     <div className="fixed inset-0 z-[140] bg-black/40 backdrop-blur-sm p-3 sm:p-4 flex items-center justify-center">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl border border-orion-border dark:border-orion-dark-border bg-white dark:bg-slate-900 shadow-2xl">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden section-panel rounded-3xl p-0">
         <div className="px-5 py-4 border-b border-orion-border dark:border-orion-dark-border flex items-center justify-between gap-3">
           <h3 className="text-lg font-black text-slate-900 dark:text-white">Compartir calendarios</h3>
           <button type="button" className="btn-secondary px-3 py-1.5" onClick={onClose}>

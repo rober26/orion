@@ -2,6 +2,7 @@
 
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import type { CalendarEventItem } from "@/src/components/calendar/types";
 import { eventIntersectsDay, formatHourLabel } from "@/src/lib/calendar-utils";
 
@@ -19,7 +20,7 @@ export default function DayView({ day, events, onEventClick }: DayViewProps) {
   return (
     <div className="flex-1 surface-panel rounded-2xl sm:rounded-[2rem] overflow-hidden min-h-0">
       <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-orion-border dark:border-orion-dark-border bg-slate-50/60 dark:bg-slate-900/40">
-        <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200">{format(day, "EEEE d 'de' MMMM")}</p>
+        <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200">{format(day, "EEEE d 'de' MMMM", { locale: es })}</p>
       </div>
 
       <div className="overflow-y-auto h-[calc(100%-56px)]">
@@ -59,7 +60,7 @@ function DayDropCell({ day, hour, children }: { day: Date; hour: number; childre
   });
 
   return (
-    <div ref={setNodeRef} className={`px-2 py-1 space-y-1 ${isOver ? "bg-orion-primary/10" : ""}`}>
+    <div ref={setNodeRef} className={`px-2 py-1 space-y-1 ${isOver ? "bg-cyan-100/70 dark:bg-cyan-950/35" : ""}`}>
       {children}
     </div>
   );

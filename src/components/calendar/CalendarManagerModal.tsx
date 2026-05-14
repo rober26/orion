@@ -121,7 +121,7 @@ export default function CalendarManagerModal({ open, calendars, onClose, onChang
 
   return (
     <div className="fixed inset-0 z-[145] bg-black/45 backdrop-blur-sm p-3 sm:p-4 flex items-center justify-center">
-      <div className="w-full max-w-3xl max-h-[92vh] overflow-hidden rounded-2xl border border-orion-border dark:border-orion-dark-border bg-white dark:bg-slate-900 shadow-2xl">
+      <div className="w-full max-w-3xl max-h-[92vh] overflow-hidden section-panel rounded-3xl p-0">
         <div className="px-5 py-4 border-b border-orion-border dark:border-orion-dark-border flex items-center justify-between gap-3">
           <h3 className="text-lg font-black text-slate-900 dark:text-white">Gestionar calendarios</h3>
           <button type="button" className="btn-secondary px-3 py-1.5" onClick={onClose}>
@@ -138,7 +138,7 @@ export default function CalendarManagerModal({ open, calendars, onClose, onChang
                 onClick={() => openEditorFor(calendar)}
                 className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
                   selectedCalendar?.id === calendar.id
-                    ? "border-orion-primary bg-blue-50 dark:bg-blue-900/20"
+                    ? "border-cyan-500 bg-cyan-50 dark:bg-cyan-950/30"
                     : "border-orion-border dark:border-orion-dark-border hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
               >

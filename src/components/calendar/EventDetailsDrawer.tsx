@@ -166,12 +166,12 @@ export default function EventDetailsDrawer({ open, event, onClose, onRefresh, on
   return (
     <div className="fixed inset-0 z-[105] bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <aside
-        className="absolute right-0 top-0 h-full w-full max-w-md bg-white dark:bg-slate-900 border-l border-orion-border dark:border-orion-dark-border p-4 overflow-y-auto"
+        className="absolute right-0 top-0 h-full w-full max-w-md bg-white dark:bg-slate-900 border-l border-orion-border dark:border-orion-dark-border p-4 sm:p-5 overflow-y-auto"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-2 mb-4">
           <div>
-            <p className="text-xs text-slate-500 uppercase">{event.sourceType}</p>
+            <p className="text-xs text-cyan-700 dark:text-cyan-300 uppercase tracking-wider font-bold">{event.sourceType}</p>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">{event.title}</h3>
             <p className="text-xs text-slate-500">{event.calendarName || event.projectName || "Sin fuente"}</p>
           </div>
@@ -258,7 +258,11 @@ export default function EventDetailsDrawer({ open, event, onClose, onRefresh, on
                             <p className="text-sm text-slate-800 dark:text-slate-100">{fullName(user)}</p>
                             <p className="text-xs text-slate-500">@{user.username}</p>
                           </div>
-                          <button type="button" className="text-xs text-orion-primary inline-flex items-center gap-1" onClick={() => void invite(user.id)}>
+                          <button
+                            type="button"
+                            className="text-xs text-cyan-700 dark:text-cyan-300 inline-flex items-center gap-1"
+                            onClick={() => void invite(user.id)}
+                          >
                             <UserPlus size={12} /> Invitar
                           </button>
                         </div>

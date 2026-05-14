@@ -20,8 +20,12 @@ export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [view, setView] = useState<CalendarView>("month");
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
+  const [isEventsLoading, setIsEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState<string | null>(null);
   const [projects, setProjects] = useState<CalendarProjectItem[]>([]);
   const [calendars, setCalendars] = useState<UserCalendarItem[]>([]);
+  const [isCalendarsLoading, setIsCalendarsLoading] = useState(true);
+  const [calendarsError, setCalendarsError] = useState<string | null>(null);
   const [visibleCalendarIds, setVisibleCalendarIds] = useState<string[]>([]);
   const [includeTaskLayer, setIncludeTaskLayer] = useState(true);
   const [includeProjectLayer, setIncludeProjectLayer] = useState(true);
@@ -57,7 +61,27 @@ export default function CalendarPage() {
       throw new Error(data.error || "No se pudieron cargar los eventos");
     }
 
-    return (data as CalendarEventItem[]) || [];
+    const raw = (data as CalendarEventItem[]) || [];
+
+    return raw.filter((item) => {
+      if (item.sourceType === "event") {
+        if (!item.calendarId) {
+          return false;
+        }
+
+        return visibleCalendarIds.includes(item.calendarId);
+      }
+
+      if (item.sourceType === "task") {
+        return includeTaskLayer;
+      }
+
+      if (item.sourceType === "project") {
+        return includeProjectLayer;
+      }
+
+      return true;
+    });
   }, [currentMonth, includeProjectLayer, includeTaskLayer, view, visibleCalendarIds]);
 
   const loadCalendars = useCallback(async (): Promise<UserCalendarItem[]> => {
@@ -120,8 +144,17 @@ export default function CalendarPage() {
   }, []);
 
   const fetchEvents = useCallback(async () => {
-    const nextEvents = await loadEvents();
-    setEvents(nextEvents);
+    setIsEventsLoading(true);
+    setEventsError(null);
+    try {
+      const nextEvents = await loadEvents();
+      setEvents(nextEvents);
+    } catch (error) {
+      setEvents([]);
+      setEventsError(error instanceof Error ? error.message : "No se pudieron cargar los eventos");
+    } finally {
+      setIsEventsLoading(false);
+    }
   }, [loadEvents]);
 
   const moveCalendarItem = useCallback(
@@ -220,10 +253,8 @@ export default function CalendarPage() {
   };
 
   useEffect(() => {
-    void loadEvents()
-      .then((nextEvents) => setEvents(nextEvents))
-      .catch(() => setEvents([]));
-  }, [loadEvents]);
+    void fetchEvents();
+  }, [fetchEvents]);
 
   useEffect(() => {
     void loadProjects()
@@ -234,6 +265,7 @@ export default function CalendarPage() {
   useEffect(() => {
     void Promise.all([loadCalendars(), loadSettings()])
       .then(([items, settings]) => {
+        setCalendarsError(null);
         setCalendars(items);
         setIncludeTaskLayer(settings.includeTaskLayer);
         setIncludeProjectLayer(settings.includeProjectLayer);
@@ -245,11 +277,14 @@ export default function CalendarPage() {
           return items.map((item) => item.id);
         });
         hasHydratedSettings.current = true;
+        setIsCalendarsLoading(false);
       })
-      .catch(() => {
+      .catch((error) => {
         setCalendars([]);
         setVisibleCalendarIds([]);
+        setCalendarsError(error instanceof Error ? error.message : "No se pudieron cargar calendarios");
         hasHydratedSettings.current = true;
+        setIsCalendarsLoading(false);
       });
   }, [loadCalendars, loadSettings]);
 
@@ -258,24 +293,12 @@ export default function CalendarPage() {
       return;
     }
 
-    void persistSettings({ visibleCalendarIds });
-  }, [visibleCalendarIds, persistSettings]);
+    const timeout = setTimeout(() => {
+      void persistSettings({ visibleCalendarIds, includeTaskLayer, includeProjectLayer });
+    }, 250);
 
-  useEffect(() => {
-    if (!hasHydratedSettings.current) {
-      return;
-    }
-
-    void persistSettings({ includeTaskLayer });
-  }, [includeTaskLayer, persistSettings]);
-
-  useEffect(() => {
-    if (!hasHydratedSettings.current) {
-      return;
-    }
-
-    void persistSettings({ includeProjectLayer });
-  }, [includeProjectLayer, persistSettings]);
+    return () => clearTimeout(timeout);
+  }, [visibleCalendarIds, includeTaskLayer, includeProjectLayer, persistSettings]);
 
   const onPrev = () => {
     if (view === "month") {
@@ -345,15 +368,35 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="h-full min-h-0 max-w-[1700px] mx-auto w-full p-2 sm:p-3 lg:p-4">
-      <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-3">
-        <aside className="surface-panel rounded-2xl sm:rounded-[2rem] p-3 sm:p-4 overflow-y-auto order-2 xl:order-1">
-          <h2 className="text-xs sm:text-sm font-black tracking-widest uppercase text-slate-500 mb-3">Mis calendarios</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2 mb-3">
-            <button
-              type="button"
-              className="btn-secondary w-full text-xs"
-              onClick={() => setIsManagerModalOpen(true)}
+    <div className="app-page">
+      <div className="app-page-content">
+        <header className="page-head flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="page-title leading-none">Calendario</h1>
+            <p className="page-subtitle">Planifica eventos, tareas e hitos desde una sola vista.</p>
+          </div>
+        </header>
+
+        {eventsError ? (
+          <div className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
+            {eventsError}
+          </div>
+        ) : null}
+
+        {calendarsError ? (
+          <div className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
+            {calendarsError}
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-3 min-h-[70vh]">
+          <aside className="section-panel overflow-y-auto order-2 xl:order-1">
+            <h2 className="text-xs sm:text-sm font-black tracking-widest uppercase text-slate-500 mb-3">Mis calendarios</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2 mb-3">
+              <button
+                type="button"
+                className="btn-secondary w-full text-xs"
+                onClick={() => setIsManagerModalOpen(true)}
             >
               Gestionar calendarios
             </button>
@@ -362,78 +405,103 @@ export default function CalendarPage() {
               className="btn-secondary w-full text-xs"
               onClick={() => setIsShareModalOpen(true)}
             >
-              Compartir calendarios
-            </button>
-          </div>
-        <div className="space-y-2">
-          {calendars.map((calendar) => {
-            const active = visibleCalendarIds.includes(calendar.id);
-            return (
-              <label
-                key={calendar.id}
-                className="flex items-center gap-2 rounded-xl border border-orion-border dark:border-orion-dark-border px-3 py-2 cursor-pointer"
-              >
-                <input type="checkbox" checked={active} onChange={() => toggleCalendarVisibility(calendar.id)} />
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: calendar.color || "#2563eb" }} />
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex-1 truncate">{calendar.name}</span>
-                <span className="text-[10px] text-slate-500 uppercase">{calendar.visibility}</span>
-              </label>
-            );
-          })}
-        </div>
-
-          <div className="mt-5 pt-4 border-t border-orion-border dark:border-orion-dark-border space-y-2">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">Capas</h3>
-          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-            <input type="checkbox" checked={includeTaskLayer} onChange={(event) => setIncludeTaskLayer(event.target.checked)} />
-            Mostrar tareas
-          </label>
-          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-            <input type="checkbox" checked={includeProjectLayer} onChange={(event) => setIncludeProjectLayer(event.target.checked)} />
-            Mostrar hitos de proyecto
-          </label>
-          </div>
-        </aside>
-
-        <div className="flex flex-col min-h-0 overflow-hidden order-1 xl:order-2">
-        <CalendarHeader
-          currentMonth={currentMonth}
-          view={view}
-          onViewChange={(nextView) => setView(nextView)}
-          onPrevMonth={onPrev}
-          onNextMonth={onNext}
-          onToday={() => setCurrentMonth(new Date())}
-          onCreateEvent={() => {
-            setEditingEvent(null);
-            setSelectedDate(currentMonth);
-            setIsModalOpen(true);
-          }}
-        />
-
-        <DndContext
-          sensors={sensors}
-          onDragStart={(event) => {
-            const item = event.active.data.current?.item as CalendarEventItem | undefined;
-            setActiveDragItem(item ?? null);
-          }}
-          onDragEnd={(event) => void handleDragEnd(event)}
-          onDragCancel={() => setActiveDragItem(null)}
-        >
-          {viewContent}
-
-          <DragOverlay>
-            {activeDragItem ? (
-              <div className="w-56">
-                <CalendarEvent
-                  title={activeDragItem.title}
-                  type={activeDragItem.sourceType}
-                  color={activeDragItem.color || undefined}
-                  draggable={activeDragItem.canReschedule}
-                />
+                Compartir calendarios
+              </button>
+            </div>
+            {isCalendarsLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                ))}
               </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+            ) : (
+              <div className="space-y-2">
+                {calendars.map((calendar) => {
+                  const active = visibleCalendarIds.includes(calendar.id);
+                  return (
+                    <label
+                      key={calendar.id}
+                      className="flex items-center gap-2 rounded-xl border border-orion-border dark:border-orion-dark-border px-3 py-2 cursor-pointer"
+                    >
+                      <input type="checkbox" checked={active} onChange={() => toggleCalendarVisibility(calendar.id)} />
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: calendar.color || "#0891b2" }} />
+                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex-1 truncate">{calendar.name}</span>
+                      <span className="text-[10px] text-slate-500 uppercase">{calendar.visibility}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="mt-5 pt-4 border-t border-orion-border dark:border-orion-dark-border space-y-2">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">Capas</h3>
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <input type="checkbox" checked={includeTaskLayer} onChange={(event) => setIncludeTaskLayer(event.target.checked)} />
+                Mostrar tareas
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={includeProjectLayer}
+                  onChange={(event) => setIncludeProjectLayer(event.target.checked)}
+                />
+                Mostrar hitos de proyecto
+              </label>
+            </div>
+          </aside>
+
+          <section className="section-panel flex flex-col min-h-0 overflow-hidden order-1 xl:order-2">
+            <CalendarHeader
+              currentMonth={currentMonth}
+              view={view}
+              onViewChange={(nextView) => setView(nextView)}
+              onPrevMonth={onPrev}
+              onNextMonth={onNext}
+              onToday={() => setCurrentMonth(new Date())}
+              onCreateEvent={() => {
+                setEditingEvent(null);
+                setSelectedDate(currentMonth);
+                setIsModalOpen(true);
+              }}
+            />
+
+            {isEventsLoading ? (
+              <div className="flex-1 rounded-3xl border border-orion-border dark:border-orion-dark-border p-4 sm:p-5 space-y-2">
+                {[1, 2, 3, 4, 5, 6].map((item) => (
+                  <div key={item} className="h-12 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                ))}
+              </div>
+            ) : events.length === 0 ? (
+              <div className="flex-1 rounded-3xl border-2 border-dashed border-orion-border dark:border-orion-dark-border p-8 text-center text-sm text-slate-500 dark:text-slate-300">
+                No hay elementos para el rango seleccionado.
+              </div>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                onDragStart={(event) => {
+                  const item = event.active.data.current?.item as CalendarEventItem | undefined;
+                  setActiveDragItem(item ?? null);
+                }}
+                onDragEnd={(event) => void handleDragEnd(event)}
+                onDragCancel={() => setActiveDragItem(null)}
+              >
+                {viewContent}
+
+                <DragOverlay>
+                  {activeDragItem ? (
+                    <div className="w-56">
+                      <CalendarEvent
+                        title={activeDragItem.title}
+                        type={activeDragItem.sourceType}
+                        color={activeDragItem.color || undefined}
+                        draggable={activeDragItem.canReschedule}
+                      />
+                    </div>
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
+            )}
+          </section>
         </div>
       </div>
 

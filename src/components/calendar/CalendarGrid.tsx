@@ -5,7 +5,7 @@ import CalendarEvent from "./CalendarEvent";
 interface CalendarGridProps {
   days: Date[];
   currentMonth: Date;
-  events: any[];
+  events: Array<{ id: string; title: string; type: "event" | "task" | "project"; color?: string | null; date: string }>;
   onDayClick: (day: Date) => void;
 }
 
@@ -70,7 +70,7 @@ export default function CalendarGrid({ days, currentMonth, events, onDayClick }:
                     key={event.id}
                     title={event.title}
                     type={event.type}
-                    color={event.color}
+                    color={event.color || undefined}
                   />
                 ))}
               </div>

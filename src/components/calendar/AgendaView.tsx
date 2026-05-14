@@ -3,6 +3,7 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { addDays, startOfDay } from "date-fns";
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import type { CalendarEventItem } from "@/src/components/calendar/types";
 
 interface AgendaViewProps {
@@ -47,8 +48,8 @@ function AgendaDropLane({ day }: { day: Date }) {
   });
 
   return (
-    <div ref={setNodeRef} className={`px-3 py-2.5 min-h-12 ${isOver ? "bg-orion-primary/10" : ""}`}>
-      <p className="text-xs uppercase tracking-wider text-slate-500">{format(day, "EEEE")}</p>
+    <div ref={setNodeRef} className={`px-3 py-2.5 min-h-12 ${isOver ? "bg-cyan-100/70 dark:bg-cyan-950/35" : ""}`}>
+      <p className="text-xs uppercase tracking-wider text-slate-500">{format(day, "EEEE", { locale: es })}</p>
       <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{format(day, "dd/MM")}</p>
     </div>
   );
@@ -83,7 +84,7 @@ function DraggableAgendaEvent({
       {...listeners}
     >
       <p className="text-xs text-slate-400">
-        {format(new Date(item.start), "dd/MM HH:mm")} - {format(new Date(item.end), "HH:mm")}
+        {format(new Date(item.start), "dd/MM HH:mm", { locale: es })} - {format(new Date(item.end), "HH:mm", { locale: es })}
       </p>
       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.title}</p>
       <p className="text-xs text-slate-500 dark:text-slate-300">{item.calendarName || item.projectName || "Sin fuente"}</p>

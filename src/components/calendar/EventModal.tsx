@@ -127,6 +127,10 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
         throw new Error("Selecciona un calendario o un proyecto");
       }
 
+      if (timeMode === "range" && startDate && endDate && new Date(startDate).getTime() > new Date(endDate).getTime()) {
+        throw new Error("La fecha de fin debe ser posterior o igual al inicio");
+      }
+
       let finalStart = fromLocalDatetimeInputValue(startDate);
       let finalEnd = fromLocalDatetimeInputValue(endDate);
 
@@ -176,10 +180,10 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
     <div className="fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
       <form
         onSubmit={(event) => void handleSubmit(event)}
-        className="w-full max-w-xl rounded-2xl border border-orion-border dark:border-orion-dark-border bg-white dark:bg-slate-900 shadow-2xl"
+        className="w-full max-w-xl section-panel rounded-3xl p-0"
       >
         <div className="px-5 py-4 border-b border-orion-border dark:border-orion-dark-border flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editingEvent ? "Editar evento" : "Nuevo evento"}</h3>
+          <h3 className="text-lg font-black text-slate-900 dark:text-white">{editingEvent ? "Editar evento" : "Nuevo evento"}</h3>
           <button type="button" onClick={onClose} className="btn-secondary px-3 py-1.5">
             Cerrar
           </button>
@@ -225,33 +229,33 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
             <button
               type="button"
               onClick={() => setTimeMode("range")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-                timeMode === "range"
-                  ? "bg-orion-primary text-white border-orion-primary"
-                  : "border-orion-border dark:border-orion-dark-border text-slate-600 dark:text-slate-300"
-              }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+                  timeMode === "range"
+                    ? "bg-cyan-600 text-white border-cyan-600"
+                    : "border-orion-border dark:border-orion-dark-border text-slate-600 dark:text-slate-300"
+                }`}
             >
               Tramo
             </button>
             <button
               type="button"
               onClick={() => setTimeMode("single")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-                timeMode === "single"
-                  ? "bg-orion-primary text-white border-orion-primary"
-                  : "border-orion-border dark:border-orion-dark-border text-slate-600 dark:text-slate-300"
-              }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+                  timeMode === "single"
+                    ? "bg-cyan-600 text-white border-cyan-600"
+                    : "border-orion-border dark:border-orion-dark-border text-slate-600 dark:text-slate-300"
+                }`}
             >
               Hora puntual
             </button>
             <button
               type="button"
               onClick={() => setTimeMode("all-day")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-                timeMode === "all-day"
-                  ? "bg-orion-primary text-white border-orion-primary"
-                  : "border-orion-border dark:border-orion-dark-border text-slate-600 dark:text-slate-300"
-              }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+                  timeMode === "all-day"
+                    ? "bg-cyan-600 text-white border-cyan-600"
+                    : "border-orion-border dark:border-orion-dark-border text-slate-600 dark:text-slate-300"
+                }`}
             >
               Todo el dia
             </button>

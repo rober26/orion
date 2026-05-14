@@ -44,8 +44,8 @@ export default function MonthView({ days, currentMonth, events, onDayClick, onEv
                     text-sm font-bold w-8 h-8 flex items-center justify-center rounded-xl transition-all
                     ${
                       isToday(day)
-                        ? "bg-orion-primary text-white shadow-lg shadow-blue-500/40 scale-110"
-                        : "text-slate-500 dark:text-slate-400 group-hover:text-orion-primary"
+                        ? "bg-cyan-600 text-white shadow-lg shadow-cyan-500/40 scale-110"
+                        : "text-slate-500 dark:text-slate-400 group-hover:text-cyan-700 dark:group-hover:text-cyan-300"
                     }
                   `}
                 >
@@ -66,7 +66,7 @@ export default function MonthView({ days, currentMonth, events, onDayClick, onEv
                 {remaining > 0 ? (
                   <button
                     type="button"
-                    className="w-full text-left px-1.5 py-1 rounded-md text-[10px] font-semibold text-slate-500 hover:text-orion-primary"
+                     className="w-full text-left px-1.5 py-1 rounded-md text-[10px] font-semibold text-slate-500 hover:text-cyan-700 dark:hover:text-cyan-300"
                     onClick={(event) => {
                       event.stopPropagation();
                       onDayClick(day);
@@ -105,7 +105,7 @@ function MonthDayCell({
       className={`
         min-h-[96px] sm:min-h-[130px] p-1.5 sm:p-2 border-r border-b border-orion-border dark:border-orion-dark-border group transition-all cursor-pointer
         ${!isCurrentMonth ? "bg-slate-50/30 dark:bg-slate-950/10 opacity-35" : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"}
-        ${isOver ? "ring-2 ring-orion-primary/40" : ""}
+        ${isOver ? "ring-2 ring-cyan-500/40 bg-cyan-50/40 dark:bg-cyan-950/20" : ""}
       `}
     >
       {children}
