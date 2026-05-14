@@ -230,6 +230,7 @@ model Project {
   documents    Document[]
   events       Event[]
   files        File[]
+  quickNotes   QuickNote[]
   kanbanBoards KanbanBoard[]
   folders      NotebookFolder[]
   notebooks    NotebookRelation[]
@@ -536,11 +537,14 @@ model QuickNote {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
   ownerId    String   @map("owner_id") @db.Uuid
+  projectId  String?  @map("project_id") @db.Uuid
   owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([ownerId, updatedAt])
   @@index([ownerId, isPinned, updatedAt])
   @@index([ownerId, isArchived, updatedAt])
+  @@index([ownerId, projectId, updatedAt])
   @@map("quick_notes")
 }
 

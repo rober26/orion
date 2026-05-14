@@ -9,6 +9,7 @@ import {
   notebookEditorWhere,
   projectReadWhere,
 } from "@/src/lib/permissions";
+import { resolveSessionUserId } from "@/src/lib/session-user";
 
 export async function GET(req: Request) {
   try {
@@ -17,8 +18,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const actorUserId = await resolveSessionUserId(sessionUser);
+    if (!actorUserId) {
+      return NextResponse.json({ error: "Sesion invalida. Inicia sesion de nuevo" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const standaloneOnly = searchParams.get("standalone") === "true";
+    const projectOnly = searchParams.get("projectOnly") === "true";
     const notebookId = searchParams.get("notebookId");
     const projectId = searchParams.get("projectId");
 
@@ -26,7 +33,7 @@ export async function GET(req: Request) {
       const canAccessNotebook = await prisma.notebook.findFirst({
         where: {
           id: notebookId,
-          ...notebookAccessWhere(sessionUser.userId),
+          ...notebookAccessWhere(actorUserId),
         },
         select: { id: true },
       });
@@ -37,18 +44,23 @@ export async function GET(req: Request) {
     }
 
     if (projectId) {
-      if (!(await canViewProject(projectId, sessionUser.userId))) {
+      if (!(await canViewProject(projectId, actorUserId))) {
         return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
       }
     }
 
-    const baseAccess = documentAccessWhere(sessionUser.userId);
+    const baseAccess = documentAccessWhere(actorUserId);
 
     const where = projectId
       ? {
           projectId,
-          OR: [{ creatorId: sessionUser.userId }, { project: projectReadWhere(sessionUser.userId) }],
+          OR: [{ creatorId: actorUserId }, { project: projectReadWhere(actorUserId) }],
         }
+      : projectOnly
+        ? {
+            projectId: { not: null },
+            OR: [{ creatorId: actorUserId }, { project: projectReadWhere(actorUserId) }],
+          }
       : {
           projectId: null,
           ...(standaloneOnly ? { notebookId: null } : {}),
@@ -56,15 +68,15 @@ export async function GET(req: Request) {
           OR: [
             baseAccess,
             {
-              isPublic: true,
-              OR: [
-                { creatorId: sessionUser.userId },
-                {
-                  notebook: {
-                    OR: [{ ownerId: sessionUser.userId }, { creatorId: sessionUser.userId }],
+                isPublic: true,
+                OR: [
+                  { creatorId: actorUserId },
+                  {
+                    notebook: {
+                      OR: [{ ownerId: actorUserId }, { creatorId: actorUserId }],
+                    },
                   },
-                },
-              ],
+                ],
             },
           ],
         };
@@ -77,8 +89,16 @@ export async function GET(req: Request) {
         title: true,
         updatedAt: true,
         notebookId: true,
+        projectId: true,
         position: true,
         creatorId: true,
+        project: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+          },
+        },
         creator: {
           select: {
             id: true,
@@ -88,7 +108,7 @@ export async function GET(req: Request) {
           },
         },
         users: {
-          where: { userId: sessionUser.userId },
+          where: { userId: actorUserId },
           select: { role: true },
           take: 1,
         },
@@ -97,13 +117,15 @@ export async function GET(req: Request) {
 
     const payload = documents.map((document) => {
       const membership = document.users[0] ?? null;
-      const isOwnerLike = document.creatorId === sessionUser.userId;
+      const isOwnerLike = document.creatorId === actorUserId;
 
       return {
         id: document.id,
         title: document.title,
         updatedAt: document.updatedAt,
         notebookId: document.notebookId,
+        projectId: document.projectId,
+        project: document.project,
         position: document.position,
         creator: document.creator,
         currentUserRole: isOwnerLike ? "OWNER" : membership?.role ?? null,
@@ -125,6 +147,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const actorUserId = await resolveSessionUserId(sessionUser);
+    if (!actorUserId) {
+      return NextResponse.json({ error: "Sesion invalida. Inicia sesion de nuevo" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { title, notebookId, projectId } = body;
 
@@ -139,7 +166,7 @@ export async function POST(req: Request) {
       const canUseNotebook = await prisma.notebook.findFirst({
         where: {
           id: notebookId,
-          ...notebookEditorWhere(sessionUser.userId),
+          ...notebookEditorWhere(actorUserId),
         },
         select: { id: true },
       });
@@ -150,7 +177,7 @@ export async function POST(req: Request) {
     }
 
     if (projectId) {
-      if (!(await canEditProjectContent(projectId, sessionUser.userId))) {
+      if (!(await canEditProjectContent(projectId, actorUserId))) {
         return NextResponse.json({ error: "Acceso denegado al proyecto" }, { status: 403 });
       }
     }
@@ -158,7 +185,7 @@ export async function POST(req: Request) {
     const newDocument = await prisma.document.create({
       data: {
         title,
-        creatorId: sessionUser.userId,
+        creatorId: actorUserId,
         notebookId: notebookId || null, 
         projectId: projectId || null,   
         content: {}, 

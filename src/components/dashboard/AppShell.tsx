@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "./Navbar";
+import QuickNoteFab from "../notes/QuickNoteFab";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -56,6 +57,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <main className="min-h-0 flex-1 overflow-hidden p-2 sm:p-3 lg:p-4">
           <div className="page-container h-full min-h-0">{children}</div>
         </main>
+
+        <QuickNoteFab />
       </div>
     </div>
   );
