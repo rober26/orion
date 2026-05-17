@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   CheckSquare,
   Settings,
-  Loader2,
   Search,
   Users,
   BookOpen,
@@ -21,6 +20,13 @@ interface ProjectDocument {
 
 interface ProjectPermissions {
   canManage?: boolean;
+  canEdit?: boolean;
+}
+
+interface ProjectSummaryResponse {
+  name?: string;
+  isArchived?: boolean;
+  permissions?: ProjectPermissions;
 }
 
 export default function ProjectSidebar() {
@@ -32,7 +38,10 @@ export default function ProjectSidebar() {
 
   const [projectDocs, setProjectDocs] = useState<ProjectDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [projectName, setProjectName] = useState("Proyecto");
+  const [isArchived, setIsArchived] = useState(false);
   const [canManage, setCanManage] = useState(false);
+  const [canEdit, setCanEdit] = useState(true);
 
   useEffect(() => {
     const fetchProjectData = async () => {
@@ -47,12 +56,18 @@ export default function ProjectSidebar() {
           throw new Error("No se pudieron cargar los documentos del proyecto");
         }
         const data = await res.json();
-        const projectPayload = (await projectRes.json()) as { permissions?: ProjectPermissions };
+        const projectPayload = (await projectRes.json()) as ProjectSummaryResponse;
         setProjectDocs(Array.isArray(data) ? (data as ProjectDocument[]) : []);
         setCanManage(Boolean(projectPayload.permissions?.canManage));
+        setCanEdit(projectPayload.permissions?.canEdit !== false);
+        setProjectName(projectPayload.name?.trim() || "Proyecto");
+        setIsArchived(Boolean(projectPayload.isArchived));
       } catch (error) {
         console.error("Error al cargar sidebar del proyecto:", error);
         setCanManage(false);
+        setCanEdit(true);
+        setProjectName("Proyecto");
+        setIsArchived(false);
       } finally {
         setLoading(false);
       }
@@ -74,10 +89,23 @@ export default function ProjectSidebar() {
         >
           <ChevronLeft size={14} /> Volver a proyectos
         </button>
-        <div className="flex items-center justify-between">
-          <h2 className="truncate font-black text-slate-900 dark:text-white">
-            Espacio de Trabajo
+        <div className="mt-3 space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Proyecto</p>
+          <h2 className="truncate text-base font-black text-slate-900 dark:text-white" title={projectName}>
+            {projectName}
           </h2>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {isArchived && (
+              <span className="inline-flex rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">
+                Archivado
+              </span>
+            )}
+            {!canEdit && (
+              <span className="inline-flex rounded-full bg-slate-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                Solo lectura
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -117,8 +145,9 @@ export default function ProjectSidebar() {
           </div>
 
           {loading ? (
-            <div className="flex items-center gap-2 px-3 py-2 text-xs italic text-slate-400">
-              <Loader2 size={12} className="animate-spin" /> Cargando archivos...
+            <div className="space-y-2 px-2 py-1">
+              <div className="h-10 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
+              <div className="h-10 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
             </div>
           ) : projectDocs.length === 0 ? (
             <div className="rounded-xl border border-dashed border-orion-border bg-slate-100/50 px-3 py-4 text-center text-xs italic text-slate-400 dark:border-orion-dark-border dark:bg-slate-800/30">
@@ -160,7 +189,7 @@ function SidebarLink({ href, icon, label, active }: { href: string; icon: ReactN
       className={`flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orion-primary/40 ${
         active
           ? "border border-orion-border bg-orion-surface font-semibold text-orion-primary shadow-sm dark:border-orion-dark-border dark:bg-slate-800"
-          : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200"
+          : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200"
       }`}
     >
       <span className={active ? "text-orion-primary" : "text-slate-400"}>

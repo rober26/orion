@@ -1,4 +1,5 @@
 import type {
+  AccessRequest,
   AdminSettings,
   AdminUser,
   CreateAdminUserPayload,
@@ -110,4 +111,22 @@ export async function updateAdminSettings(payload: AdminSettings): Promise<Admin
   });
 
   return parseResponse<AdminSettings>(res);
+}
+
+export async function getAdminAccessRequests(): Promise<AccessRequest[]> {
+  const res = await fetch("/api/admin/access-requests", { cache: "no-store" });
+  return parseResponse<AccessRequest[]>(res);
+}
+
+export async function reviewAdminAccessRequest(
+  requestId: string,
+  payload: { action: "approve" | "reject" },
+): Promise<AccessRequest> {
+  const res = await fetch(`/api/admin/access-requests/${requestId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse<AccessRequest>(res);
 }

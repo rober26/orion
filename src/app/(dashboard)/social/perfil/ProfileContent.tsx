@@ -4,12 +4,13 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import AdminPanel from "./components/AdminPanel";
 import ProfileEdit from "./components/ProfileEdit";
+import ProfileSecurity from "./components/ProfileSecurity";
 import ProfileView from "./components/ProfileView";
 import SystemSettings from "./components/SystemSettings";
 import { useProfileData } from "./hooks/useProfileData";
 import type { UserProfile } from "./types";
 
-type ProfileTab = "profile" | "admin" | "system";
+type ProfileTab = "profile" | "security" | "admin";
 
 export default function ProfileContent() {
   const searchParams = useSearchParams();
@@ -22,10 +23,11 @@ export default function ProfileContent() {
   const isAdmin = activeProfile?.role === "ADMIN";
   const requestedTab = searchParams.get("tab");
   const activeTab: ProfileTab =
-    requestedTab === "admin" && isAdmin
+    requestedTab === "security"
+      ? "security"
+      :
+    (requestedTab === "admin" || requestedTab === "system") && isAdmin
       ? "admin"
-      : requestedTab === "system" && isAdmin
-        ? "system"
         : "profile";
 
   const handleProfileUpdated = (updatedProfile: UserProfile) => {
@@ -69,8 +71,14 @@ export default function ProfileContent() {
         </div>
       )}
 
-      {activeTab === "admin" && isAdmin && <AdminPanel />}
-      {activeTab === "system" && isAdmin && <SystemSettings />}
+      {activeTab === "security" && <ProfileSecurity />}
+
+      {activeTab === "admin" && isAdmin && (
+        <div className="space-y-5">
+          <AdminPanel />
+          <SystemSettings />
+        </div>
+      )}
     </div>
   );
 }

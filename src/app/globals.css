@@ -20,9 +20,7 @@
 }
 
 @utility page-container {
-  @apply h-full min-h-0 w-full border border-orion-border dark:border-slate-800 
-         rounded-2xl p-2 sm:p-3 bg-orion-card dark:bg-orion-dark-card shadow-sm
-         text-slate-900 dark:text-slate-100;
+  @apply surface-panel h-full min-h-0 w-full p-2 sm:p-3 text-slate-900 dark:text-slate-100;
 }
 
 @utility app-page {
@@ -49,6 +47,14 @@
   @apply surface-panel rounded-3xl p-4 sm:p-5;
 }
 
+@utility app-workspace-main {
+  @apply flex-1 min-h-0 overflow-y-auto p-2 sm:p-3 lg:p-4;
+}
+
+@utility section-panel-compact {
+  @apply section-panel p-2.5 sm:p-3.5;
+}
+
 @utility surface-panel {
   @apply bg-orion-surface dark:bg-slate-900 border border-orion-border dark:border-orion-dark-border rounded-2xl shadow-sm;
 }
@@ -59,6 +65,22 @@
 
 @utility icon-btn {
   @apply p-2 rounded-xl transition-all cursor-pointer;
+}
+
+@utility motion-panel {
+  @apply transition-[transform,opacity,width,grid-template-columns] duration-300 ease-out;
+}
+
+@utility motion-fade {
+  @apply transition-opacity duration-300 ease-out;
+}
+
+@utility motion-interactive {
+  @apply transition-colors duration-200 ease-out;
+}
+
+@utility motion-height {
+  @apply transition-[height] duration-150 ease-out;
 }
 
 @utility btn-secondary {
@@ -110,6 +132,17 @@ body {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 *::-webkit-scrollbar {

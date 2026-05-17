@@ -35,11 +35,11 @@ import {
   PanelLeftOpen,
   Plus,
   Share2,
-  Trash2,
   X,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ShareAccessModal from "@/src/components/notebooks/ShareAccessModal";
+import ContextMenu from "@/src/components/ui/ContextMenu";
 
 interface ExplorerDocument {
   id: string;
@@ -495,7 +495,6 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
       setRename(null);
       try {
         await renameEntity(current);
-        showToast("success", "Nombre actualizado");
       } catch (error) {
         const message = error instanceof Error ? error.message : "No se pudo actualizar";
         showToast("error", message);
@@ -836,54 +835,40 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
                     >
                       <MoreHorizontal size={13} />
                     </button>
-                    {openMenu?.type === "folder" && openMenu.id === folder.id ? (
-                      <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-orion-border dark:border-orion-dark-border bg-slate-900 shadow-xl overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
+                    <ContextMenu
+                      open={openMenu?.type === "folder" && openMenu.id === folder.id}
+                      items={[
+                        {
+                          label: "Renombrar",
+                          onSelect: () => {
                             setOpenMenu(null);
                             setRename({ id: folder.id, type: "folder", value: folder.name || "" });
-                          }}
-                          className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
-                        >
-                          Renombrar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
+                          },
+                        },
+                        {
+                          label: "Anadir cuaderno",
+                          onSelect: () => {
                             setOpenMenu(null);
                             startCreate("notebook", folder.id);
-                          }}
-                          className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
-                        >
-                          Anadir cuaderno
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
+                          },
+                        },
+                        {
+                          label: "Compartir",
+                          onSelect: () => {
                             setOpenMenu(null);
                             setShareTarget({ type: "folder", id: folder.id, isPublic: Boolean(folder.isPublic) });
-                          }}
-                          className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
-                        >
-                          Compartir
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
+                          },
+                        },
+                        {
+                          label: "Eliminar",
+                          tone: "danger",
+                          onSelect: () => {
                             setOpenMenu(null);
                             setPendingDelete({ type: "folder", id: folder.id });
-                          }}
-                          className="w-full px-3 py-2 text-left text-xs text-red-300 hover:bg-red-500/10"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    ) : null}
+                          },
+                        },
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -1315,54 +1300,40 @@ const NotebookRow = memo(function NotebookRow({
           >
             <MoreHorizontal size={13} />
           </button>
-          {openMenu?.type === "notebook" && openMenu.id === notebook.id ? (
-            <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-orion-border dark:border-orion-dark-border bg-slate-900 shadow-xl overflow-hidden">
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
+          <ContextMenu
+            open={openMenu?.type === "notebook" && openMenu.id === notebook.id}
+            items={[
+              {
+                label: "Renombrar",
+                onSelect: () => {
                   setOpenMenu(null);
                   onRename();
-                }}
-                className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
-              >
-                Renombrar
-              </button>
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
+                },
+              },
+              {
+                label: "Anadir documento",
+                onSelect: () => {
                   setOpenMenu(null);
                   onCreateDocument();
-                }}
-                className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
-              >
-                Anadir documento
-              </button>
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
+                },
+              },
+              {
+                label: "Compartir",
+                onSelect: () => {
                   setOpenMenu(null);
                   onShare();
-                }}
-                className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
-              >
-                Compartir
-              </button>
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
+                },
+              },
+              {
+                label: "Eliminar",
+                tone: "danger",
+                onSelect: () => {
                   setOpenMenu(null);
                   void onDelete();
-                }}
-                className="w-full px-3 py-2 text-left text-xs text-red-300 hover:bg-red-500/10"
-              >
-                Eliminar
-              </button>
-            </div>
-          ) : null}
+                },
+              },
+            ]}
+          />
         </div>
       </div>
 
@@ -1524,43 +1495,33 @@ const DocumentRow = memo(function DocumentRow({
             >
               <MoreHorizontal size={12} />
             </button>
-            {openMenu?.type === "document" && openMenu.id === document.id ? (
-              <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-orion-border dark:border-orion-dark-border bg-slate-900 shadow-xl overflow-hidden">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
+            <ContextMenu
+              open={openMenu?.type === "document" && openMenu.id === document.id}
+              items={[
+                {
+                  label: "Renombrar",
+                  onSelect: () => {
                     setOpenMenu(null);
                     onRename();
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
-                >
-                  Renombrar
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
+                  },
+                },
+                {
+                  label: "Compartir",
+                  onSelect: () => {
                     setOpenMenu(null);
                     onShare();
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs text-white hover:bg-slate-800"
-                >
-                  Compartir
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
+                  },
+                },
+                {
+                  label: "Eliminar",
+                  tone: "danger",
+                  onSelect: () => {
                     setOpenMenu(null);
                     void onDelete();
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs text-red-300 hover:bg-red-500/10"
-                >
-                  Eliminar
-                </button>
-              </div>
-            ) : null}
+                  },
+                },
+              ]}
+            />
           </div>
         </>
       )}

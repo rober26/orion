@@ -82,3 +82,18 @@ export interface CreateAdminUserPayload {
   role: UserRole;
   isActive: boolean;
 }
+
+export type AccessRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface AccessRequest {
+  id: string;
+  email: string;
+  username: string;
+  firstName: string | null;
+  lastName: string | null;
+  status: AccessRequestStatus;
+  createdAt: string;
+  reviewedAt: string | null;
+  userId: string | null;
+  reviewedBy: string | null;
+}

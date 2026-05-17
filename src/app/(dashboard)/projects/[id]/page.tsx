@@ -104,8 +104,8 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
     <div className="flex h-full rounded-[1rem] bg-orion-surface dark:bg-slate-950 overflow-hidden">
       <ProjectSidebar />
 
-      <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-        <header className="page-head mb-6">
+      <main className="app-workspace-main">
+        <header className="page-head mb-3">
            <div className="flex items-center gap-3 mb-2">
               <div
                 className="w-4 h-4 rounded-full" 
@@ -129,20 +129,20 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
           <p className="page-subtitle">{project.description}</p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           <StatCard icon={<FileText />} label="Documentos" value={project._count?.documents || 0} color="text-blue-500" />
           <StatCard icon={<CheckSquare />} label="Tareas pendientes" value={project._count?.tasks || 0} color="text-orion-primary" />
           <StatCard icon={<Users />} label="Colaboradores" value={project.membersCount || 1} color="text-emerald-500" />
         </div>
 
-        <section className="mt-8 section-panel">
+        <section className="mt-3 section-panel-compact">
           <h2 className="text-xl font-bold mb-4">Actividad reciente</h2>
           {recentActivity.length === 0 ? (
             <div className="surface-soft rounded-[2rem] p-8 text-center text-slate-400 italic">
               Aún no hay actividad reciente en este proyecto.
             </div>
           ) : (
-            <div className="surface-panel rounded-[2rem] p-4 space-y-2">
+            <div className="surface-panel rounded-3xl p-3 space-y-2">
               {recentActivity.map((item) => (
                 <div
                   key={`${item.type}-${item.id}`}
@@ -176,7 +176,7 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, color }: StatCardProps) {
   return (
-    <div className="surface-panel p-6 rounded-[2rem]">
+    <div className="section-panel-compact">
       <div className={`mb-4 ${color}`}>{icon}</div>
       <div className="text-3xl font-black mb-1">{value}</div>
       <div className="text-sm font-medium text-slate-500">{label}</div>

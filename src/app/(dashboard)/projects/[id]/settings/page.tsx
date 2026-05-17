@@ -132,7 +132,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
     <div className="flex h-full rounded-[1rem] bg-orion-surface dark:bg-slate-950 overflow-hidden">
       <ProjectSidebar />
 
-      <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+      <main className="app-workspace-main">
         {loading ? (
           <div className="flex min-h-[40vh] items-center justify-center text-slate-500">
             <Loader2 className="animate-spin" size={20} />
@@ -141,13 +141,13 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
         ) : error && !form ? (
           <div className="rounded-2xl bg-red-50 px-4 py-3 text-red-600 dark:bg-red-950/30 dark:text-red-300">{error}</div>
         ) : form ? (
-          <section className="mx-auto w-full max-w-3xl space-y-6">
+          <section className="w-full max-w-4xl space-y-3">
             <header className="page-head">
               <h1 className="page-title">Ajustes del proyecto</h1>
               <p className="page-subtitle">Actualiza los datos generales y el estado del proyecto.</p>
             </header>
 
-            <div className="section-panel space-y-5">
+            <div className="section-panel-compact space-y-4">
               <label className="block">
                 <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Nombre</span>
                 <input

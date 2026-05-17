@@ -198,8 +198,8 @@ export default function ProjectMembersPage({ params }: { params: Promise<{ id: s
   return (
     <div className="flex h-full rounded-[1rem] bg-orion-surface dark:bg-slate-950 overflow-hidden">
       <ProjectSidebar />
-      <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-        <section className="mx-auto w-full max-w-4xl space-y-6">
+      <main className="app-workspace-main">
+        <section className="w-full space-y-3">
           <header className="page-head">
             <h1 className="page-title">Miembros del proyecto</h1>
             <p className="page-subtitle">Invita usuarios y define permisos de colaboración.</p>
@@ -217,7 +217,7 @@ export default function ProjectMembersPage({ params }: { params: Promise<{ id: s
           )}
 
           {canManage && (
-            <div className="section-panel space-y-3">
+            <div className="section-panel-compact space-y-3">
               <div className="flex flex-wrap gap-3">
                 <input
                   value={query}
@@ -266,7 +266,7 @@ export default function ProjectMembersPage({ params }: { params: Promise<{ id: s
             </div>
           )}
 
-          <div className="section-panel">
+          <div className="section-panel-compact">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Lista de miembros</h2>
 
             {loading ? (

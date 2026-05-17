@@ -234,8 +234,8 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
     <div className="flex h-full rounded-[1rem] bg-orion-surface dark:bg-slate-950 overflow-hidden">
       <ProjectSidebar />
 
-      <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-        <section className="mx-auto w-full max-w-6xl space-y-6">
+      <main className="app-workspace-main">
+        <section className="w-full space-y-3">
           <header className="page-head">
             <h1 className="page-title">Documentación</h1>
             <p className="page-subtitle">
@@ -263,8 +263,8 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
               No se pudo cargar la documentación.
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <section className="section-panel space-y-4">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <section className="section-panel-compact space-y-3">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-white">Documentación de proyecto</h2>
                   <p className="text-sm text-slate-500">Recursos propios de este proyecto.</p>
@@ -345,7 +345,7 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
                 </div>
               </section>
 
-              <section className="section-panel space-y-4">
+              <section className="section-panel-compact space-y-3">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-white">Documentación relacionada</h2>
                   <p className="text-sm text-slate-500">Cuadernos vinculados y sus documentos relacionados.</p>

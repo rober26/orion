@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { FolderKanban, Plus, MoreHorizontal, LayoutGrid, Loader2, X, Users } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Archive, FolderKanban, Plus, MoreHorizontal, LayoutGrid, Loader2, X, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface Project {
@@ -20,21 +20,17 @@ interface ApiError {
 }
 
 const DEFAULT_PROJECT_COLOR = "#3b82f6";
-const PROJECT_STATUS_FILTERS = [
-  { label: "Activos", value: "active" },
-  { label: "Archivados", value: "archived" },
-  { label: "Todos", value: "all" },
-] as const;
-
-type ProjectStatusFilter = (typeof PROJECT_STATUS_FILTERS)[number]["value"];
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [archivedProjects, setArchivedProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingArchived, setLoadingArchived] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdatingProject, setIsUpdatingProject] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<ProjectStatusFilter>("active");
+  const [archivedError, setArchivedError] = useState<string | null>(null);
+  const [isArchivedPanelOpen, setIsArchivedPanelOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
@@ -48,17 +44,21 @@ export default function ProjectsPage() {
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const router = useRouter();
 
-  const fetchProjects = async (status: ProjectStatusFilter) => {
+  const fetchProjects = async (status: "active" | "archived") => {
+    const res = await fetch(`/api/projects?status=${status}`);
+    const data = (await res.json()) as Project[] | ApiError;
+
+    if (!res.ok) {
+      throw new Error((data as ApiError)?.error || "No se pudieron cargar los proyectos");
+    }
+
+    return Array.isArray(data) ? (data as Project[]) : [];
+  };
+
+  const fetchActiveProjects = useCallback(async () => {
     try {
       setListError(null);
-      const res = await fetch(`/api/projects?status=${status}`);
-      const data = (await res.json()) as Project[] | ApiError;
-
-      if (!res.ok) {
-        throw new Error((data as ApiError)?.error || "No se pudieron cargar los proyectos");
-      }
-
-      setProjects(Array.isArray(data) ? (data as Project[]) : []);
+      setProjects(await fetchProjects("active"));
     } catch (error) {
       console.error("Error cargando proyectos:", error);
       setProjects([]);
@@ -66,12 +66,27 @@ export default function ProjectsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const fetchArchivedProjects = useCallback(async () => {
+    try {
+      setArchivedError(null);
+      setArchivedProjects(await fetchProjects("archived"));
+    } catch (error) {
+      console.error("Error cargando archivados:", error);
+      setArchivedProjects([]);
+      setArchivedError("No se pudieron cargar los archivados");
+    } finally {
+      setLoadingArchived(false);
+    }
+  }, []);
 
   useEffect(() => {
     setLoading(true);
-    void fetchProjects(statusFilter);
-  }, [statusFilter]);
+    setLoadingArchived(true);
+    void fetchActiveProjects();
+    void fetchArchivedProjects();
+  }, [fetchActiveProjects, fetchArchivedProjects]);
 
   useEffect(() => {
     const onGlobalPointerDown = (event: PointerEvent) => {
@@ -80,7 +95,12 @@ export default function ProjectsPage() {
         return;
       }
 
+      if (target?.closest("[data-archived-panel='true']") || target?.closest("[data-archived-trigger='true']")) {
+        return;
+      }
+
       setOpenMenu(null);
+      setIsArchivedPanelOpen(false);
     };
 
     window.addEventListener("pointerdown", onGlobalPointerDown);
@@ -162,6 +182,7 @@ export default function ProjectsPage() {
     const nextArchived = !project.isArchived;
     setIsUpdatingProject(project.id);
     setListError(null);
+    setArchivedError(null);
 
     try {
       const res = await fetch(`/api/projects/${project.id}`, {
@@ -175,23 +196,20 @@ export default function ProjectsPage() {
         throw new Error((payload as ApiError)?.error || "No se pudo actualizar el proyecto");
       }
 
-      if (statusFilter === "all") {
-        setProjects((prev) =>
-          prev.map((item) =>
-            item.id === project.id
-              ? {
-                  ...item,
-                  isArchived: nextArchived,
-                }
-              : item,
-          ),
-        );
-      } else {
+      if (nextArchived) {
         setProjects((prev) => prev.filter((item) => item.id !== project.id));
+        setArchivedProjects((prev) => [{ ...project, isArchived: true }, ...prev.filter((item) => item.id !== project.id)]);
+      } else {
+        setArchivedProjects((prev) => prev.filter((item) => item.id !== project.id));
+        setProjects((prev) => [{ ...project, isArchived: false }, ...prev.filter((item) => item.id !== project.id)]);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo actualizar el proyecto";
-      setListError(message);
+      if (project.isArchived) {
+        setArchivedError(message);
+      } else {
+        setListError(message);
+      }
     } finally {
       setIsUpdatingProject(null);
     }
@@ -216,6 +234,7 @@ export default function ProjectsPage() {
       }
 
       setProjects((prev) => prev.filter((item) => item.id !== project.id));
+      setArchivedProjects((prev) => prev.filter((item) => item.id !== project.id));
       setProjectToDelete(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo eliminar el proyecto";
@@ -294,53 +313,132 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="app-page">
-      <div className="app-page-content">
-      <header className="page-head flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+    <div className="app-page overflow-hidden">
+      <div className="flex h-full min-h-0 w-full flex-col gap-3 p-2 sm:p-3 lg:p-4">
+      <header className="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="page-title leading-none">
             Proyectos
           </h1>
           <p className="page-subtitle">
-            Gestiona tus espacios de trabajo y objetivos.
+            Gestiona tus proyectos y objetivos.
           </p>
         </div>
         
-        <button
-          onClick={openCreateModal}
-          disabled={isCreating}
-          className="btn-primary min-h-10 px-6 py-3 rounded-2xl font-bold disabled:cursor-not-allowed"
-        >
-          <Plus size={20} />
-          Nuevo Proyecto
-        </button>
+        <div className="relative flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            data-archived-trigger="true"
+            onClick={() => setIsArchivedPanelOpen((prev) => !prev)}
+            className="btn-secondary min-h-10 gap-2 text-sm"
+            aria-haspopup="dialog"
+            aria-expanded={isArchivedPanelOpen}
+            aria-label="Abrir proyectos archivados"
+          >
+            <Archive size={14} />
+            Archivados
+            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              {loadingArchived ? "..." : archivedProjects.length}
+            </span>
+          </button>
+
+          <button
+            onClick={openCreateModal}
+            disabled={isCreating}
+            className="btn-primary min-h-10 px-6 py-3 rounded-2xl font-bold disabled:cursor-not-allowed"
+          >
+            <Plus size={20} />
+            Nuevo Proyecto
+          </button>
+
+          {isArchivedPanelOpen && (
+            <aside
+              data-archived-panel="true"
+              className="absolute right-0 top-[calc(100%+0.6rem)] z-30 w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-3xl border border-orion-border bg-orion-surface shadow-xl dark:border-orion-dark-border dark:bg-slate-900"
+            >
+              <div className="flex items-center justify-between border-b border-orion-border px-4 py-3 dark:border-orion-dark-border">
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">Proyectos archivados</p>
+                  <p className="text-xs text-slate-500">Restaura o abre proyectos archivados.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsArchivedPanelOpen(false)}
+                  className="icon-btn rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white"
+                  aria-label="Cerrar archivados"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="max-h-[24rem] overflow-y-auto p-3">
+                {archivedError && (
+                  <div className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
+                    {archivedError}
+                  </div>
+                )}
+
+                {loadingArchived ? (
+                  <div className="space-y-2">
+                    {[1, 2].map((index) => (
+                      <div key={index} className="h-20 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+                    ))}
+                  </div>
+                ) : archivedProjects.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-orion-border px-4 py-8 text-center text-sm text-slate-500 dark:border-orion-dark-border">
+                    No hay proyectos archivados.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {archivedProjects.map((project) => (
+                      <div
+                        key={project.id}
+                        className="rounded-2xl border border-orion-border p-3 dark:border-orion-dark-border"
+                      >
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{project.name}</p>
+                        <p className="mt-1 text-xs text-slate-500 line-clamp-1">{project.description || "Sin descripción"}</p>
+                        <div className="mt-3 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/projects/${project.id}`)}
+                            className="btn-secondary min-h-10 px-3 text-xs"
+                          >
+                            Abrir
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void toggleProjectArchivedStatus(project)}
+                            disabled={isUpdatingProject === project.id}
+                            className="btn-primary min-h-10 px-3 text-xs disabled:opacity-70"
+                          >
+                            {isUpdatingProject === project.id ? (
+                              <span className="inline-flex items-center gap-1">
+                                <Loader2 size={12} className="animate-spin" /> Restaurando
+                              </span>
+                            ) : (
+                              "Restaurar"
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </aside>
+          )}
+        </div>
       </header>
 
-      <section className="section-panel space-y-5">
-        <div className="flex flex-wrap items-center gap-2">
-          {PROJECT_STATUS_FILTERS.map((filterOption) => (
-            <button
-              key={filterOption.value}
-              type="button"
-              onClick={() => setStatusFilter(filterOption.value)}
-              className={`filter-chip min-h-10 ${
-                statusFilter === filterOption.value
-                  ? "bg-orion-primary text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
-              }`}
-            >
-              {filterOption.label}
-            </button>
-          ))}
-        </div>
-
+      <section className="section-panel-compact flex min-h-0 flex-1 flex-col space-y-3 overflow-hidden">
         {listError && (
           <div className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
             {listError}
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
            [1, 2, 3].map((i) => (
              <div key={i} className="h-44 animate-pulse rounded-3xl bg-slate-100 dark:bg-slate-800" />
@@ -450,6 +548,7 @@ export default function ProjectsPage() {
            ))
         )}
         </div>
+        </div>
       </section>
 
       {isCreateModalOpen && (
@@ -458,7 +557,7 @@ export default function ProjectsPage() {
             <div className="flex items-start justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white">Crear proyecto</h2>
-                 <p className="mt-1 text-sm text-slate-500">Define un nombre y una descripción para tu nuevo espacio.</p>
+                 <p className="mt-1 text-sm text-slate-500">Define un nombre y una descripción para tu nuevo proyecto.</p>
               </div>
               <button
                 onClick={closeCreateModal}
