@@ -1,7 +1,7 @@
 "use client";
 
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { format, isSameMonth, isToday } from "date-fns";
+import { format, isSameMonth, isToday, isWeekend } from "date-fns";
 import CalendarEvent from "@/src/components/calendar/CalendarEvent";
 import { eventIntersectsDay } from "@/src/lib/calendar-utils";
 import type { CalendarEventItem } from "@/src/components/calendar/types";
@@ -12,24 +12,29 @@ interface MonthViewProps {
   events: CalendarEventItem[];
   onDayClick: (day: Date) => void;
   onEventClick: (event: CalendarEventItem) => void;
+  onEventContextMenu: (event: CalendarEventItem, x: number, y: number) => void;
 }
 
-export default function MonthView({ days, currentMonth, events, onDayClick, onEventClick }: MonthViewProps) {
+export default function MonthView({ days, currentMonth, events, onDayClick, onEventClick, onEventContextMenu }: MonthViewProps) {
+  const weeks = days.length > 35 ? 6 : 5;
   const getEventsForDay = (day: Date): CalendarEventItem[] => {
     return events.filter((event) => eventIntersectsDay(new Date(event.start), new Date(event.end), day));
   };
 
   return (
-    <div className="flex-1 flex flex-col surface-panel dark:bg-slate-900/50 rounded-2xl sm:rounded-[2.5rem] overflow-hidden shadow-2xl min-h-0">
-      <div className="grid grid-cols-7 bg-slate-50/50 dark:bg-slate-800/30 border-b border-orion-border dark:border-orion-dark-border">
-        {["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"].map((d) => (
-          <div key={d} className="py-2 sm:py-4 text-center text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+    <div className="h-full min-h-0 max-h-full flex flex-col surface-panel dark:bg-slate-900/50 rounded-2xl sm:rounded-[1.75rem] overflow-hidden shadow-xl">
+      <div className="grid grid-cols-7 bg-slate-50/60 dark:bg-slate-900/40 border-b border-orion-border dark:border-orion-dark-border shrink-0">
+        {["LUN", "MAR", "MIE", "JUE", "VIE", "SAB", "DOM"].map((d) => (
+          <div key={d} className="py-1.5 sm:py-2 text-center text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.1em]">
             {d}
           </div>
         ))}
       </div>
 
-      <div className="flex-1 grid grid-cols-7 overflow-y-auto overflow-x-hidden">
+      <div
+        className="flex-1 h-full min-h-0 grid grid-cols-7 overflow-hidden"
+        style={{ gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))` }}
+      >
         {days.map((day, i) => {
           const dayEvents = getEventsForDay(day);
           const visibleEvents = dayEvents.slice(0, 3);
@@ -38,14 +43,14 @@ export default function MonthView({ days, currentMonth, events, onDayClick, onEv
 
           return (
             <MonthDayCell key={i} day={day} isCurrentMonth={isCurrentMonth} onDayClick={onDayClick}>
-              <div className="flex justify-between items-start mb-2">
+              <div className="flex justify-between items-start mb-1.5">
                 <span
                   className={`
-                    text-sm font-bold w-8 h-8 flex items-center justify-center rounded-xl transition-all
+                    text-[11px] sm:text-xs font-bold w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full transition-all
                     ${
                       isToday(day)
-                        ? "bg-cyan-600 text-white shadow-lg shadow-cyan-500/40 scale-110"
-                        : "text-slate-500 dark:text-slate-400 group-hover:text-cyan-700 dark:group-hover:text-cyan-300"
+                        ? "bg-orion-primary text-white"
+                        : "text-slate-500 dark:text-slate-400 group-hover:text-orion-primary"
                     }
                   `}
                 >
@@ -53,20 +58,21 @@ export default function MonthView({ days, currentMonth, events, onDayClick, onEv
                 </span>
               </div>
 
-              <div className="space-y-1 max-h-[110px] overflow-y-auto custom-scrollbar">
+              <div className="flex-1 min-h-0 space-y-1 overflow-y-auto custom-scrollbar">
                 {visibleEvents.map((event) => (
                   <DraggableMonthEvent
                     key={`${event.sourceType}:${event.id}:${day.toISOString()}`}
                     item={event}
                     day={day}
                     onClick={onEventClick}
+                    onContextMenu={onEventContextMenu}
                   />
                 ))}
 
                 {remaining > 0 ? (
                   <button
                     type="button"
-                     className="w-full text-left px-1.5 py-1 rounded-md text-[10px] font-semibold text-slate-500 hover:text-cyan-700 dark:hover:text-cyan-300"
+                     className="w-full text-left px-1.5 py-1 rounded-md text-[10px] font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-orion-primary"
                     onClick={(event) => {
                       event.stopPropagation();
                       onDayClick(day);
@@ -103,12 +109,13 @@ function MonthDayCell({
       ref={setNodeRef}
       onClick={() => onDayClick(day)}
       className={`
-        min-h-[96px] sm:min-h-[130px] p-1.5 sm:p-2 border-r border-b border-orion-border dark:border-orion-dark-border group transition-all cursor-pointer
-        ${!isCurrentMonth ? "bg-slate-50/30 dark:bg-slate-950/10 opacity-35" : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"}
-        ${isOver ? "ring-2 ring-cyan-500/40 bg-cyan-50/40 dark:bg-cyan-950/20" : ""}
+        min-h-0 h-full p-1 sm:p-1.5 border-r border-b border-orion-border/80 dark:border-orion-dark-border group transition-all cursor-pointer
+        ${!isCurrentMonth ? "bg-slate-50/20 dark:bg-slate-950/10 opacity-40" : isWeekend(day) ? "bg-slate-50/35 dark:bg-slate-900/35" : "bg-white dark:bg-slate-900"}
+        ${isCurrentMonth ? "hover:bg-slate-50 dark:hover:bg-slate-800/60" : ""}
+        ${isOver ? "ring-2 ring-orion-primary/40 bg-blue-50/40 dark:bg-blue-950/20" : ""}
       `}
     >
-      {children}
+      <div className="h-full min-h-0 flex flex-col">{children}</div>
     </div>
   );
 }
@@ -117,10 +124,12 @@ function DraggableMonthEvent({
   item,
   day,
   onClick,
+  onContextMenu,
 }: {
   item: CalendarEventItem;
   day: Date;
   onClick: (item: CalendarEventItem) => void;
+  onContextMenu: (event: CalendarEventItem, x: number, y: number) => void;
 }) {
   const draggableId = `item:${item.sourceType}:${item.id}:${format(day, "yyyy-MM-dd")}`;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -135,6 +144,11 @@ function DraggableMonthEvent({
       style={{
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         opacity: isDragging ? 0.6 : 1,
+      }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onContextMenu(item, event.clientX, event.clientY);
       }}
       {...attributes}
       {...listeners}

@@ -14,6 +14,7 @@ interface SearchUserItem {
 interface CalendarShareModalProps {
   open: boolean;
   calendars: UserCalendarItem[];
+  initialCalendarId?: string | null;
   onClose: () => void;
   onChanged: () => Promise<void>;
 }
@@ -23,7 +24,7 @@ function fullName(user: SearchUserItem | CalendarMemberItem["user"]): string {
   return value || user.username;
 }
 
-export default function CalendarShareModal({ open, calendars, onClose, onChanged }: CalendarShareModalProps) {
+export default function CalendarShareModal({ open, calendars, initialCalendarId, onClose, onChanged }: CalendarShareModalProps) {
   const [selectedCalendarId, setSelectedCalendarId] = useState("");
   const [members, setMembers] = useState<CalendarMemberItem[]>([]);
   const [query, setQuery] = useState("");
@@ -40,8 +41,13 @@ export default function CalendarShareModal({ open, calendars, onClose, onChanged
       return;
     }
 
+    if (initialCalendarId && ownerCalendars.some((calendar) => calendar.id === initialCalendarId)) {
+      setSelectedCalendarId(initialCalendarId);
+      return;
+    }
+
     setSelectedCalendarId((current) => current || ownerCalendars[0]?.id || "");
-  }, [open, ownerCalendars]);
+  }, [initialCalendarId, open, ownerCalendars]);
 
   useEffect(() => {
     if (!open || !selectedCalendarId) {

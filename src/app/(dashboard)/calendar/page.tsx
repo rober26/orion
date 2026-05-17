@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, DragEndEvent, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { addDays, addMonths, addWeeks, subDays, subMonths, subWeeks } from "date-fns";
+import { MoreVertical, X } from "lucide-react";
 import { getCalendarDays, getViewDateRange } from "@/src/lib/calendar-utils";
 import { moveEventToDay, moveEventToHour } from "@/src/components/calendar/drag-utils";
 import CalendarHeader from "@/src/components/calendar/CalendarHeader";
@@ -14,13 +15,28 @@ import EventDetailsDrawer from "@/src/components/calendar/EventDetailsDrawer";
 import CalendarShareModal from "@/src/components/calendar/CalendarShareModal";
 import CalendarManagerModal from "@/src/components/calendar/CalendarManagerModal";
 import CalendarEvent from "@/src/components/calendar/CalendarEvent";
+import ContextMenu from "@/src/components/ui/ContextMenu";
 import type { CalendarEventItem, CalendarProjectItem, CalendarView, UserCalendarItem } from "@/src/components/calendar/types";
+
+const CALENDAR_COLOR_PRESETS = [
+  "#2563eb",
+  "#0ea5e9",
+  "#14b8a6",
+  "#22c55e",
+  "#f59e0b",
+  "#f97316",
+  "#ef4444",
+  "#ec4899",
+  "#8b5cf6",
+  "#64748b",
+] as const;
 
 export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [view, setView] = useState<CalendarView>("month");
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
   const [isEventsLoading, setIsEventsLoading] = useState(true);
+  const [hasLoadedEventsOnce, setHasLoadedEventsOnce] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [projects, setProjects] = useState<CalendarProjectItem[]>([]);
   const [calendars, setCalendars] = useState<UserCalendarItem[]>([]);
@@ -36,6 +52,15 @@ export default function CalendarPage() {
   const [activeDragItem, setActiveDragItem] = useState<CalendarEventItem | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isManagerModalOpen, setIsManagerModalOpen] = useState(false);
+  const [isCalendarsOpen, setIsCalendarsOpen] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [contextEvent, setContextEvent] = useState<CalendarEventItem | null>(null);
+  const [calendarMenuPosition, setCalendarMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [contextCalendar, setContextCalendar] = useState<UserCalendarItem | null>(null);
+  const [managerInitialCalendarId, setManagerInitialCalendarId] = useState<string | null>(null);
+  const [shareInitialCalendarId, setShareInitialCalendarId] = useState<string | null>(null);
+  const [colorTargetCalendarId, setColorTargetCalendarId] = useState<string | null>(null);
+  const colorInputRef = useRef<HTMLInputElement | null>(null);
   const hasHydratedSettings = useRef(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
@@ -150,9 +175,9 @@ export default function CalendarPage() {
       const nextEvents = await loadEvents();
       setEvents(nextEvents);
     } catch (error) {
-      setEvents([]);
       setEventsError(error instanceof Error ? error.message : "No se pudieron cargar los eventos");
     } finally {
+      setHasLoadedEventsOnce(true);
       setIsEventsLoading(false);
     }
   }, [loadEvents]);
@@ -180,17 +205,29 @@ export default function CalendarPage() {
         const data = await response.json();
         throw new Error(data.error || "No se pudo mover el elemento");
       }
-
-      await fetchEvents();
     },
-    [fetchEvents],
+    [],
   );
+
+  const parseDateFromDropId = (rawDay: string): Date | null => {
+    const [year, month, day] = rawDay.split("-").map((value) => Number(value));
+    if (!year || !month || !day) {
+      return null;
+    }
+
+    const parsed = new Date(year, month - 1, day);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    return parsed;
+  };
 
   const parseDropTarget = (id: string): { type: "day"; day: Date } | { type: "hour"; day: Date; hour: number } | null => {
     if (id.startsWith("day:")) {
       const rawDay = id.slice(4);
-      const day = new Date(`${rawDay}T00:00:00`);
-      if (Number.isNaN(day.getTime())) {
+      const day = parseDateFromDropId(rawDay);
+      if (!day) {
         return null;
       }
       return { type: "day", day };
@@ -202,9 +239,9 @@ export default function CalendarPage() {
         return null;
       }
 
-      const day = new Date(`${parts[1]}T00:00:00`);
+      const day = parseDateFromDropId(parts[1]);
       const hour = Number(parts[2]);
-      if (Number.isNaN(day.getTime()) || Number.isNaN(hour)) {
+      if (!day || Number.isNaN(hour)) {
         return null;
       }
 
@@ -230,24 +267,27 @@ export default function CalendarPage() {
       return;
     }
 
-    try {
-      if (target.type === "day") {
-        const moved = moveEventToDay(item, target.day);
-        await moveCalendarItem(item, {
-          start: moved.start.toISOString(),
-          end: moved.end.toISOString(),
-          allDay: moved.allDay,
-        });
-        return;
-      }
+    const moved = target.type === "day" ? moveEventToDay(item, target.day) : moveEventToHour(item, target.day, target.hour);
 
-      const moved = moveEventToHour(item, target.day, target.hour);
-      await moveCalendarItem(item, {
-        start: moved.start.toISOString(),
-        end: moved.end.toISOString(),
-        allDay: moved.allDay,
-      });
+    const payload = {
+      start: moved.start.toISOString(),
+      end: moved.end.toISOString(),
+      allDay: moved.allDay,
+    };
+
+    const previousEvents = events;
+    setEvents((current) =>
+      current.map((entry) =>
+        entry.id === item.id && entry.sourceType === item.sourceType
+          ? { ...entry, start: payload.start, end: payload.end, allDay: payload.allDay }
+          : entry,
+      ),
+    );
+
+    try {
+      await moveCalendarItem(item, payload);
     } catch {
+      setEvents(previousEvents);
       await fetchEvents();
     }
   };
@@ -255,6 +295,42 @@ export default function CalendarPage() {
   useEffect(() => {
     void fetchEvents();
   }, [fetchEvents]);
+
+  useEffect(() => {
+    if (!contextEvent) {
+      return;
+    }
+
+    const close = () => {
+      setContextEvent(null);
+      setContextMenuPosition(null);
+    };
+
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [contextEvent]);
+
+  useEffect(() => {
+    if (!contextCalendar) {
+      return;
+    }
+
+    const close = () => {
+      setContextCalendar(null);
+      setCalendarMenuPosition(null);
+    };
+
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [contextCalendar]);
 
   useEffect(() => {
     void loadProjects()
@@ -328,18 +404,207 @@ export default function CalendarPage() {
     setCurrentMonth((prev) => addDays(prev, 1));
   };
 
+  const openCreateModalAtDate = useCallback((date: Date) => {
+    setEditingEvent(null);
+    setSelectedDate(date);
+    setIsModalOpen(true);
+  }, []);
+
+  const openEventContextMenu = useCallback((item: CalendarEventItem, x: number, y: number) => {
+    if (item.sourceType !== "event" || item.isReadOnly) {
+      return;
+    }
+
+    setContextEvent(item);
+    setContextMenuPosition({ x, y });
+  }, []);
+
+  const closeEventContextMenu = useCallback(() => {
+    setContextEvent(null);
+    setContextMenuPosition(null);
+  }, []);
+
+  const openCalendarContextMenu = useCallback((calendar: UserCalendarItem, x: number, y: number) => {
+    setContextEvent(null);
+    setContextMenuPosition(null);
+    setContextCalendar(calendar);
+    setCalendarMenuPosition({ x, y });
+  }, []);
+
+  const closeCalendarContextMenu = useCallback(() => {
+    setContextCalendar(null);
+    setCalendarMenuPosition(null);
+  }, []);
+
+  const configureCalendarFromContextMenu = useCallback(() => {
+    if (!contextCalendar) {
+      return;
+    }
+
+    if (contextCalendar.role !== "OWNER") {
+      closeCalendarContextMenu();
+      return;
+    }
+
+    setManagerInitialCalendarId(contextCalendar.id);
+    setIsCalendarsOpen(false);
+    setIsManagerModalOpen(true);
+    closeCalendarContextMenu();
+  }, [closeCalendarContextMenu, contextCalendar]);
+
+  const shareCalendarFromContextMenu = useCallback(() => {
+    if (!contextCalendar) {
+      return;
+    }
+
+    if (contextCalendar.role !== "OWNER") {
+      closeCalendarContextMenu();
+      return;
+    }
+
+    setShareInitialCalendarId(contextCalendar.id);
+    setIsCalendarsOpen(false);
+    setIsShareModalOpen(true);
+    closeCalendarContextMenu();
+  }, [closeCalendarContextMenu, contextCalendar]);
+
+  const changeCalendarColor = useCallback(
+    async (calendarId: string, color: string) => {
+      const normalizedColor = color.trim();
+      if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(normalizedColor)) {
+        return;
+      }
+
+      const previousCalendars = calendars;
+      const previousEvents = events;
+
+      try {
+        setCalendars((current) => current.map((item) => (item.id === calendarId ? { ...item, color: normalizedColor } : item)));
+        setEvents((current) =>
+          current.map((item) =>
+            item.sourceType === "event" && item.calendarId === calendarId ? { ...item, color: normalizedColor } : item,
+          ),
+        );
+
+        const response = await fetch(`/api/calendars/${calendarId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ color: normalizedColor }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "No se pudo actualizar el color");
+        }
+      } catch (error) {
+        setCalendars(previousCalendars);
+        setEvents(previousEvents);
+        setEventsError(error instanceof Error ? error.message : "No se pudo actualizar el color del calendario");
+      }
+    },
+    [calendars, events],
+  );
+
+  const openColorPickerFromContextMenu = useCallback(() => {
+    if (!contextCalendar || contextCalendar.role !== "OWNER") {
+      closeCalendarContextMenu();
+      return;
+    }
+
+    setColorTargetCalendarId(contextCalendar.id);
+    closeCalendarContextMenu();
+
+    requestAnimationFrame(() => {
+      const colorInput = colorInputRef.current;
+      if (!colorInput) {
+        return;
+      }
+
+      colorInput.value = contextCalendar.color || "#2563eb";
+      colorInput.click();
+    });
+  }, [closeCalendarContextMenu, contextCalendar]);
+
+  const editFromContextMenu = useCallback(() => {
+    if (!contextEvent) {
+      return;
+    }
+
+    closeEventContextMenu();
+    setEditingEvent(contextEvent);
+    setSelectedEvent(null);
+    setIsModalOpen(true);
+  }, [closeEventContextMenu, contextEvent]);
+
+  const deleteFromContextMenu = useCallback(async () => {
+    if (!contextEvent || contextEvent.sourceType !== "event" || contextEvent.isReadOnly) {
+      return;
+    }
+
+    if (!window.confirm("¿Eliminar este evento?")) {
+      return;
+    }
+
+    closeEventContextMenu();
+    try {
+      const response = await fetch(`/api/calendar/events/${contextEvent.id}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo eliminar");
+      }
+
+      await fetchEvents();
+      if (selectedEvent?.id === contextEvent.id && selectedEvent.sourceType === contextEvent.sourceType) {
+        setSelectedEvent(null);
+      }
+    } catch (error) {
+      setEventsError(error instanceof Error ? error.message : "No se pudo eliminar el evento");
+    }
+  }, [closeEventContextMenu, contextEvent, fetchEvents, selectedEvent]);
+
   const days = getCalendarDays(currentMonth);
   const viewContent = useMemo(() => {
     if (view === "week") {
-      return <WeekView anchorDate={currentMonth} events={events} onEventClick={(event) => setSelectedEvent(event)} />;
+      return (
+        <WeekView
+          anchorDate={currentMonth}
+          events={events}
+          onEventClick={(event) => setSelectedEvent(event)}
+          onSlotClick={(day, hour) => {
+            const date = new Date(day);
+            date.setHours(hour, 0, 0, 0);
+            openCreateModalAtDate(date);
+          }}
+          onEventContextMenu={openEventContextMenu}
+        />
+      );
     }
 
     if (view === "day") {
-      return <DayView day={currentMonth} events={events} onEventClick={(event) => setSelectedEvent(event)} />;
+      return (
+        <DayView
+          day={currentMonth}
+          events={events}
+          onEventClick={(event) => setSelectedEvent(event)}
+          onSlotClick={(day, hour) => {
+            const date = new Date(day);
+            date.setHours(hour, 0, 0, 0);
+            openCreateModalAtDate(date);
+          }}
+          onEventContextMenu={openEventContextMenu}
+        />
+      );
     }
 
     if (view === "agenda") {
-      return <AgendaView anchorDate={currentMonth} events={events} onEventClick={(event) => setSelectedEvent(event)} />;
+      return (
+        <AgendaView
+          anchorDate={currentMonth}
+          events={events}
+          onEventClick={(event) => setSelectedEvent(event)}
+          onDayClick={(day) => openCreateModalAtDate(day)}
+          onEventContextMenu={openEventContextMenu}
+        />
+      );
     }
 
     return (
@@ -347,15 +612,12 @@ export default function CalendarPage() {
         days={days}
         currentMonth={currentMonth}
         events={events}
-        onDayClick={(day) => {
-          setSelectedDate(day);
-          setView("day");
-          setCurrentMonth(day);
-        }}
+        onDayClick={(day) => openCreateModalAtDate(day)}
         onEventClick={(event) => setSelectedEvent(event)}
+        onEventContextMenu={openEventContextMenu}
       />
     );
-  }, [view, currentMonth, events, days]);
+  }, [view, currentMonth, events, days, openCreateModalAtDate, openEventContextMenu]);
 
   const toggleCalendarVisibility = (calendarId: string) => {
     setVisibleCalendarIds((current) => {
@@ -368,15 +630,8 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="app-page">
-      <div className="app-page-content">
-        <header className="page-head flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="page-title leading-none">Calendario</h1>
-            <p className="page-subtitle">Planifica eventos, tareas e hitos desde una sola vista.</p>
-          </div>
-        </header>
-
+    <div className="app-page overflow-hidden">
+      <div className="app-page-content max-w-none p-1.5 sm:p-2.5 lg:p-3 h-full min-h-0 flex flex-col gap-1.5 sm:gap-2">
         {eventsError ? (
           <div className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
             {eventsError}
@@ -389,68 +644,8 @@ export default function CalendarPage() {
           </div>
         ) : null}
 
-        <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-3 min-h-[70vh]">
-          <aside className="section-panel overflow-y-auto order-2 xl:order-1">
-            <h2 className="text-xs sm:text-sm font-black tracking-widest uppercase text-slate-500 mb-3">Mis calendarios</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2 mb-3">
-              <button
-                type="button"
-                className="btn-secondary w-full text-xs"
-                onClick={() => setIsManagerModalOpen(true)}
-            >
-              Gestionar calendarios
-            </button>
-            <button
-              type="button"
-              className="btn-secondary w-full text-xs"
-              onClick={() => setIsShareModalOpen(true)}
-            >
-                Compartir calendarios
-              </button>
-            </div>
-            {isCalendarsLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((item) => (
-                  <div key={item} className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {calendars.map((calendar) => {
-                  const active = visibleCalendarIds.includes(calendar.id);
-                  return (
-                    <label
-                      key={calendar.id}
-                      className="flex items-center gap-2 rounded-xl border border-orion-border dark:border-orion-dark-border px-3 py-2 cursor-pointer"
-                    >
-                      <input type="checkbox" checked={active} onChange={() => toggleCalendarVisibility(calendar.id)} />
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: calendar.color || "#0891b2" }} />
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex-1 truncate">{calendar.name}</span>
-                      <span className="text-[10px] text-slate-500 uppercase">{calendar.visibility}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="mt-5 pt-4 border-t border-orion-border dark:border-orion-dark-border space-y-2">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">Capas</h3>
-              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-                <input type="checkbox" checked={includeTaskLayer} onChange={(event) => setIncludeTaskLayer(event.target.checked)} />
-                Mostrar tareas
-              </label>
-              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={includeProjectLayer}
-                  onChange={(event) => setIncludeProjectLayer(event.target.checked)}
-                />
-                Mostrar hitos de proyecto
-              </label>
-            </div>
-          </aside>
-
-          <section className="section-panel flex flex-col min-h-0 overflow-hidden order-1 xl:order-2">
+        <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
+          <section className="section-panel h-full flex-1 p-2 sm:p-2.5 flex flex-col min-h-0 min-w-0 overflow-hidden relative">
             <CalendarHeader
               currentMonth={currentMonth}
               view={view}
@@ -458,48 +653,236 @@ export default function CalendarPage() {
               onPrevMonth={onPrev}
               onNextMonth={onNext}
               onToday={() => setCurrentMonth(new Date())}
-              onCreateEvent={() => {
-                setEditingEvent(null);
-                setSelectedDate(currentMonth);
-                setIsModalOpen(true);
-              }}
+              onToggleCalendars={() => setIsCalendarsOpen((current) => !current)}
+              isCalendarsOpen={isCalendarsOpen}
             />
 
-            {isEventsLoading ? (
+            {isEventsLoading && !hasLoadedEventsOnce ? (
               <div className="flex-1 rounded-3xl border border-orion-border dark:border-orion-dark-border p-4 sm:p-5 space-y-2">
                 {[1, 2, 3, 4, 5, 6].map((item) => (
                   <div key={item} className="h-12 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
                 ))}
               </div>
-            ) : events.length === 0 ? (
-              <div className="flex-1 rounded-3xl border-2 border-dashed border-orion-border dark:border-orion-dark-border p-8 text-center text-sm text-slate-500 dark:text-slate-300">
-                No hay elementos para el rango seleccionado.
-              </div>
             ) : (
-              <DndContext
-                sensors={sensors}
-                onDragStart={(event) => {
-                  const item = event.active.data.current?.item as CalendarEventItem | undefined;
-                  setActiveDragItem(item ?? null);
-                }}
-                onDragEnd={(event) => void handleDragEnd(event)}
-                onDragCancel={() => setActiveDragItem(null)}
+              <div
+                className={`relative flex flex-1 min-h-0 min-w-0 overflow-hidden transition-opacity duration-200 ${
+                  isEventsLoading ? "opacity-85" : "opacity-100"
+                }`}
               >
-                {viewContent}
+                <DndContext
+                  sensors={sensors}
+                  onDragStart={(event) => {
+                    const item = event.active.data.current?.item as CalendarEventItem | undefined;
+                    setActiveDragItem(item ?? null);
+                  }}
+                  onDragEnd={(event) => void handleDragEnd(event)}
+                  onDragCancel={() => setActiveDragItem(null)}
+                >
+                  <div className="h-full min-h-0 w-full">
+                    {viewContent}
+                  </div>
 
-                <DragOverlay>
-                  {activeDragItem ? (
-                    <div className="w-56">
-                      <CalendarEvent
-                        title={activeDragItem.title}
-                        type={activeDragItem.sourceType}
-                        color={activeDragItem.color || undefined}
-                        draggable={activeDragItem.canReschedule}
-                      />
+                  {isEventsLoading ? (
+                    <div className="pointer-events-none absolute right-5 top-4 h-2 w-24 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/80">
+                      <div className="h-full w-2/3 animate-pulse rounded-full bg-orion-primary" />
                     </div>
                   ) : null}
-                </DragOverlay>
-              </DndContext>
+
+                  <DragOverlay dropAnimation={null}>
+                    {activeDragItem ? (
+                      <div className="w-56">
+                        <CalendarEvent
+                          title={activeDragItem.title}
+                          type={activeDragItem.sourceType}
+                          color={activeDragItem.color || undefined}
+                          draggable={activeDragItem.canReschedule}
+                        />
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
+
+                <aside
+                  className={`motion-panel absolute inset-y-1 right-1 z-30 w-[min(92vw,320px)] max-h-[calc(100%-0.5rem)] overflow-hidden rounded-2xl border border-orion-border bg-white p-2 shadow-2xl transition-all duration-300 dark:border-orion-dark-border dark:bg-slate-900 ${
+                    isCalendarsOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-[104%] opacity-0"
+                  }`}
+                >
+                  <div className="flex items-center justify-between px-2 py-1.5 border-b border-orion-border dark:border-orion-dark-border">
+                    <h2 className="text-xs font-black tracking-widest uppercase text-slate-500">Mis calendarios</h2>
+                    <button
+                      type="button"
+                      className="btn-secondary inline-flex h-8 w-8 items-center justify-center p-0"
+                      onClick={() => setIsCalendarsOpen(false)}
+                      aria-label="Cerrar panel de calendarios"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  {isCalendarsLoading ? (
+                    <div className="mt-3 space-y-2">
+                      {[1, 2, 3].map((item) => (
+                        <div key={item} className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-3 space-y-2 max-h-[40dvh] overflow-y-auto pr-1">
+                      {calendars.map((calendar) => {
+                        const active = visibleCalendarIds.includes(calendar.id);
+                        const isOwner = calendar.role === "OWNER";
+                        return (
+                          <div
+                            key={calendar.id}
+                            className="flex items-center gap-2 rounded-xl border border-orion-border dark:border-orion-dark-border px-3 py-2"
+                            onContextMenu={(event) => {
+                              event.preventDefault();
+                              openCalendarContextMenu(calendar, event.clientX, event.clientY);
+                            }}
+                          >
+                            <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+                              <input type="checkbox" checked={active} onChange={() => toggleCalendarVisibility(calendar.id)} />
+                              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: calendar.color || "#1e3a8a" }} />
+                              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex-1 truncate">{calendar.name}</span>
+                            </label>
+                            <span className="text-[10px] text-slate-500 uppercase">{calendar.visibility}</span>
+                            <button
+                              type="button"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                              aria-label={`Opciones de ${calendar.name}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openCalendarContextMenu(calendar, event.clientX, event.clientY);
+                              }}
+                              title={isOwner ? "Configurar o compartir" : "Solo el propietario puede gestionar este calendario"}
+                            >
+                              <MoreVertical size={14} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="mt-3 pt-3 border-t border-orion-border dark:border-orion-dark-border space-y-2">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">Capas</h3>
+                    <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                      <input type="checkbox" checked={includeTaskLayer} onChange={(event) => setIncludeTaskLayer(event.target.checked)} />
+                      Mostrar tareas
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={includeProjectLayer}
+                        onChange={(event) => setIncludeProjectLayer(event.target.checked)}
+                      />
+                      Mostrar hitos de proyecto
+                    </label>
+                  </div>
+                </aside>
+
+                <ContextMenu
+                  open={contextEvent !== null && contextMenuPosition !== null}
+                  position={contextMenuPosition}
+                  onRequestClose={closeEventContextMenu}
+                  items={[
+                    {
+                      label: "Editar",
+                      onSelect: () => {
+                        editFromContextMenu();
+                      },
+                    },
+                    {
+                      label: "Eliminar",
+                      tone: "danger",
+                      onSelect: () => {
+                        void deleteFromContextMenu();
+                      },
+                    },
+                  ]}
+                />
+
+                <ContextMenu
+                  open={contextCalendar !== null && calendarMenuPosition !== null}
+                  position={calendarMenuPosition}
+                  onRequestClose={closeCalendarContextMenu}
+                  extraContent={
+                    contextCalendar ? (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Color del calendario</p>
+                        <div className="grid grid-cols-5 gap-1.5">
+                          {CALENDAR_COLOR_PRESETS.map((preset) => {
+                            const selectedColor = (contextCalendar.color || "#2563eb").toLowerCase();
+                            const isSelected = selectedColor === preset.toLowerCase();
+                            const disabled = contextCalendar.role !== "OWNER";
+
+                            return (
+                              <button
+                                key={preset}
+                                type="button"
+                                disabled={disabled}
+                                title={disabled ? "Solo el propietario puede cambiar el color" : `Elegir ${preset}`}
+                                onClick={() => {
+                                  if (disabled) {
+                                    return;
+                                  }
+                                  void changeCalendarColor(contextCalendar.id, preset);
+                                  closeCalendarContextMenu();
+                                }}
+                                className={`h-6 w-6 rounded-full border transition-transform ${
+                                  isSelected ? "border-white ring-1 ring-white" : "border-white/30"
+                                } ${disabled ? "cursor-not-allowed opacity-50" : "hover:scale-105"}`}
+                                style={{ backgroundColor: preset }}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null
+                  }
+                  items={[
+                    {
+                      label: "Configurar calendario",
+                      disabled: contextCalendar?.role !== "OWNER",
+                      hint: contextCalendar?.role !== "OWNER" ? "Solo el propietario puede configurar" : undefined,
+                      onSelect: () => {
+                        configureCalendarFromContextMenu();
+                      },
+                    },
+                    {
+                      label: "Compartir calendario",
+                      disabled: contextCalendar?.role !== "OWNER",
+                      hint: contextCalendar?.role !== "OWNER" ? "Solo el propietario puede compartir" : undefined,
+                      onSelect: () => {
+                        shareCalendarFromContextMenu();
+                      },
+                    },
+                    {
+                      label: "Cambiar color",
+                      disabled: contextCalendar?.role !== "OWNER",
+                      hint: contextCalendar?.role !== "OWNER" ? "Solo el propietario puede cambiar el color" : undefined,
+                      onSelect: () => {
+                        openColorPickerFromContextMenu();
+                      },
+                    },
+                  ]}
+                />
+
+                <input
+                  ref={colorInputRef}
+                  type="color"
+                  className="sr-only"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  onChange={(event) => {
+                    if (!colorTargetCalendarId) {
+                      return;
+                    }
+
+                    void changeCalendarColor(colorTargetCalendarId, event.target.value);
+                    setColorTargetCalendarId(null);
+                  }}
+                />
+              </div>
             )}
           </section>
         </div>
@@ -518,7 +901,11 @@ export default function CalendarPage() {
       <CalendarShareModal
         open={isShareModalOpen}
         calendars={calendars}
-        onClose={() => setIsShareModalOpen(false)}
+        initialCalendarId={shareInitialCalendarId}
+        onClose={() => {
+          setIsShareModalOpen(false);
+          setShareInitialCalendarId(null);
+        }}
         onChanged={async () => {
           const items = await loadCalendars();
           setCalendars(items);
@@ -529,7 +916,11 @@ export default function CalendarPage() {
       <CalendarManagerModal
         open={isManagerModalOpen}
         calendars={calendars}
-        onClose={() => setIsManagerModalOpen(false)}
+        initialCalendarId={managerInitialCalendarId}
+        onClose={() => {
+          setIsManagerModalOpen(false);
+          setManagerInitialCalendarId(null);
+        }}
         onChanged={async () => {
           const items = await loadCalendars();
           setCalendars(items);

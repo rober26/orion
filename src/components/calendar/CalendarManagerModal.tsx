@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { UserCalendarItem } from "@/src/components/calendar/types";
 
 interface CalendarManagerModalProps {
   open: boolean;
   calendars: UserCalendarItem[];
+  initialCalendarId?: string | null;
   onClose: () => void;
   onChanged: () => Promise<void>;
 }
@@ -18,7 +19,7 @@ interface CalendarFormState {
 
 const DEFAULT_COLOR = "#2563eb";
 
-export default function CalendarManagerModal({ open, calendars, onClose, onChanged }: CalendarManagerModalProps) {
+export default function CalendarManagerModal({ open, calendars, initialCalendarId, onClose, onChanged }: CalendarManagerModalProps) {
   const [selectedId, setSelectedId] = useState<string>("");
   const [creating, setCreating] = useState<CalendarFormState>({ name: "", color: DEFAULT_COLOR, visibility: "PRIVATE" });
   const [editing, setEditing] = useState<CalendarFormState>({ name: "", color: DEFAULT_COLOR, visibility: "PRIVATE" });
@@ -30,6 +31,29 @@ export default function CalendarManagerModal({ open, calendars, onClose, onChang
     () => ownedCalendars.find((calendar) => calendar.id === selectedId) || null,
     [ownedCalendars, selectedId],
   );
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (!initialCalendarId) {
+      return;
+    }
+
+    const calendar = ownedCalendars.find((item) => item.id === initialCalendarId);
+    if (!calendar) {
+      return;
+    }
+
+    setSelectedId(calendar.id);
+    setEditing({
+      name: calendar.name,
+      color: calendar.color || DEFAULT_COLOR,
+      visibility: calendar.visibility,
+    });
+    setError(null);
+  }, [initialCalendarId, open, ownedCalendars]);
 
   if (!open) {
     return null;
@@ -138,7 +162,7 @@ export default function CalendarManagerModal({ open, calendars, onClose, onChang
                 onClick={() => openEditorFor(calendar)}
                 className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
                   selectedCalendar?.id === calendar.id
-                    ? "border-cyan-500 bg-cyan-50 dark:bg-cyan-950/30"
+                    ? "border-orion-primary bg-blue-50 dark:bg-blue-950/30"
                     : "border-orion-border dark:border-orion-dark-border hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
               >

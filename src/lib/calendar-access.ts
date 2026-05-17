@@ -50,29 +50,43 @@ export async function canEditCalendarContent(calendarId: string, userId: string)
 }
 
 export async function ensureDefaultCalendar(userId: string): Promise<{ id: string; name: string; color: string | null }> {
-  const existing = await prisma.calendar.findFirst({
-    where: {
-      ownerId: userId,
-      isDefault: true,
-    },
-    select: { id: true, name: true, color: true },
+  const lockKey = `calendar-default:${userId}`;
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+
+    const defaults = await tx.calendar.findMany({
+      where: {
+        ownerId: userId,
+        isDefault: true,
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: { id: true, name: true, color: true },
+    });
+
+    if (defaults.length > 0) {
+      const [oldest, ...duplicates] = defaults;
+
+      if (duplicates.length > 0) {
+        await tx.calendar.updateMany({
+          where: { id: { in: duplicates.map((item) => item.id) } },
+          data: { isDefault: false },
+        });
+      }
+
+      return oldest;
+    }
+
+    return tx.calendar.create({
+      data: {
+        name: "Personal",
+        color: "#2563eb",
+        visibility: "PRIVATE",
+        isDefault: true,
+        ownerId: userId,
+        creatorId: userId,
+      },
+      select: { id: true, name: true, color: true },
+    });
   });
-
-  if (existing) {
-    return existing;
-  }
-
-  const created = await prisma.calendar.create({
-    data: {
-      name: "Personal",
-      color: "#2563eb",
-      visibility: "PRIVATE",
-      isDefault: true,
-      ownerId: userId,
-      creatorId: userId,
-    },
-    select: { id: true, name: true, color: true },
-  });
-
-  return created;
 }

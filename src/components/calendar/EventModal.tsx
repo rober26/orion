@@ -231,7 +231,7 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
               onClick={() => setTimeMode("range")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
                   timeMode === "range"
-                    ? "bg-cyan-600 text-white border-cyan-600"
+                    ? "bg-orion-primary text-white border-orion-primary"
                     : "border-orion-border dark:border-orion-dark-border text-slate-600 dark:text-slate-300"
                 }`}
             >
@@ -242,7 +242,7 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
               onClick={() => setTimeMode("single")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
                   timeMode === "single"
-                    ? "bg-cyan-600 text-white border-cyan-600"
+                    ? "bg-orion-primary text-white border-orion-primary"
                     : "border-orion-border dark:border-orion-dark-border text-slate-600 dark:text-slate-300"
                 }`}
             >
@@ -253,7 +253,7 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
               onClick={() => setTimeMode("all-day")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
                   timeMode === "all-day"
-                    ? "bg-cyan-600 text-white border-cyan-600"
+                    ? "bg-orion-primary text-white border-orion-primary"
                     : "border-orion-border dark:border-orion-dark-border text-slate-600 dark:text-slate-300"
                 }`}
             >

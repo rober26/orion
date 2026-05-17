@@ -32,6 +32,7 @@ export default function EventDetailsDrawer({ open, event, onClose, onRefresh, on
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   const attendeeIds = useMemo(() => new Set(attendees.map((attendee) => attendee.user.id)), [attendees]);
 
@@ -94,6 +95,18 @@ export default function EventDetailsDrawer({ open, event, onClose, onRefresh, on
 
     return () => clearTimeout(timeout);
   }, [open, query, attendeeIds, event]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const media = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsDesktop(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
 
   if (!open || !event) {
     return null;
@@ -166,25 +179,45 @@ export default function EventDetailsDrawer({ open, event, onClose, onRefresh, on
   return (
     <div className="fixed inset-0 z-[105] bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <aside
-        className="absolute right-0 top-0 h-full w-full max-w-md bg-white dark:bg-slate-900 border-l border-orion-border dark:border-orion-dark-border p-4 sm:p-5 overflow-y-auto"
+        className={`bg-white dark:bg-slate-900 border-orion-border dark:border-orion-dark-border overflow-y-auto ${
+          isDesktop
+            ? "absolute right-4 top-20 w-[420px] max-h-[calc(100vh-6.5rem)] rounded-2xl border shadow-2xl p-4"
+            : "absolute right-0 top-0 h-full w-full max-w-md border-l p-4 sm:p-5"
+        }`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-2 mb-4">
-          <div>
-            <p className="text-xs text-cyan-700 dark:text-cyan-300 uppercase tracking-wider font-bold">{event.sourceType}</p>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{event.title}</h3>
-            <p className="text-xs text-slate-500">{event.calendarName || event.projectName || "Sin fuente"}</p>
+          <div className="min-w-0">
+            <p className="text-[10px] text-orion-primary uppercase tracking-wider font-black">{event.sourceType}</p>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">{event.title}</h3>
+            <p className="text-xs text-slate-500 truncate">{event.calendarName || event.projectName || "Sin fuente"}</p>
           </div>
           <button type="button" className="btn-secondary px-2 py-1" onClick={onClose}>
             Cerrar
           </button>
         </div>
 
-        <div className="space-y-1 mb-4 text-sm text-slate-600 dark:text-slate-300">
-          <p>Inicio: {new Date(event.start).toLocaleString()}</p>
-          <p>Fin: {new Date(event.end).toLocaleString()}</p>
-          {event.location ? <p>Ubicacion: {event.location}</p> : null}
-          {event.description ? <p>Descripcion: {event.description}</p> : null}
+        <div className="grid grid-cols-1 gap-2 mb-4">
+          <div className="rounded-xl border border-orion-border dark:border-orion-dark-border px-3 py-2 text-sm text-slate-600 dark:text-slate-300">
+            <p className="text-[10px] uppercase tracking-wide text-slate-500">Inicio</p>
+            <p className="font-semibold text-slate-800 dark:text-slate-100">{new Date(event.start).toLocaleString()}</p>
+          </div>
+          <div className="rounded-xl border border-orion-border dark:border-orion-dark-border px-3 py-2 text-sm text-slate-600 dark:text-slate-300">
+            <p className="text-[10px] uppercase tracking-wide text-slate-500">Fin</p>
+            <p className="font-semibold text-slate-800 dark:text-slate-100">{new Date(event.end).toLocaleString()}</p>
+          </div>
+          {event.location ? (
+            <div className="rounded-xl border border-orion-border dark:border-orion-dark-border px-3 py-2 text-sm text-slate-600 dark:text-slate-300">
+              <p className="text-[10px] uppercase tracking-wide text-slate-500">Ubicacion</p>
+              <p className="font-semibold text-slate-800 dark:text-slate-100">{event.location}</p>
+            </div>
+          ) : null}
+          {event.description ? (
+            <div className="rounded-xl border border-orion-border dark:border-orion-dark-border px-3 py-2 text-sm text-slate-600 dark:text-slate-300">
+              <p className="text-[10px] uppercase tracking-wide text-slate-500">Descripcion</p>
+              <p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{event.description}</p>
+            </div>
+          ) : null}
         </div>
 
         {error ? <p className="text-sm text-red-500 mb-3">{error}</p> : null}
@@ -260,7 +293,7 @@ export default function EventDetailsDrawer({ open, event, onClose, onRefresh, on
                           </div>
                           <button
                             type="button"
-                            className="text-xs text-cyan-700 dark:text-cyan-300 inline-flex items-center gap-1"
+                            className="text-xs text-orion-primary inline-flex items-center gap-1"
                             onClick={() => void invite(user.id)}
                           >
                             <UserPlus size={12} /> Invitar
