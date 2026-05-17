@@ -132,11 +132,6 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
       return badRequest("Las columnas predeterminadas no se pueden eliminar");
     }
 
-    const columnsCount = await prisma.kanbanColumn.count({ where: { boardId: existing.boardId } });
-    if (columnsCount <= 1) {
-      return badRequest("No puedes eliminar la unica columna del tablero");
-    }
-
     await prisma.kanbanColumn.delete({ where: { id: existing.id } });
 
     return json({ message: "Columna eliminada" });

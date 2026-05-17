@@ -641,7 +641,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                   <button
                     type="button"
                     onClick={openCreateTaskModal}
-                    disabled={saving || !selectedBoard}
+                    disabled={saving || !selectedBoard || selectedBoard.columns.length === 0}
                     className="btn-secondary text-sm"
                   >
                     <Plus size={14} /> Nueva tarea
@@ -665,6 +665,10 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
             <div className="rounded-xl border border-dashed border-orion-border px-4 py-10 text-center text-sm text-slate-500 dark:border-orion-dark-border">
               No hay tableros disponibles.
             </div>
+          ) : selectedBoard.columns.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-orion-border px-4 py-10 text-center text-sm text-slate-500 dark:border-orion-dark-border">
+              Este tablero no tiene columnas. Crea una columna para empezar.
+            </div>
           ) : (
             <DndContext
               sensors={sensors}
@@ -680,8 +684,9 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                       <SortableColumn
                         key={column.id}
                         column={column}
+                        isDefaultBoard={isDefaultBoard}
                         onDelete={() => {
-                          if (canEdit && !DEFAULT_COLUMNS.includes(column.name)) {
+                          if (canEdit && !(isDefaultBoard && DEFAULT_COLUMNS.includes(column.name))) {
                             void deleteColumn(column.id);
                           }
                         }}
@@ -944,12 +949,14 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
 
 function SortableColumn({
   column,
+  isDefaultBoard,
   onDelete,
   onEditTask,
   saving,
   readOnly,
 }: {
   column: KanbanColumn;
+  isDefaultBoard: boolean;
   onDelete: () => void;
   onEditTask: (task: TaskItem) => void;
   saving: boolean;
@@ -958,7 +965,7 @@ function SortableColumn({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `column:${column.id}`,
   });
-  const isProtected = DEFAULT_COLUMNS.includes(column.name);
+  const isProtected = isDefaultBoard && DEFAULT_COLUMNS.includes(column.name);
 
   return (
     <div
