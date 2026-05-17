@@ -1,4 +1,4 @@
-export type AiProvider = "GITHUB_MODELS" | "OPENAI_COMPATIBLE" | "SELF_HOSTED_OPENAI";
+export type AiProvider = "SELF_HOSTED_OPENAI";
 export type AiMessageRole = "system" | "user" | "assistant";
 
 export interface AiProviderOption {
@@ -15,6 +15,8 @@ export interface AiConfigView {
   provider: AiProvider;
   model: string;
   baseUrl: string | null;
+  preferredLanguage: string;
+  preferredName: string;
   isActive: boolean;
   requiresApiKey: boolean;
   hasApiKey: boolean;
@@ -42,6 +44,8 @@ export interface AiConnection {
 export interface AiConversationListItem {
   id: string;
   title: string;
+  personaStyle: string | null;
+  primaryFunction: string | null;
   model: string;
   provider: AiProvider;
   connectionId: string | null;
@@ -60,6 +64,8 @@ export interface AiMessage {
 export interface AiConversationDetail {
   id: string;
   title: string;
+  personaStyle: string | null;
+  primaryFunction: string | null;
   model: string;
   provider: AiProvider;
   connectionId: string | null;

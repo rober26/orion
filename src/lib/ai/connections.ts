@@ -1,6 +1,6 @@
 import { getAiClient } from "./client";
-import { DEFAULT_AI_MODEL, DEFAULT_AI_PROVIDER, isAiProvider, providerProfile } from "./constants";
-import { encryptSecret, readStoredSecret } from "./crypto";
+import { DEFAULT_AI_MODEL, LOCAL_ONLY_AI_PROVIDER, providerProfile } from "./constants";
+import { encryptSecret } from "./crypto";
 
 type ConnectionRecord = {
   id: string;
@@ -37,30 +37,16 @@ export type NormalizedAiConnection = {
   updatedAt: string;
 };
 
-function maskApiKey(secret: string): string | null {
-  if (!secret) {
-    return null;
-  }
-
-  if (secret.length <= 8) {
-    return "********";
-  }
-
-  return `${secret.slice(0, 4)}...${secret.slice(-4)}`;
-}
-
 function normalizeConnection(record: ConnectionRecord): NormalizedAiConnection {
-  const secret = readStoredSecret(record.encryptedApiKey);
-
   return {
     id: record.id,
     name: record.name,
-    provider: isAiProvider(record.provider) ? record.provider : DEFAULT_AI_PROVIDER,
+    provider: LOCAL_ONLY_AI_PROVIDER,
     model: record.model,
     baseUrl: record.baseUrl,
-    requiresApiKey: record.requiresApiKey,
-    hasApiKey: secret.length > 0,
-    maskedApiKey: maskApiKey(secret),
+    requiresApiKey: false,
+    hasApiKey: false,
+    maskedApiKey: null,
     isDefault: record.isDefault,
     updatedAt: record.updatedAt.toISOString(),
   };
@@ -79,7 +65,11 @@ async function createDefaultConnectionFromLegacy(userId: string): Promise<Connec
     },
   })) as LegacyConfig | null;
 
-  const provider = isAiProvider(legacyConfig?.provider) ? legacyConfig.provider : DEFAULT_AI_PROVIDER;
+  if (!legacyConfig) {
+    throw new Error("No existe configuracion IA legacy para migrar");
+  }
+
+  const provider = LOCAL_ONLY_AI_PROVIDER;
   const profile = providerProfile(provider);
 
   const created = (await aiClient.userAiConnection.create({
@@ -87,10 +77,10 @@ async function createDefaultConnectionFromLegacy(userId: string): Promise<Connec
       userId,
       name: "Conexion principal",
       provider,
-      model: legacyConfig?.model || profile.defaultModel || DEFAULT_AI_MODEL,
-      baseUrl: legacyConfig?.baseUrl || profile.defaultBaseUrl,
-      encryptedApiKey: legacyConfig?.encryptedApiKey || encryptSecret(""),
-      requiresApiKey: legacyConfig?.requiresApiKey ?? profile.requiresApiKey,
+      model: legacyConfig.model || profile.defaultModel || DEFAULT_AI_MODEL,
+      baseUrl: legacyConfig.baseUrl || profile.defaultBaseUrl,
+      encryptedApiKey: encryptSecret(""),
+      requiresApiKey: false,
       isDefault: true,
     },
   })) as ConnectionRecord;
@@ -110,33 +100,73 @@ async function createDefaultConnectionFromLegacy(userId: string): Promise<Connec
   return created;
 }
 
-export async function ensureUserConnections(userId: string): Promise<{
+export async function ensureUserConnections(
+  userId: string,
+  options: { createIfMissing?: boolean } = {},
+): Promise<{
   connections: NormalizedAiConnection[];
-  defaultConnectionId: string;
+  defaultConnectionId: string | null;
 }> {
   const aiClient = getAiClient();
+  const createIfMissing = options.createIfMissing === true;
+
   let records = (await aiClient.userAiConnection.findMany({
     where: { userId },
     orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
   })) as ConnectionRecord[];
 
   if (records.length === 0) {
-    const created = await createDefaultConnectionFromLegacy(userId);
-    records = [created];
+    const hasLegacyConfig = Boolean(
+      await aiClient.userAiConfig.findUnique({
+        where: { userId },
+        select: { id: true },
+      }),
+    );
+
+    if (hasLegacyConfig) {
+      const created = await createDefaultConnectionFromLegacy(userId);
+      records = [created];
+    } else if (!createIfMissing) {
+      return {
+        connections: [],
+        defaultConnectionId: null,
+      };
+    }
   }
 
-  let defaultConnection = records.find((item) => item.isDefault) || records[0];
+  if (records.length === 0) {
+    return {
+      connections: [],
+      defaultConnectionId: null,
+    };
+  }
 
-  if (!defaultConnection.isDefault) {
+  const firstDefault = records.find((item) => item.isDefault) || records[0];
+  const defaultCandidates = records.filter((item) => item.isDefault);
+  const mustNormalizeDefault = defaultCandidates.length !== 1 || !firstDefault.isDefault;
+
+  if (mustNormalizeDefault) {
+    await aiClient.userAiConnection.updateMany({
+      where: {
+        userId,
+        NOT: { id: firstDefault.id },
+      },
+      data: { isDefault: false },
+    });
+
     await aiClient.userAiConnection.update({
-      where: { id: defaultConnection.id },
+      where: { id: firstDefault.id },
       data: { isDefault: true },
     });
-    defaultConnection = { ...defaultConnection, isDefault: true };
   }
 
+  const normalizedRecords = records.map((record) => ({
+    ...record,
+    isDefault: record.id === firstDefault.id,
+  }));
+
   return {
-    connections: records.map(normalizeConnection),
-    defaultConnectionId: defaultConnection.id,
+    connections: normalizedRecords.map(normalizeConnection),
+    defaultConnectionId: firstDefault.id,
   };
 }

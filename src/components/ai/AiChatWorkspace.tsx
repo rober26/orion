@@ -1,7 +1,7 @@
 "use client";
 
-import { LoaderCircle, Plus, Send, Trash2 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { LoaderCircle, MessageSquare, Plus, Send, Settings, X } from "lucide-react";
+import { CSSProperties, FormEvent, KeyboardEvent, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import AiConfigPanel from "./AiConfigPanel";
 import {
   createAiConversation,
@@ -10,16 +10,20 @@ import {
   getAiConversationDetail,
   getAiConversations,
   sendAiMessage,
+  updateAiConversationSettings,
   updateAiConversationConnection,
 } from "./service";
 import type { AiConfigView, AiConnection, AiConversationListItem, AiMessage } from "./types";
+import ContextMenu from "../ui/ContextMenu";
 
 const DEFAULT_CONFIG: AiConfigView = {
-  provider: "GITHUB_MODELS",
-  model: "openai/gpt-4.1-mini",
+  provider: "SELF_HOSTED_OPENAI",
+  model: "llama3.1:8b",
   baseUrl: null,
+  preferredLanguage: "es",
+  preferredName: "Usuario",
   isActive: true,
-  requiresApiKey: true,
+  requiresApiKey: false,
   hasApiKey: false,
   maskedApiKey: null,
   updatedAt: null,
@@ -33,15 +37,70 @@ export default function AiChatWorkspace() {
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [messageInput, setMessageInput] = useState("");
   const [loadingConversations, setLoadingConversations] = useState(true);
+  const [loadingConfig, setLoadingConfig] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [switchingConnection, setSwitchingConnection] = useState(false);
+  const [isConversationsOpen, setIsConversationsOpen] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [renameConversation, setRenameConversation] = useState<{ id: string; value: string } | null>(null);
+  const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
+  const [conversationMenuPosition, setConversationMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [conversationSettings, setConversationSettings] = useState<{
+    id: string;
+    title: string;
+    personaStyle: string;
+    primaryFunction: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sendAbortRef = useRef<AbortController | null>(null);
+  const pendingSendRef = useRef<{ requestId: string; tempMessageId: string; content: string } | null>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const activeConversation = useMemo(
     () => conversations.find((item) => item.id === activeConversationId) ?? null,
     [activeConversationId, conversations],
   );
+  const connectionOptions: AiConnection[] = config.connections || [];
+  const hasConnections = connectionOptions.length > 0;
+
+  useEffect(() => {
+    const settingsId = conversationSettings?.id;
+    if (!settingsId) {
+      return;
+    }
+
+    const source = conversations.find((item) => item.id === settingsId);
+    if (!source) {
+      return;
+    }
+
+    setConversationSettings((prev) =>
+      prev
+        ? {
+            ...prev,
+            title: source.title,
+            personaStyle: source.personaStyle || "",
+            primaryFunction: source.primaryFunction || "",
+          }
+        : prev,
+    );
+  }, [conversationSettings, conversations]);
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-row-menu='true']")) {
+        return;
+      }
+
+      setOpenConversationMenuId(null);
+      setConversationMenuPosition(null);
+    };
+
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, []);
 
   const loadConversations = async (focusConversationId?: string | null) => {
     setLoadingConversations(true);
@@ -58,7 +117,8 @@ export default function AiChatWorkspace() {
 
       setActiveConversationId(nextActive);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudieron cargar las conversaciones");
+      console.error("AI_CHAT_LOAD_CONVERSATIONS_ERROR", err);
+      setError("Ha ocurrido un error");
     } finally {
       setLoadingConversations(false);
     }
@@ -73,7 +133,8 @@ export default function AiChatWorkspace() {
       setMessages(detail.messages);
     } catch (err) {
       setMessages([]);
-      setError(err instanceof Error ? err.message : "No se pudo cargar la conversacion");
+      console.error("AI_CHAT_LOAD_CONVERSATION_DETAIL_ERROR", err);
+      setError("Ha ocurrido un error");
     } finally {
       setLoadingMessages(false);
     }
@@ -83,12 +144,16 @@ export default function AiChatWorkspace() {
     void loadConversations();
 
     const loadConfig = async () => {
-      try {
-        const nextConfig = await getAiConfig();
-        setConfig(nextConfig);
-      } catch {
-        setConfig(DEFAULT_CONFIG);
-      }
+    try {
+      const nextConfig = await getAiConfig();
+      setConfig(nextConfig);
+    } catch (err) {
+      console.error("AI_CHAT_LOAD_CONFIG_ERROR", err);
+      setConfig(DEFAULT_CONFIG);
+      setError("Ha ocurrido un error");
+    } finally {
+      setLoadingConfig(false);
+    }
     };
 
     void loadConfig();
@@ -104,20 +169,86 @@ export default function AiChatWorkspace() {
   }, [activeConversationId]);
 
   const onCreateConversation = async () => {
+    if (!hasConnections) {
+      console.error("AI_CHAT_NO_CONNECTION_FOR_CREATE");
+      setError("Ha ocurrido un error");
+      return;
+    }
+
     try {
       const created = await createAiConversation();
       await loadConversations(created.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo crear la conversacion");
+      console.error("AI_CHAT_CREATE_CONVERSATION_ERROR", err);
+      setError("Ha ocurrido un error");
     }
   };
 
   const onDeleteConversation = async (conversationId: string) => {
     try {
       await deleteAiConversation(conversationId);
+      if (conversationSettings?.id === conversationId) {
+        setConversationSettings(null);
+      }
       await loadConversations();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo eliminar la conversacion");
+      console.error("AI_CHAT_DELETE_CONVERSATION_ERROR", err);
+      setError("Ha ocurrido un error");
+    }
+  };
+
+  const openConversationSettings = (conversation: AiConversationListItem) => {
+    setIsConversationsOpen(false);
+    setIsConfigOpen(false);
+    setOpenConversationMenuId(null);
+    setConversationMenuPosition(null);
+    setConversationSettings({
+      id: conversation.id,
+      title: conversation.title,
+      personaStyle: conversation.personaStyle || "",
+      primaryFunction: conversation.primaryFunction || "",
+    });
+  };
+
+  const onSaveConversationSettings = async () => {
+    if (!conversationSettings) {
+      return;
+    }
+
+    try {
+      await updateAiConversationSettings({
+        conversationId: conversationSettings.id,
+        title: conversationSettings.title.trim(),
+        personaStyle: conversationSettings.personaStyle,
+        primaryFunction: conversationSettings.primaryFunction,
+      });
+
+      await loadConversations(conversationSettings.id);
+      if (activeConversationId === conversationSettings.id) {
+        await loadConversationDetail(conversationSettings.id);
+      }
+      setConversationSettings(null);
+    } catch (err) {
+      console.error("AI_CHAT_SAVE_CONVERSATION_SETTINGS_ERROR", err);
+      setError("Ha ocurrido un error");
+    }
+  };
+
+  const onRenameConversation = async (conversationId: string, currentTitle: string) => {
+    const nextTitle = renameConversation?.id === conversationId ? renameConversation.value.trim() : currentTitle;
+
+    if (!nextTitle || nextTitle === currentTitle) {
+      setRenameConversation(null);
+      return;
+    }
+
+    try {
+      await updateAiConversationSettings({ conversationId, title: nextTitle });
+      await loadConversations(conversationId);
+      setRenameConversation(null);
+    } catch (err) {
+      console.error("AI_CHAT_RENAME_CONVERSATION_ERROR", err);
+      setError("Ha ocurrido un error");
     }
   };
 
@@ -134,18 +265,35 @@ export default function AiChatWorkspace() {
       await loadConversations(activeConversationId);
       await loadConversationDetail(activeConversationId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cambiar la IA de la conversacion");
+      console.error("AI_CHAT_CHANGE_CONNECTION_ERROR", err);
+      setError("Ha ocurrido un error");
     } finally {
       setSwitchingConnection(false);
     }
   };
 
-  const connectionOptions: AiConnection[] = config.connections || [];
+  const onCancelSending = () => {
+    const pendingSend = pendingSendRef.current;
+
+    if (pendingSend) {
+      setMessages((prev) => prev.filter((message) => message.id !== pendingSend.tempMessageId));
+      setMessageInput((prev) => (prev.trim().length > 0 ? prev : pendingSend.content));
+      pendingSendRef.current = null;
+    }
+
+    sendAbortRef.current?.abort();
+    sendAbortRef.current = null;
+    setSending(false);
+  };
+
+  const onConversationActionMenu = (conversation: AiConversationListItem, event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setOpenConversationMenuId((prev) => (prev === conversation.id ? null : conversation.id));
+    setConversationMenuPosition(null);
+  };
+
   const selectedConnectionId = activeConversation?.connectionId || config.defaultConnectionId || "";
-  const selectedConnection =
-    connectionOptions.find((connection) => connection.id === selectedConnectionId) ||
-    connectionOptions.find((connection) => connection.isDefault) ||
-    null;
 
   const onSubmitMessage = async (event: FormEvent) => {
     event.preventDefault();
@@ -156,19 +304,30 @@ export default function AiChatWorkspace() {
       return;
     }
 
-    if (selectedConnection?.requiresApiKey && !selectedConnection.hasApiKey) {
-      setError("La IA de esta conversacion requiere API key");
+    if (!hasConnections) {
+      console.error("AI_CHAT_NO_CONNECTION_FOR_SEND");
+      setError("Ha ocurrido un error");
       return;
     }
 
     setSending(true);
     setError(null);
+    const controller = new AbortController();
+    sendAbortRef.current = controller;
 
+    const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const tempMessageId = `tmp-user-${requestId}`;
     const localUserMessage: AiMessage = {
-      id: `tmp-user-${Date.now()}`,
+      id: tempMessageId,
       role: "user",
       content,
       createdAt: new Date().toISOString(),
+    };
+
+    pendingSendRef.current = {
+      requestId,
+      tempMessageId,
+      content,
     };
 
     setMessages((prev) => [...prev, localUserMessage]);
@@ -178,10 +337,20 @@ export default function AiChatWorkspace() {
       const response = await sendAiMessage({
         conversationId: activeConversationId ?? undefined,
         content,
-      });
+      }, { signal: controller.signal });
+
+      if (!pendingSendRef.current || pendingSendRef.current.requestId !== requestId) {
+        return;
+      }
 
       setMessages((prev) => [
-        ...prev,
+        ...prev.filter((message) => message.id !== tempMessageId),
+        {
+          id: `user-${requestId}`,
+          role: "user",
+          content,
+          createdAt: new Date().toISOString(),
+        },
         {
           id: `tmp-assistant-${Date.now()}`,
           role: "assistant",
@@ -193,16 +362,139 @@ export default function AiChatWorkspace() {
       await loadConversations(response.conversationId);
       setActiveConversationId(response.conversationId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo enviar el mensaje");
+      if (err instanceof Error && err.name === "AbortError") {
+        return;
+      }
+
+      console.error("AI_CHAT_SEND_MESSAGE_ERROR", {
+        error: err,
+        category: err instanceof Error && err.message === "No se pudo conectar con el servidor" ? "network" : "application",
+      });
+      setMessages((prev) => prev.filter((message) => message.id !== tempMessageId));
+      setMessageInput((prev) => (prev.trim().length > 0 ? prev : content));
+      setError("Ha ocurrido un error");
     } finally {
+      if (pendingSendRef.current?.requestId === requestId) {
+        pendingSendRef.current = null;
+      }
+
+      sendAbortRef.current = null;
       setSending(false);
     }
   };
 
+  const onMessageInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  };
+
+  useEffect(() => {
+    const textarea = messageInputRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    textarea.style.height = "40px";
+    const maxHeight = 156;
+    const nextHeight = Math.min(textarea.scrollHeight, maxHeight);
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, [messageInput]);
+
+  const onConfigSaved = (nextConfig: AiConfigView) => {
+    const hadConnections = (config.connections || []).length > 0;
+    const hasNowConnections = (nextConfig.connections || []).length > 0;
+    setConfig(nextConfig);
+    setError(null);
+
+    if (hasNowConnections) {
+      if (!hadConnections && conversations.length === 0) {
+        void (async () => {
+          try {
+            const created = await createAiConversation();
+            await loadConversations(created.id);
+          } catch (err) {
+            console.error("AI_CHAT_CREATE_INITIAL_CONVERSATION_ERROR", err);
+            setError("Ha ocurrido un error");
+            await loadConversations();
+          }
+        })();
+      } else {
+        void loadConversations();
+      }
+
+      setIsConversationsOpen(false);
+      setIsConfigOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      sendAbortRef.current?.abort();
+    };
+  }, []);
+
+  if (loadingConfig) {
+    return (
+      <div className="flex h-full min-h-0 items-center justify-center p-4">
+        <p className="inline-flex items-center gap-2 text-sm text-slate-500">
+          <LoaderCircle size={14} className="animate-spin" />
+          Cargando configuracion IA...
+        </p>
+      </div>
+    );
+  }
+
+  if (!hasConnections) {
+    return (
+      <div className="grid h-full min-h-0 grid-cols-1 gap-3 content-start">
+        <section className="surface-panel h-fit w-full self-start p-4">
+          <h1 className="text-left text-xl font-black tracking-tight text-slate-900 dark:text-white">Configura tu primera conexion IA</h1>
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+            Para empezar a usar el chat, guarda tu endpoint local.
+          </p>
+        </section>
+
+        <div className="w-full self-start">
+          <AiConfigPanel onConfigSaved={onConfigSaved} />
+        </div>
+      </div>
+    );
+  }
+
+  const isMobilePanelOpen = isConversationsOpen || isConfigOpen;
+
+  const desktopPanelLayoutStyle = {
+    "--ai-left-panel": isConversationsOpen ? "300px" : "0px",
+    "--ai-right-panel": isConfigOpen ? "360px" : "0px",
+  } as CSSProperties;
+
   return (
-    <div className="h-full min-h-0 overflow-hidden p-2 sm:p-3">
-      <div className="grid h-full min-h-0 grid-cols-1 gap-3 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
-        <section className="surface-panel flex min-h-[220px] flex-col p-4 xl:min-h-0">
+    <div
+      className="motion-panel relative grid h-full min-h-0 grid-cols-1 gap-3 overflow-hidden xl:grid-cols-[var(--ai-left-panel)_minmax(0,1fr)_var(--ai-right-panel)]"
+      style={desktopPanelLayoutStyle}
+    >
+      <button
+        type="button"
+        aria-label="Cerrar paneles"
+        onClick={() => {
+          setIsConversationsOpen(false);
+          setIsConfigOpen(false);
+        }}
+        className={`motion-fade absolute inset-0 z-40 bg-slate-950/40 backdrop-blur-[1px] xl:hidden ${
+          isMobilePanelOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
+
+      <section
+        className={`motion-panel surface-panel hidden min-h-[220px] flex-col p-4 xl:flex xl:min-h-0 ${
+          isConversationsOpen ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-2 opacity-0"
+        }`}
+      >
           <header className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
               Conversaciones
@@ -230,7 +522,12 @@ export default function AiChatWorkspace() {
                 return (
                   <article
                     key={conversation.id}
-                    className={`rounded-2xl border px-3 py-2 transition ${
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      setOpenConversationMenuId(conversation.id);
+                      setConversationMenuPosition({ x: event.clientX, y: event.clientY });
+                    }}
+                    className={`motion-interactive relative rounded-2xl border px-3 py-2 pr-11 ${
                       isActive
                         ? "border-blue-200 bg-blue-50/80 dark:border-blue-800/70 dark:bg-blue-900/30"
                         : "border-orion-border bg-white hover:bg-slate-50 dark:border-orion-dark-border dark:bg-slate-900 dark:hover:bg-slate-800"
@@ -241,37 +538,137 @@ export default function AiChatWorkspace() {
                       onClick={() => setActiveConversationId(conversation.id)}
                       className="w-full text-left"
                     >
-                      <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{conversation.title}</p>
+                      {renameConversation?.id === conversation.id ? (
+                        <input
+                          value={renameConversation.value}
+                          onChange={(event) => setRenameConversation({ id: conversation.id, value: event.target.value })}
+                          onBlur={() => void onRenameConversation(conversation.id, conversation.title)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              void onRenameConversation(conversation.id, conversation.title);
+                            }
+
+                            if (event.key === "Escape") {
+                              setRenameConversation(null);
+                            }
+                          }}
+                          className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none dark:text-slate-100"
+                          maxLength={160}
+                          autoFocus
+                        />
+                      ) : (
+                        <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{conversation.title}</p>
+                      )}
                       <p className="mt-1 text-[11px] text-slate-500">
-                        {(conversation.connectionName || conversation.model) + " · " + conversation.messageCount + " mensajes"}
+                        {conversation.connectionName || conversation.model}
                       </p>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => void onDeleteConversation(conversation.id)}
-                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 size={12} />
-                      Eliminar
-                    </button>
+                    <div className="absolute right-2 top-2" data-row-menu="true">
+                      <button
+                        type="button"
+                        onClick={(event) => onConversationActionMenu(conversation, event)}
+                        className="btn-secondary inline-flex h-7 w-7 items-center justify-center p-0"
+                        aria-label="Abrir opciones de conversacion"
+                      >
+                        <Settings size={13} />
+                      </button>
+                      <ContextMenu
+                        open={openConversationMenuId === conversation.id}
+                        position={openConversationMenuId === conversation.id ? conversationMenuPosition : null}
+                        onRequestClose={() => {
+                          setOpenConversationMenuId(null);
+                          setConversationMenuPosition(null);
+                        }}
+                        items={[
+                          {
+                            label: "Configuracion",
+                            onSelect: () => {
+                              openConversationSettings(conversation);
+                            },
+                          },
+                          {
+                            label: "Renombrar",
+                            onSelect: () => {
+                              setOpenConversationMenuId(null);
+                              setConversationMenuPosition(null);
+                              setRenameConversation({ id: conversation.id, value: conversation.title });
+                            },
+                          },
+                          {
+                            label: "Eliminar",
+                            tone: "danger",
+                            onSelect: () => {
+                              setOpenConversationMenuId(null);
+                              setConversationMenuPosition(null);
+                              void onDeleteConversation(conversation.id);
+                            },
+                          },
+                        ]}
+                      />
+                    </div>
                   </article>
                 );
               })}
             </div>
           )}
-        </section>
+      </section>
 
-        <section className="surface-panel flex min-h-[360px] flex-col p-4 sm:p-5 xl:min-h-0">
-          <header className="mb-3 border-b border-orion-border pb-3 dark:border-orion-dark-border">
-            <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">IA Chat</h1>
-            <p className="text-xs text-slate-500">
-              {activeConversation ? activeConversation.title : "Selecciona o crea una conversacion"}
-            </p>
+      <section className="flex min-h-[360px] flex-col rounded-2xl bg-orion-surface shadow-sm dark:bg-slate-900 xl:min-h-0">
+          <header className="mb-3 border-b border-orion-border px-4 pb-3 pt-4 dark:border-orion-dark-border sm:px-5 sm:pt-5">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                className="btn-secondary inline-flex h-10 w-10 items-center justify-center p-0"
+                onClick={() => {
+                  setIsConversationsOpen((prev) => !prev);
+                  setIsConfigOpen(false);
+                }}
+                aria-label={isConversationsOpen ? "Ocultar conversaciones" : "Mostrar conversaciones"}
+                title={isConversationsOpen ? "Ocultar conversaciones" : "Mostrar conversaciones"}
+              >
+                <MessageSquare size={17} />
+              </button>
+
+               <div className="min-w-0 flex-1 px-1">
+                 <h1 className="truncate text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                   {activeConversation?.title || "Nueva conversacion"}
+                 </h1>
+               </div>
+               {activeConversation && connectionOptions.length > 0 && (
+                 <div className="hidden items-center gap-2 sm:flex">
+                   <select
+                     className="select-orion h-8 min-w-44 max-w-[240px] text-xs"
+                     value={selectedConnectionId}
+                     onChange={(event) => void onChangeConversationConnection(event.target.value)}
+                     disabled={switchingConnection}
+                   >
+                     {connectionOptions.map((connection) => (
+                       <option key={connection.id} value={connection.id}>
+                         {connection.name} · {connection.model}
+                       </option>
+                     ))}
+                   </select>
+                   {switchingConnection && <LoaderCircle size={13} className="animate-spin text-slate-500" />}
+                 </div>
+               )}
+              <button
+                type="button"
+                className="btn-secondary inline-flex h-10 w-10 items-center justify-center p-0"
+                onClick={() => {
+                  setIsConfigOpen((prev) => !prev);
+                  setIsConversationsOpen(false);
+                }}
+                aria-label={isConfigOpen ? "Ocultar conexion IA" : "Mostrar conexion IA"}
+                title={isConfigOpen ? "Ocultar conexion IA" : "Mostrar conexion IA"}
+              >
+                <Settings size={17} />
+              </button>
+            </div>
             {activeConversation && connectionOptions.length > 0 && (
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">IA activa</span>
+              <div className="mt-2 flex items-center gap-2 sm:hidden">
                 <select
-                  className="select-orion h-8 min-w-44 max-w-full text-xs sm:max-w-xs"
+                  className="select-orion h-8 min-w-0 flex-1 text-xs"
                   value={selectedConnectionId}
                   onChange={(event) => void onChangeConversationConnection(event.target.value)}
                   disabled={switchingConnection}
@@ -287,7 +684,7 @@ export default function AiChatWorkspace() {
             )}
           </header>
 
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-3">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-3 sm:px-5">
             {loadingMessages ? (
               <p className="inline-flex items-center gap-2 text-sm text-slate-500">
                 <LoaderCircle size={14} className="animate-spin" />
@@ -301,7 +698,7 @@ export default function AiChatWorkspace() {
               messages.map((message) => (
                 <article
                   key={message.id}
-                  className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed transition-colors duration-200 ${
                     message.role === "user"
                       ? "ml-auto bg-blue-600 text-white"
                       : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100"
@@ -313,35 +710,277 @@ export default function AiChatWorkspace() {
             )}
           </div>
 
-          <form onSubmit={onSubmitMessage} className="border-t border-orion-border pt-3 dark:border-orion-dark-border">
+          <form onSubmit={onSubmitMessage} className="border-t border-orion-border px-4 pb-4 pt-3 dark:border-orion-dark-border sm:px-5 sm:pb-5">
             <div className="flex flex-col gap-2 sm:flex-row">
               <textarea
+                ref={messageInputRef}
                 value={messageInput}
                 onChange={(event) => setMessageInput(event.target.value)}
-                className="input-orion min-h-12 flex-1 resize-none"
+                onKeyDown={onMessageInputKeyDown}
+                rows={1}
+                className="input-orion motion-height h-10 flex-1 resize-none overflow-y-hidden py-2.5 leading-5"
                 placeholder="Escribe tu mensaje..."
                 maxLength={6000}
               />
-              <button type="submit" className="btn-primary h-10 sm:h-fit" disabled={sending || !messageInput.trim()}>
+              <button
+                type={sending ? "button" : "submit"}
+                className="btn-primary inline-flex h-10 items-center justify-center gap-2 sm:min-w-[108px]"
+                onClick={sending ? onCancelSending : undefined}
+                disabled={!sending && !messageInput.trim()}
+              >
                 {sending ? <LoaderCircle size={16} className="animate-spin" /> : <Send size={16} />}
-                {sending ? "Enviando" : "Enviar"}
+                {sending ? "Cancelar" : "Enviar"}
               </button>
             </div>
           </form>
 
-          {selectedConnection && selectedConnection.requiresApiKey && !selectedConnection.hasApiKey && (
-            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
-              La IA seleccionada para esta conversacion requiere API key. Actualiza esa conexion en el panel derecho.
-            </p>
-          )}
-
           {error && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{error}</p>}
-        </section>
+      </section>
 
-        <div className="min-h-[320px] xl:min-h-0">
-          <AiConfigPanel onConfigSaved={setConfig} />
-        </div>
+      <div
+        className={`motion-panel hidden self-start overflow-hidden xl:block ${
+          isConfigOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-2 opacity-0"
+        }`}
+      >
+        <AiConfigPanel onConfigSaved={onConfigSaved} />
       </div>
+
+      {conversationSettings && (
+        <div className="absolute inset-0 z-[80] flex items-center justify-center bg-slate-950/40 p-2 sm:p-4">
+          <section className="surface-panel w-full max-w-xl p-4 transition-all duration-300 ease-out sm:p-5">
+            <header className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-black text-slate-900 dark:text-white">Configuracion de conversacion</h3>
+              <button
+                type="button"
+                className="btn-secondary inline-flex h-8 w-8 items-center justify-center p-0"
+                onClick={() => setConversationSettings(null)}
+                aria-label="Cerrar configuracion"
+              >
+                <X size={14} />
+              </button>
+            </header>
+
+            <div className="space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Nombre de conversacion</span>
+                <input
+                  className="input-orion text-sm"
+                  value={conversationSettings.title}
+                  onChange={(event) =>
+                    setConversationSettings((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            title: event.target.value,
+                          }
+                        : prev,
+                    )
+                  }
+                  maxLength={160}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Personalidad IA</span>
+                <input
+                  className="input-orion text-sm"
+                  value={conversationSettings.personaStyle}
+                  onChange={(event) =>
+                    setConversationSettings((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            personaStyle: event.target.value,
+                          }
+                        : prev,
+                    )
+                  }
+                  placeholder="mentor claro y paciente"
+                  maxLength={160}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Funcion principal</span>
+                <input
+                  className="input-orion text-sm"
+                  value={conversationSettings.primaryFunction}
+                  onChange={(event) =>
+                    setConversationSettings((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            primaryFunction: event.target.value,
+                          }
+                        : prev,
+                    )
+                  }
+                  placeholder="asistente de programacion"
+                  maxLength={160}
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+              <button
+                type="button"
+                className="btn-secondary h-9 text-xs text-red-700"
+                onClick={() => void onDeleteConversation(conversationSettings.id)}
+              >
+                Eliminar conversacion
+              </button>
+              <div className="flex items-center gap-2">
+                <button type="button" className="btn-secondary h-9 text-xs" onClick={() => setConversationSettings(null)}>
+                  Cancelar
+                </button>
+                <button type="button" className="btn-primary h-9 text-xs" onClick={() => void onSaveConversationSettings()}>
+                  Guardar cambios
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      <aside
+        className={`motion-panel absolute inset-y-0 left-0 z-50 w-[min(88vw,22rem)] p-2 sm:p-3 xl:hidden ${
+          isConversationsOpen ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-4 opacity-0"
+        }`}
+      >
+          <section className="surface-panel flex h-full min-h-0 flex-col p-4">
+            <header className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Conversaciones</h2>
+              <button
+                className="btn-primary h-9 text-xs"
+                type="button"
+                onClick={onCreateConversation}
+              >
+                <Plus size={14} />
+                Nueva
+              </button>
+            </header>
+            {loadingConversations ? (
+              <p className="inline-flex items-center gap-2 text-sm text-slate-500">
+                <LoaderCircle size={14} className="animate-spin" />
+                Cargando...
+              </p>
+            ) : conversations.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-orion-border p-4 text-xs text-slate-500 dark:border-orion-dark-border">
+                Aun no hay conversaciones. Crea la primera para empezar.
+              </div>
+            ) : (
+              <div className="space-y-2 overflow-y-auto pr-1">
+                {conversations.map((conversation) => {
+                  const isActive = conversation.id === activeConversationId;
+
+                  return (
+                    <article
+                      key={conversation.id}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      setOpenConversationMenuId(conversation.id);
+                      setConversationMenuPosition({ x: event.clientX, y: event.clientY });
+                    }}
+                    className={`motion-interactive relative rounded-2xl border px-3 py-2 pr-11 ${
+                        isActive
+                          ? "border-blue-200 bg-blue-50/80 dark:border-blue-800/70 dark:bg-blue-900/30"
+                          : "border-orion-border bg-white hover:bg-slate-50 dark:border-orion-dark-border dark:bg-slate-900 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveConversationId(conversation.id);
+                          setIsConversationsOpen(false);
+                        }}
+                        className="w-full text-left"
+                      >
+                        {renameConversation?.id === conversation.id ? (
+                          <input
+                            value={renameConversation.value}
+                            onChange={(event) => setRenameConversation({ id: conversation.id, value: event.target.value })}
+                            onBlur={() => void onRenameConversation(conversation.id, conversation.title)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                void onRenameConversation(conversation.id, conversation.title);
+                              }
+
+                              if (event.key === "Escape") {
+                                setRenameConversation(null);
+                              }
+                            }}
+                            className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none dark:text-slate-100"
+                            maxLength={160}
+                            autoFocus
+                          />
+                        ) : (
+                          <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{conversation.title}</p>
+                        )}
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          {conversation.connectionName || conversation.model}
+                        </p>
+                      </button>
+                      <div className="absolute right-2 top-2" data-row-menu="true">
+                        <button
+                          type="button"
+                          onClick={(event) => onConversationActionMenu(conversation, event)}
+                          className="btn-secondary inline-flex h-7 w-7 items-center justify-center p-0"
+                          aria-label="Abrir opciones de conversacion"
+                        >
+                          <Settings size={13} />
+                        </button>
+                        <ContextMenu
+                          open={openConversationMenuId === conversation.id}
+                          position={openConversationMenuId === conversation.id ? conversationMenuPosition : null}
+                          onRequestClose={() => {
+                            setOpenConversationMenuId(null);
+                            setConversationMenuPosition(null);
+                          }}
+                          items={[
+                            {
+                              label: "Configuracion",
+                              onSelect: () => {
+                                openConversationSettings(conversation);
+                              },
+                            },
+                            {
+                              label: "Renombrar",
+                              onSelect: () => {
+                                  setOpenConversationMenuId(null);
+                                  setConversationMenuPosition(null);
+                                  setRenameConversation({ id: conversation.id, value: conversation.title });
+                                },
+                            },
+                            {
+                              label: "Eliminar",
+                              tone: "danger",
+                              onSelect: () => {
+                                  setOpenConversationMenuId(null);
+                                  setConversationMenuPosition(null);
+                                  void onDeleteConversation(conversation.id);
+                                },
+                            },
+                          ]}
+                        />
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+      </aside>
+
+      <aside
+        className={`motion-panel absolute inset-y-0 right-0 z-50 w-[min(92vw,24rem)] p-2 sm:p-3 xl:hidden ${
+          isConfigOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-4 opacity-0"
+        }`}
+      >
+          <div className="h-full min-h-0 overflow-y-auto">
+            <AiConfigPanel onConfigSaved={onConfigSaved} />
+          </div>
+      </aside>
     </div>
   );
 }

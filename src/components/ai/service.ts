@@ -10,10 +10,15 @@ interface ApiError {
 }
 
 async function parseResponse<T>(res: Response): Promise<T> {
-  const data = (await res.json()) as T | ApiError;
+  const contentType = res.headers.get("content-type") || "";
+  const isJson = contentType.toLowerCase().includes("application/json");
+  const data = (isJson
+    ? await res.json().catch(() => ({ error: "Respuesta JSON invalida del servidor" }))
+    : { error: await res.text().catch(() => "Error inesperado") }) as T | ApiError;
 
   if (!res.ok) {
-    throw new Error((data as ApiError)?.error || "Error inesperado");
+    const fallback = res.status >= 500 ? "Error del servidor" : "Error inesperado";
+    throw new Error((data as ApiError)?.error || fallback);
   }
 
   return data as T;
@@ -32,7 +37,8 @@ export async function updateAiConfig(payload: {
   provider: AiProvider;
   model: string;
   baseUrl: string;
-  apiKey?: string;
+  preferredLanguage?: string;
+  preferredName?: string;
   isActive: boolean;
   requiresApiKey: boolean;
 }): Promise<AiConfigView> {
@@ -45,11 +51,20 @@ export async function updateAiConfig(payload: {
   return parseResponse<AiConfigView>(res);
 }
 
+export async function deleteAiConnection(connectionId: string): Promise<AiConfigView> {
+  const res = await fetch("/api/ai/config", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ connectionId }),
+  });
+
+  return parseResponse<AiConfigView>(res);
+}
+
 export async function testAiConfig(payload?: {
   provider?: AiProvider;
   model?: string;
   baseUrl?: string;
-  apiKey?: string;
   requiresApiKey?: boolean;
 }): Promise<{
   ok: boolean;
@@ -100,6 +115,35 @@ export async function updateAiConversationConnection(conversationId: string, con
   await parseResponse<{ ok: true }>(res);
 }
 
+export async function renameAiConversation(conversationId: string, title: string): Promise<void> {
+  const res = await fetch(`/api/ai/conversations/${conversationId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+
+  await parseResponse<{ ok: true }>(res);
+}
+
+export async function updateAiConversationSettings(payload: {
+  conversationId: string;
+  title?: string;
+  personaStyle?: string;
+  primaryFunction?: string;
+}): Promise<void> {
+  const res = await fetch(`/api/ai/conversations/${payload.conversationId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: payload.title,
+      personaStyle: payload.personaStyle,
+      primaryFunction: payload.primaryFunction,
+    }),
+  });
+
+  await parseResponse<{ ok: true }>(res);
+}
+
 export async function getAiConversationDetail(conversationId: string): Promise<AiConversationDetail> {
   const res = await fetch(`/api/ai/conversations/${conversationId}`, { cache: "no-store" });
   return parseResponse<AiConversationDetail>(res);
@@ -116,12 +160,23 @@ export async function deleteAiConversation(conversationId: string): Promise<void
 export async function sendAiMessage(payload: {
   conversationId?: string;
   content: string;
-}): Promise<{ conversationId: string; assistantMessage: string }> {
-  const res = await fetch("/api/ai/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+}, options?: { signal?: AbortSignal }): Promise<{ conversationId: string; assistantMessage: string }> {
+  let res: Response;
+
+  try {
+    res = await fetch("/api/ai/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: options?.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw error;
+    }
+
+    throw new Error("No se pudo conectar con el servidor");
+  }
 
   return parseResponse<{ conversationId: string; assistantMessage: string }>(res);
 }

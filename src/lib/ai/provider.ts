@@ -30,6 +30,21 @@ type OpenAiResponse = {
   };
 };
 
+function resolveProviderTimeoutMs(explicitTimeoutMs?: number): number {
+  if (typeof explicitTimeoutMs === "number" && Number.isFinite(explicitTimeoutMs) && explicitTimeoutMs > 0) {
+    return Math.min(explicitTimeoutMs, 15 * 60 * 1000);
+  }
+
+  const rawFromEnv = process.env.AI_REQUEST_TIMEOUT_MS;
+  const parsedFromEnv = rawFromEnv ? Number.parseInt(rawFromEnv, 10) : Number.NaN;
+
+  if (Number.isFinite(parsedFromEnv) && parsedFromEnv > 0) {
+    return Math.min(parsedFromEnv, 15 * 60 * 1000);
+  }
+
+  return 180000;
+}
+
 export async function sendOpenAiCompatibleChat(params: {
   apiKey?: string;
   model: string;
@@ -39,7 +54,7 @@ export async function sendOpenAiCompatibleChat(params: {
 }): Promise<ProviderResponse> {
   const baseUrl = params.baseUrl?.trim() || "https://api.openai.com/v1";
   const endpoint = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
-  const timeoutMs = params.timeoutMs ?? 45000;
+  const timeoutMs = resolveProviderTimeoutMs(params.timeoutMs);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);

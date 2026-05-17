@@ -40,7 +40,10 @@ export const AI_PROVIDER_PROFILES: Record<AiProviderId, AiProviderProfile> = {
   },
 };
 
-export const DEFAULT_AI_PROVIDER: AiProviderId = "GITHUB_MODELS";
+export const LOCAL_ONLY_AI_PROVIDER: AiProviderId = "SELF_HOSTED_OPENAI";
+export const LOCAL_AI_PROVIDER_OPTIONS: AiProviderProfile[] = [AI_PROVIDER_PROFILES[LOCAL_ONLY_AI_PROVIDER]];
+
+export const DEFAULT_AI_PROVIDER: AiProviderId = LOCAL_ONLY_AI_PROVIDER;
 export const DEFAULT_AI_MODEL = AI_PROVIDER_PROFILES[DEFAULT_AI_PROVIDER].defaultModel;
 export const MAX_CHAT_MESSAGE_LENGTH = 6000;
 export const AI_SYSTEM_PROMPT =

@@ -1,16 +1,13 @@
 import { badRequest, json, serverError, unauthorized } from "../../../../../lib/http";
 import { resolveAiActorUserId } from "../../../../../lib/ai/auth";
 import { getAiClient } from "../../../../../lib/ai/client";
-import { readStoredSecret } from "../../../../../lib/ai/crypto";
 import { sendOpenAiCompatibleChat } from "../../../../../lib/ai/provider";
-import { isAiProvider, providerProfile } from "../../../../../lib/ai/constants";
+import { LOCAL_ONLY_AI_PROVIDER, providerProfile } from "../../../../../lib/ai/constants";
+import { assertSafeAiBaseUrl } from "../../../../../lib/ai/base-url";
 
 type ConfigRecord = {
-  provider: string;
   model: string;
   baseUrl: string | null;
-  encryptedApiKey: string;
-  requiresApiKey: boolean;
 };
 
 export async function POST(request: Request) {
@@ -26,8 +23,6 @@ export async function POST(request: Request) {
       provider?: unknown;
       model?: unknown;
       baseUrl?: unknown;
-      apiKey?: unknown;
-      requiresApiKey?: unknown;
     };
 
     const storedConfig = (await aiClient.userAiConfig.findUnique({
@@ -35,14 +30,15 @@ export async function POST(request: Request) {
       select: {
         model: true,
         baseUrl: true,
-        encryptedApiKey: true,
-        requiresApiKey: true,
-        provider: true,
       },
     })) as ConfigRecord | null;
 
-    const providerCandidate = typeof body.provider === "string" ? body.provider : storedConfig?.provider;
-    const provider = isAiProvider(providerCandidate) ? providerCandidate : "OPENAI_COMPATIBLE";
+    const provider = LOCAL_ONLY_AI_PROVIDER;
+
+    if (body.provider !== undefined && body.provider !== LOCAL_ONLY_AI_PROVIDER) {
+      return badRequest("Solo se permiten conexiones IA locales");
+    }
+
     const profile = providerProfile(provider);
     const model =
       typeof body.model === "string" && body.model.trim().length > 0
@@ -52,14 +48,6 @@ export async function POST(request: Request) {
       typeof body.baseUrl === "string" && body.baseUrl.trim().length > 0
         ? body.baseUrl.trim()
         : (storedConfig?.baseUrl || profile.defaultBaseUrl);
-    const requiresApiKey =
-      typeof body.requiresApiKey === "boolean"
-        ? body.requiresApiKey
-        : (storedConfig?.requiresApiKey ?? profile.requiresApiKey);
-    const apiKey =
-      typeof body.apiKey === "string" && body.apiKey.trim().length > 0
-        ? body.apiKey.trim()
-        : readStoredSecret(storedConfig?.encryptedApiKey);
 
     if (!model) {
       return badRequest("Debes indicar un modelo para probar la conexion");
@@ -69,12 +57,13 @@ export async function POST(request: Request) {
       return badRequest("Debes indicar una Base URL para probar la conexion");
     }
 
-    if (requiresApiKey && !apiKey) {
-      return badRequest("API key no configurada");
+    try {
+      assertSafeAiBaseUrl(baseUrl, provider);
+    } catch (error) {
+      return badRequest(error instanceof Error ? error.message : "Base URL invalida");
     }
 
     const response = await sendOpenAiCompatibleChat({
-      apiKey,
       model,
       baseUrl,
       messages: [{ role: "user", content: "Responde exactamente: conexion ok" }],
@@ -86,7 +75,7 @@ export async function POST(request: Request) {
       provider,
       providerLabel: profile.label,
       endpoint: baseUrl.replace(/\/$/, "") + "/chat/completions",
-      authMode: requiresApiKey ? "bearer" : "none",
+      authMode: "none",
       reply: response.text,
     });
   } catch (error) {

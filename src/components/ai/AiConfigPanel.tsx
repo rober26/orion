@@ -2,18 +2,30 @@
 
 import { CheckCircle2, LoaderCircle, PlugZap, Save } from "lucide-react";
 import { useEffect, useState } from "react";
-import { AI_PROVIDER_PROFILES } from "../../lib/ai/constants";
-import { getAiConfig, testAiConfig, updateAiConfig } from "./service";
-import type { AiConfigView, AiConnection, AiProvider, AiProviderOption } from "./types";
+import { AI_PROVIDER_PROFILES, LOCAL_ONLY_AI_PROVIDER } from "../../lib/ai/constants";
+import { deleteAiConnection, getAiConfig, testAiConfig, updateAiConfig } from "./service";
+import type { AiConfigView, AiConnection, AiProviderOption } from "./types";
 
-const FALLBACK_PROVIDER_OPTIONS: AiProviderOption[] = Object.values(AI_PROVIDER_PROFILES);
+const localProfile = AI_PROVIDER_PROFILES[LOCAL_ONLY_AI_PROVIDER];
+const LOCAL_PROVIDER_OPTION: AiProviderOption = {
+  id: "SELF_HOSTED_OPENAI",
+  label: localProfile.label,
+  description: localProfile.description,
+  defaultModel: localProfile.defaultModel,
+  defaultBaseUrl: localProfile.defaultBaseUrl,
+  requiresApiKey: false,
+  apiKeyLabel: "No aplica",
+};
+const FALLBACK_PROVIDER_OPTIONS: AiProviderOption[] = [LOCAL_PROVIDER_OPTION];
 
 const EMPTY_CONFIG: AiConfigView = {
-  provider: "GITHUB_MODELS",
-  model: "openai/gpt-4.1-mini",
-  baseUrl: null,
+  provider: "SELF_HOSTED_OPENAI",
+  model: LOCAL_PROVIDER_OPTION.defaultModel,
+  baseUrl: LOCAL_PROVIDER_OPTION.defaultBaseUrl,
+  preferredLanguage: "es",
+  preferredName: "Usuario",
   isActive: true,
-  requiresApiKey: true,
+  requiresApiKey: false,
   hasApiKey: false,
   maskedApiKey: null,
   updatedAt: null,
@@ -23,16 +35,17 @@ const EMPTY_CONFIG: AiConfigView = {
 export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (config: AiConfigView) => void }) {
   const [config, setConfig] = useState<AiConfigView>(EMPTY_CONFIG);
   const [model, setModel] = useState(EMPTY_CONFIG.model);
-  const [baseUrl, setBaseUrl] = useState("");
-  const [provider, setProvider] = useState<AiProvider>(EMPTY_CONFIG.provider);
-  const [apiKey, setApiKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState(EMPTY_CONFIG.baseUrl || "");
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
-  const [connectionName, setConnectionName] = useState("Conexion principal");
+  const [connectionName, setConnectionName] = useState("Conexion local");
+  const [preferredLanguage, setPreferredLanguage] = useState("es");
+  const [preferredName, setPreferredName] = useState("Usuario");
   const [createNewConnection, setCreateNewConnection] = useState(false);
   const [makeDefault, setMakeDefault] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,21 +59,22 @@ export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (confi
         setSelectedConnectionId(initialConnectionId);
 
         const selectedConnection = connections.find((item) => item.id === initialConnectionId);
+        setPreferredLanguage(next.preferredLanguage || "es");
+        setPreferredName(next.preferredName || "Usuario");
         if (selectedConnection) {
           setConnectionName(selectedConnection.name);
-          setProvider(selectedConnection.provider);
           setModel(selectedConnection.model);
-          setBaseUrl(selectedConnection.baseUrl || "");
+          setBaseUrl(selectedConnection.baseUrl || LOCAL_PROVIDER_OPTION.defaultBaseUrl);
           setMakeDefault(selectedConnection.isDefault);
         } else {
-          setConnectionName("Conexion principal");
-          setProvider(next.provider);
-          setModel(next.model);
-          setBaseUrl(next.baseUrl || "");
+          setConnectionName("Conexion local");
+          setModel(next.model || LOCAL_PROVIDER_OPTION.defaultModel);
+          setBaseUrl(next.baseUrl || LOCAL_PROVIDER_OPTION.defaultBaseUrl);
           setMakeDefault(true);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo cargar la configuracion IA");
+        console.error("AI_CONFIG_LOAD_ERROR", err);
+        setError("Ha ocurrido un error");
       } finally {
         setLoading(false);
       }
@@ -75,25 +89,23 @@ export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (confi
     setMessage(null);
 
     try {
-      const selectedProvider =
-        providerOptions.find((option) => option.id === provider) ||
-        FALLBACK_PROVIDER_OPTIONS.find((option) => option.id === provider) ||
-        FALLBACK_PROVIDER_OPTIONS[0];
-
       const updated = await updateAiConfig({
         connectionId: createNewConnection ? undefined : selectedConnectionId || undefined,
         connectionName,
         createNew: createNewConnection,
         makeDefault,
-        provider,
+        provider: "SELF_HOSTED_OPENAI",
         model,
         baseUrl,
-        apiKey: apiKey.trim() || undefined,
+        preferredLanguage,
+        preferredName,
         isActive: true,
-        requiresApiKey: selectedProvider?.requiresApiKey ?? true,
+        requiresApiKey: false,
       });
 
       setConfig(updated);
+      setPreferredLanguage(updated.preferredLanguage || "es");
+      setPreferredName(updated.preferredName || "Usuario");
       const connections = updated.connections || [];
       const nextSelectedId =
         !createNewConnection && selectedConnectionId && connections.some((item) => item.id === selectedConnectionId)
@@ -104,18 +116,17 @@ export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (confi
       const savedConnection = connections.find((item) => item.id === nextSelectedId);
       if (savedConnection) {
         setConnectionName(savedConnection.name);
-        setProvider(savedConnection.provider);
         setModel(savedConnection.model);
-        setBaseUrl(savedConnection.baseUrl || "");
+        setBaseUrl(savedConnection.baseUrl || LOCAL_PROVIDER_OPTION.defaultBaseUrl);
         setMakeDefault(savedConnection.isDefault);
       }
 
       setCreateNewConnection(false);
-      setApiKey("");
-      setMessage(createNewConnection ? "Nueva conexion IA guardada" : "Conexion IA actualizada");
+      setMessage(createNewConnection ? "Nueva conexion local guardada" : "Conexion local actualizada");
       onConfigSaved(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo guardar la configuracion");
+      console.error("AI_CONFIG_SAVE_ERROR", err);
+      setError("Ha ocurrido un error");
     } finally {
       setSaving(false);
     }
@@ -127,34 +138,20 @@ export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (confi
     setMessage(null);
 
     try {
-      const selectedProvider =
-        providerOptions.find((option) => option.id === provider) ||
-        FALLBACK_PROVIDER_OPTIONS.find((option) => option.id === provider) ||
-        FALLBACK_PROVIDER_OPTIONS[0];
-
       const result = await testAiConfig({
-        provider,
+        provider: "SELF_HOSTED_OPENAI",
         model,
         baseUrl,
-        apiKey: apiKey.trim() || undefined,
-        requiresApiKey: selectedProvider?.requiresApiKey ?? true,
+        requiresApiKey: false,
       });
-      setMessage(`Conexion correcta (${result.providerLabel}): ${result.reply}`);
+      setMessage(`Conexion local correcta: ${result.reply}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo probar la conexion");
+      console.error("AI_CONFIG_TEST_ERROR", err);
+      setError("Ha ocurrido un error");
     } finally {
       setTesting(false);
     }
   };
-
-  const providerOptions =
-    config.providerOptions && config.providerOptions.length > 0
-      ? config.providerOptions
-      : FALLBACK_PROVIDER_OPTIONS;
-  const activeProviderMeta =
-    providerOptions.find((option) => option.id === provider) ||
-    providerOptions.find((option) => option.id === config.provider) ||
-    null;
 
   const connections = config.connections || [];
   const selectedConnection: AiConnection | null =
@@ -172,20 +169,16 @@ export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (confi
     }
 
     setConnectionName(connection.name);
-    setProvider(connection.provider);
     setModel(connection.model);
-    setBaseUrl(connection.baseUrl || "");
+    setBaseUrl(connection.baseUrl || LOCAL_PROVIDER_OPTION.defaultBaseUrl);
     setMakeDefault(connection.isDefault);
   };
 
   const onStartCreateConnection = () => {
-    const defaultProvider = FALLBACK_PROVIDER_OPTIONS[0];
     setCreateNewConnection(true);
-    setConnectionName(`Conexion ${new Date().toLocaleDateString()}`);
-    setProvider(defaultProvider.id);
-    setModel(defaultProvider.defaultModel);
-    setBaseUrl(defaultProvider.defaultBaseUrl);
-    setApiKey("");
+    setConnectionName(`Conexion local ${new Date().toLocaleDateString()}`);
+    setModel(LOCAL_PROVIDER_OPTION.defaultModel);
+    setBaseUrl(LOCAL_PROVIDER_OPTION.defaultBaseUrl);
     setMakeDefault(false);
   };
 
@@ -198,18 +191,59 @@ export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (confi
     }
 
     setConnectionName(connection.name);
-    setProvider(connection.provider);
     setModel(connection.model);
-    setBaseUrl(connection.baseUrl || "");
+    setBaseUrl(connection.baseUrl || LOCAL_PROVIDER_OPTION.defaultBaseUrl);
     setMakeDefault(connection.isDefault);
   };
 
+  const onDeleteSelectedConnection = async () => {
+    if (!selectedConnectionId || deleting) {
+      return;
+    }
+
+    const confirmed = window.confirm("Se eliminara la conexion seleccionada. Quieres continuar?");
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleting(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const updated = await deleteAiConnection(selectedConnectionId);
+      setConfig(updated);
+      setPreferredLanguage(updated.preferredLanguage || "es");
+      setPreferredName(updated.preferredName || "Usuario");
+
+      const nextConnections = updated.connections || [];
+      const nextSelected = updated.defaultConnectionId || nextConnections[0]?.id || "";
+      setSelectedConnectionId(nextSelected);
+      setCreateNewConnection(false);
+
+      const selected = nextConnections.find((item) => item.id === nextSelected);
+      if (selected) {
+        setConnectionName(selected.name);
+        setModel(selected.model);
+        setBaseUrl(selected.baseUrl || LOCAL_PROVIDER_OPTION.defaultBaseUrl);
+        setMakeDefault(selected.isDefault);
+      }
+
+      setMessage("Conexion eliminada");
+      onConfigSaved(updated);
+    } catch (err) {
+      console.error("AI_CONFIG_DELETE_CONNECTION_ERROR", err);
+      setError("Ha ocurrido un error");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
-    <section className="surface-panel h-full min-h-0 overflow-y-auto p-4 sm:p-5 lg:p-6">
+    <section className="surface-panel h-fit self-start p-4 sm:p-5 lg:p-6">
       <header className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-black text-slate-900 dark:text-white">Conexion IA</h2>
-          <p className="mt-1 text-xs text-slate-500">Tu API key queda cifrada y solo se usa para tus mensajes.</p>
+          <h2 className="text-base font-black text-slate-900 dark:text-white">Conexion IA local</h2>
         </div>
         <PlugZap size={18} className="text-orion-primary" />
       </header>
@@ -240,7 +274,7 @@ export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (confi
               </select>
               {selectedConnection && (
                 <p className="mt-1 text-[11px] text-slate-500">
-                  {selectedConnection.provider} · {selectedConnection.model} · ultima actualizacion {new Date(selectedConnection.updatedAt).toLocaleString()}
+                  {selectedConnection.model} - ultima actualizacion {new Date(selectedConnection.updatedAt).toLocaleString()}
                 </p>
               )}
 
@@ -248,7 +282,7 @@ export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (confi
                 {!createNewConnection ? (
                   <button
                     type="button"
-                    className="btn-secondary text-xs"
+                    className="btn-secondary inline-flex h-10 items-center justify-center gap-2 text-xs"
                     onClick={onStartCreateConnection}
                     disabled={saving || testing}
                   >
@@ -257,11 +291,21 @@ export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (confi
                 ) : (
                   <button
                     type="button"
-                    className="btn-secondary text-xs"
+                    className="btn-secondary inline-flex h-10 items-center justify-center gap-2 text-xs"
                     onClick={onCancelCreateConnection}
                     disabled={saving || testing}
                   >
                     Cancelar nueva
+                  </button>
+                )}
+                {!createNewConnection && connections.length > 0 && (
+                  <button
+                    type="button"
+                    className="btn-secondary inline-flex h-10 items-center justify-center gap-2 text-xs text-red-700"
+                    onClick={() => void onDeleteSelectedConnection()}
+                    disabled={saving || testing || deleting}
+                  >
+                    {deleting ? "Eliminando..." : "Eliminar conexion"}
                   </button>
                 )}
               </div>
@@ -274,33 +318,31 @@ export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (confi
               className="input-orion text-sm"
               value={connectionName}
               onChange={(event) => setConnectionName(event.target.value)}
-              placeholder="Conexion principal"
+              placeholder="Conexion local"
               maxLength={80}
             />
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Proveedor</span>
-            <select
-              className="select-orion text-sm"
-              value={provider}
-              onChange={(event) => {
-                const nextProvider = event.target.value as AiProvider;
-                setProvider(nextProvider);
-                const option = providerOptions.find((item) => item.id === nextProvider);
-                if (option) {
-                  setModel(option.defaultModel);
-                  setBaseUrl(option.defaultBaseUrl);
-                }
-              }}
-            >
-              {providerOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            {activeProviderMeta && <p className="mt-1 text-[11px] text-slate-500">{activeProviderMeta.description}</p>}
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Idioma preferido</span>
+            <input
+              className="input-orion text-sm"
+              value={preferredLanguage}
+              onChange={(event) => setPreferredLanguage(event.target.value)}
+              placeholder="es"
+              maxLength={12}
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Nombre para dirigirse a ti</span>
+            <input
+              className="input-orion text-sm"
+              value={preferredName}
+              onChange={(event) => setPreferredName(event.target.value)}
+              placeholder="Usuario"
+              maxLength={80}
+            />
           </label>
 
           <label className="flex items-center justify-between rounded-xl border border-orion-border bg-slate-50 px-3 py-2 dark:border-orion-dark-border dark:bg-slate-900">
@@ -330,39 +372,18 @@ export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (confi
               className="input-orion text-sm"
               value={model}
               onChange={(event) => setModel(event.target.value)}
-              placeholder="gpt-4o-mini"
+              placeholder="llama3.1:8b"
             />
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Base URL (opcional)</span>
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Base URL</span>
             <input
               className="input-orion text-sm"
               value={baseUrl}
               onChange={(event) => setBaseUrl(event.target.value)}
-              placeholder="https://api.openai.com/v1"
+              placeholder="http://localhost:11434/v1"
             />
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">
-              API key {config.maskedApiKey ? `(actual: ${config.maskedApiKey})` : ""}
-            </span>
-            <input
-              type="password"
-              className="input-orion text-sm"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              placeholder={config.hasApiKey ? "Deja vacio para mantener la actual" : "Pega tu API key"}
-            />
-            {activeProviderMeta && (
-              <p className="mt-1 text-[11px] text-slate-500">Tipo de credencial: {activeProviderMeta.apiKeyLabel}</p>
-            )}
-            {activeProviderMeta && !activeProviderMeta.requiresApiKey && (
-              <p className="mt-1 text-[11px] text-slate-500">
-                API key opcional para esta conexion.
-              </p>
-            )}
           </label>
 
           {message && (
@@ -375,12 +396,22 @@ export default function AiConfigPanel({ onConfigSaved }: { onConfigSaved: (confi
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{error}</p>}
 
           <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
-            <button className="btn-secondary w-full text-xs sm:w-auto" type="button" onClick={onTest} disabled={testing || saving}>
+            <button
+              className="btn-secondary inline-flex h-10 w-full items-center justify-center gap-2 text-xs sm:w-auto"
+              type="button"
+              onClick={onTest}
+              disabled={testing || saving}
+            >
               {testing ? <LoaderCircle size={14} className="animate-spin" /> : <PlugZap size={14} />}
               {testing ? "Probando..." : "Probar"}
             </button>
 
-            <button className="btn-primary w-full text-xs sm:w-auto" type="button" onClick={onSave} disabled={saving}>
+            <button
+              className="btn-primary inline-flex h-10 w-full items-center justify-center gap-2 text-xs sm:w-auto"
+              type="button"
+              onClick={onSave}
+              disabled={saving}
+            >
               {saving ? <LoaderCircle size={14} className="animate-spin" /> : <Save size={14} />}
               {saving ? "Guardando..." : "Guardar conexion"}
             </button>

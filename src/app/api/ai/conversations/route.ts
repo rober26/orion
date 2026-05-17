@@ -1,7 +1,7 @@
 import { badRequest, json, serverError, unauthorized } from "../../../../lib/http";
 import { resolveAiActorUserId } from "../../../../lib/ai/auth";
 import { getAiClient } from "../../../../lib/ai/client";
-import { DEFAULT_AI_MODEL, DEFAULT_AI_PROVIDER, isAiProvider } from "../../../../lib/ai/constants";
+import { DEFAULT_AI_MODEL, LOCAL_ONLY_AI_PROVIDER } from "../../../../lib/ai/constants";
 import { ensureUserConnections } from "../../../../lib/ai/connections";
 
 type CreateConversationBody = {
@@ -11,6 +11,8 @@ type CreateConversationBody = {
 type ConversationListRecord = {
   id: string;
   title: string;
+  personaStyle: string | null;
+  primaryFunction: string | null;
   model: string;
   provider: string;
   connectionId: string | null;
@@ -26,6 +28,8 @@ type ConversationListRecord = {
 type ConversationRecord = {
   id: string;
   title: string;
+  personaStyle: string | null;
+  primaryFunction: string | null;
   model: string;
   provider: string;
   connectionId: string | null;
@@ -44,7 +48,7 @@ export async function GET() {
       return unauthorized();
     }
 
-    await ensureUserConnections(actorUserId);
+    await ensureUserConnections(actorUserId, { createIfMissing: false });
 
     const conversations = (await aiClient.aiConversation.findMany({
       where: { userId: actorUserId },
@@ -52,6 +56,8 @@ export async function GET() {
       select: {
         id: true,
         title: true,
+        personaStyle: true,
+        primaryFunction: true,
         model: true,
         provider: true,
         connectionId: true,
@@ -69,6 +75,8 @@ export async function GET() {
       conversations.map((item) => ({
         id: item.id,
         title: item.title,
+        personaStyle: item.personaStyle,
+        primaryFunction: item.primaryFunction,
         model: item.model,
         provider: item.provider,
         connectionId: item.connectionId,
@@ -99,22 +107,36 @@ export async function POST(request: Request) {
       return badRequest("El titulo no puede superar 160 caracteres");
     }
 
-    const { connections, defaultConnectionId } = await ensureUserConnections(actorUserId);
+    const { connections, defaultConnectionId } = await ensureUserConnections(actorUserId, { createIfMissing: false });
+
+    if (!defaultConnectionId) {
+      return badRequest("Primero configura una conexion IA para crear conversaciones");
+    }
+
     const selectedConnection = connections.find((connection) => connection.id === defaultConnectionId);
-    const provider = isAiProvider(selectedConnection?.provider) ? selectedConnection.provider : DEFAULT_AI_PROVIDER;
-    const model = selectedConnection?.model || DEFAULT_AI_MODEL;
+
+    if (!selectedConnection) {
+      return badRequest("No se encontro una conexion IA predeterminada valida");
+    }
+
+    const provider = LOCAL_ONLY_AI_PROVIDER;
+    const model = selectedConnection.model || DEFAULT_AI_MODEL;
 
     const conversation = (await aiClient.aiConversation.create({
       data: {
         userId: actorUserId,
-        connectionId: selectedConnection?.id ?? null,
+        connectionId: selectedConnection.id,
         title: titleInput || "Nueva conversacion",
+        personaStyle: null,
+        primaryFunction: null,
         provider,
         model,
       },
       select: {
         id: true,
         title: true,
+        personaStyle: true,
+        primaryFunction: true,
         model: true,
         provider: true,
         connectionId: true,
@@ -129,6 +151,8 @@ export async function POST(request: Request) {
       {
         id: conversation.id,
         title: conversation.title,
+        personaStyle: conversation.personaStyle,
+        primaryFunction: conversation.primaryFunction,
         model: conversation.model,
         provider: conversation.provider,
         connectionId: conversation.connectionId,

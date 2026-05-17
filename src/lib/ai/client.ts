@@ -20,18 +20,22 @@ type AiClient = {
     create: (args: unknown) => Promise<unknown>;
     update: (args: unknown) => Promise<unknown>;
     updateMany: (args: unknown) => Promise<{ count: number }>;
+    delete: (args: unknown) => Promise<unknown>;
     deleteMany: (args: unknown) => Promise<{ count: number }>;
   };
   aiMessage: {
     findMany: (args: unknown) => Promise<unknown[]>;
     createMany: (args: unknown) => Promise<{ count: number }>;
   };
+  user: {
+    findUnique: (args: unknown) => Promise<unknown>;
+  };
 };
 
 export function getAiClient(): AiClient {
   const candidate = prisma as unknown as Partial<AiClient>;
 
-  if (!candidate.userAiConfig || !candidate.userAiConnection || !candidate.aiConversation || !candidate.aiMessage) {
+  if (!candidate.userAiConfig || !candidate.userAiConnection || !candidate.aiConversation || !candidate.aiMessage || !candidate.user) {
     throw new Error("Prisma client desactualizado. Reinicia el servidor y ejecuta prisma generate.");
   }
 
