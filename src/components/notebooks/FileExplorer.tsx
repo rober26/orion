@@ -473,7 +473,6 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
         body: JSON.stringify({
           title: value,
           notebookId: draft.parentId,
-          projectId: null,
         }),
       });
 

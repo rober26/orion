@@ -107,6 +107,7 @@ export async function canManageProjectMembers(projectId: string, userId: string)
 export function notebookAccessWhere(userId: string): Prisma.NotebookWhereInput {
   return {
     OR: [
+      { isPublic: true },
       { ownerId: userId },
       { creatorId: userId },
       { users: { some: { userId } } },
@@ -173,6 +174,7 @@ export function folderEditorWhere(userId: string): Prisma.NotebookFolderWhereInp
 export function documentAccessWhere(userId: string): Prisma.DocumentWhereInput {
   return {
     OR: [
+      { isPublic: true },
       { creatorId: userId },
       { users: { some: { userId } } },
       { notebook: notebookAccessWhere(userId) },

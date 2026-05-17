@@ -29,13 +29,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     const notebook = await prisma.notebook.findFirst({
       where: {
         id,
-        OR: [
-          notebookAccessWhere(sessionUser.userId),
-          {
-            isPublic: true,
-            OR: [{ ownerId: sessionUser.userId }, { creatorId: sessionUser.userId }],
-          },
-        ],
+        ...notebookAccessWhere(sessionUser.userId),
       },
       include: {
         users: {

@@ -59,7 +59,6 @@ export default function NotebookDetailPage({ params }: { params: { id: string } 
         body: JSON.stringify({
           title: "Nueva nota sin titulo",
           notebookId: notebook.id,
-          projectId: null,
         }),
       });
 

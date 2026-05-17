@@ -8,10 +8,7 @@ async function findAccessibleDocument(id: string, userId: string) {
   return prisma.document.findFirst({
     where: {
       id,
-      OR: [
-        documentAccessWhere(userId),
-        { isPublic: true },
-      ],
+      ...documentAccessWhere(userId),
     },
   });
 }

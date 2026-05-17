@@ -43,8 +43,7 @@ function NotebooksContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: "Nueva nota sin título",
-          notebookId: null,      
-          projectId: null,
+          notebookId: null,
         }),
       });
 

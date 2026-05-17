@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
 import {
-  canEditProjectContent,
   canViewProject,
   documentAccessWhere,
   notebookAccessWhere,
@@ -65,20 +64,7 @@ export async function GET(req: Request) {
           projectId: null,
           ...(standaloneOnly ? { notebookId: null } : {}),
           ...(notebookId ? { notebookId } : {}),
-          OR: [
-            baseAccess,
-            {
-                isPublic: true,
-                OR: [
-                  { creatorId: actorUserId },
-                  {
-                    notebook: {
-                      OR: [{ ownerId: actorUserId }, { creatorId: actorUserId }],
-                    },
-                  },
-                ],
-            },
-          ],
+          ...baseAccess,
         };
 
     const documents = await prisma.document.findMany({
@@ -153,7 +139,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { title, notebookId, projectId } = body;
+    const { title, notebookId } = body;
 
     if (!title) {
       return NextResponse.json(
@@ -176,18 +162,12 @@ export async function POST(req: Request) {
       }
     }
 
-    if (projectId) {
-      if (!(await canEditProjectContent(projectId, actorUserId))) {
-        return NextResponse.json({ error: "Acceso denegado al proyecto" }, { status: 403 });
-      }
-    }
-
     const newDocument = await prisma.document.create({
       data: {
         title,
         creatorId: actorUserId,
         notebookId: notebookId || null, 
-        projectId: projectId || null,   
+        projectId: null,
         content: {}, 
       },
     });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { AccessRole } from "@prisma/client";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
 import { folderAccessWhere, folderEditorWhere, notebookAccessWhere, projectEditorWhere } from "@/src/lib/permissions";
@@ -108,7 +109,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Nombre obligatorio" }, { status: 400 });
     }
 
-    let effectiveProjectId = typeof projectId === "string" && projectId.trim() ? projectId : null;
+    const effectiveProjectId = typeof projectId === "string" && projectId.trim() ? projectId : null;
 
     if (effectiveProjectId) {
       const project = await prisma.project.findFirst({
@@ -122,46 +123,35 @@ export async function POST(req: Request) {
       if (!project) {
         return NextResponse.json({ error: "Acceso denegado al proyecto" }, { status: 403 });
       }
-    } else {
-      const personalProjectName = "Espacio personal notebooks";
-      const personalProjectDescription = "Proyecto interno para carpetas del explorador";
-
-      const personalProject = await prisma.project.findFirst({
-        where: {
-          ownerId: sessionUser.userId,
-          creatorId: sessionUser.userId,
-          name: personalProjectName,
-        },
-        select: { id: true },
-      });
-
-      if (personalProject) {
-        effectiveProjectId = personalProject.id;
-      } else {
-        const createdProject = await prisma.project.create({
-          data: {
-            name: personalProjectName,
-            description: personalProjectDescription,
-            ownerId: sessionUser.userId,
-            creatorId: sessionUser.userId,
-            icon: "Folder",
-            color: "#64748b",
-            isPublic: false,
-            isArchived: true,
-          },
-          select: { id: true },
-        });
-
-        effectiveProjectId = createdProject.id;
-      }
     }
 
-    const folder = await prisma.notebookFolder.create({
-      data: {
-        name,
-        parentId: parentId || null,
-        projectId: effectiveProjectId,
-      },
+    const folder = await prisma.$transaction(async (tx) => {
+      const createdFolder = await tx.notebookFolder.create({
+        data: {
+          name,
+          parentId: parentId || null,
+          projectId: effectiveProjectId,
+        },
+      });
+
+      await tx.notebookFolderUser.upsert({
+        where: {
+          folderId_userId: {
+            folderId: createdFolder.id,
+            userId: sessionUser.userId,
+          },
+        },
+        update: {
+          role: AccessRole.OWNER,
+        },
+        create: {
+          folderId: createdFolder.id,
+          userId: sessionUser.userId,
+          role: AccessRole.OWNER,
+        },
+      });
+
+      return createdFolder;
     });
 
     return NextResponse.json(folder);

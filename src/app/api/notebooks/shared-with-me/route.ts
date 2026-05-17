@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { AccessRole } from "@prisma/client";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
 
@@ -67,6 +68,8 @@ export async function GET() {
       prisma.notebookFolderUser.findMany({
         where: {
           userId: sessionUser.userId,
+          invitedBy: { not: null },
+          role: { not: AccessRole.OWNER },
         },
         orderBy: { joinedAt: "desc" },
         include: {

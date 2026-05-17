@@ -24,13 +24,7 @@ export async function GET() {
             },
           },
         ],
-        OR: [
-          baseAccess,
-          {
-            isPublic: true,
-            OR: [{ ownerId: sessionUser.userId }, { creatorId: sessionUser.userId }],
-          },
-        ],
+        ...baseAccess,
       },
       include: {
         users: {
