@@ -6,6 +6,7 @@ import {
   getAdminSettings,
   updateAdminSettings,
 } from "@/src/app/(dashboard)/social/perfil/services/profileService";
+import AdminPanelNav from "@/src/components/admin/AdminPanelNav";
 
 export default function AdminSettingsPage() {
   const [allowRegistration, setAllowRegistration] = useState(true);
@@ -51,10 +52,13 @@ export default function AdminSettingsPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
       <section className="surface-panel p-6 sm:p-8">
-        <h1 className="flex items-center gap-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-          <Settings size={20} />
-          Configuración de administración
-        </h1>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="flex items-center gap-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+            <Settings size={20} />
+            Configuración de administración
+          </h1>
+          <AdminPanelNav />
+        </div>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-300">
           Controla las opciones globales del sistema desde este apartado.
         </p>

@@ -7,6 +7,7 @@ import {
   getAdminUsers,
   updateAdminUser,
 } from "@/src/app/(dashboard)/social/perfil/services/profileService";
+import AdminPanelNav from "@/src/components/admin/AdminPanelNav";
 import type {
   AdminUser,
   CreateAdminUserPayload,
@@ -110,10 +111,13 @@ export default function AdminUsersPage() {
               Crea usuarios, bloquea/activa cuentas y administra roles.
             </p>
           </div>
-          <button className="btn-primary" onClick={() => setIsCreateOpen(true)}>
-            <Plus size={16} />
-            Crear usuario
-          </button>
+          <div className="flex items-center gap-2">
+            <AdminPanelNav />
+            <button className="btn-primary" onClick={() => setIsCreateOpen(true)}>
+              <Plus size={16} />
+              Crear usuario
+            </button>
+          </div>
         </div>
 
         {loading && (
