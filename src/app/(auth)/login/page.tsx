@@ -90,6 +90,12 @@ function LoginContent() {
         </button>
       </form>
 
+      <div className="text-center text-sm">
+        <Link href="/forgot-password" className="font-medium text-blue-600 hover:underline">
+          ¿Olvidaste tu contraseña?
+        </Link>
+      </div>
+
       <div className="text-center text-sm text-slate-500">
         ¿No tienes cuenta?{" "}
         <Link href="/register" className="font-medium text-blue-600 hover:underline">

@@ -3,6 +3,7 @@ import { UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getAdminSettings } from "@/src/lib/admin-settings";
+import { sendWelcomeEmail } from "@/src/lib/email";
 
 export async function POST(request: Request) {
   try {
@@ -54,6 +55,12 @@ export async function POST(request: Request) {
         role: true,
       },
     });
+
+    try {
+      await sendWelcomeEmail({ to: user.email, username: user.username });
+    } catch (emailError) {
+      console.error("WELCOME_EMAIL_ERROR", emailError);
+    }
 
     return NextResponse.json({ message: "Registro exitoso", user }, { status: 201 });
   } catch (error: unknown) {

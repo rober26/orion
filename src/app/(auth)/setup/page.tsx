@@ -30,40 +30,28 @@ export default function SetupPage() {
   };
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-2 dark:text-white">Configuración Inicial</h2>
-      <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">
-        Crea la cuenta del administrador para empezar.
-      </p>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Username</label>
-          <input 
-            type="text" name="username" required
-            onChange={handleChange}
-            className="input-orion" 
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Email</label>
-          <input 
-            type="email" name="email" required
-            onChange={handleChange}
-            className="input-orion" 
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Password</label>
-          <input 
-            type="password" name="password" required
-            onChange={handleChange}
-            className="input-orion" 
-          />
-        </div>
-        <button className="btn-primary w-full py-2">
-          Crear administrador
-        </button>
-      </form>
+    <div className="mx-auto w-full max-w-md">
+      <div>
+        <h2 className="mb-2 text-center text-2xl font-bold dark:text-white">Configuracion Inicial</h2>
+        <p className="mb-6 text-center text-sm text-slate-500 dark:text-slate-400">
+          Crea la cuenta del administrador para empezar.
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Email</label>
+            <input type="email" name="email" required onChange={handleChange} className="input-orion" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Username</label>
+            <input type="text" name="username" required onChange={handleChange} className="input-orion" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Password</label>
+            <input type="password" name="password" required onChange={handleChange} className="input-orion" />
+          </div>
+          <button className="btn-primary w-full py-2">Crear administrador</button>
+        </form>
+      </div>
     </div>
   );
 }

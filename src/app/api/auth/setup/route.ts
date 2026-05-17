@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
     
-    const admin = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email: email.toLowerCase().trim(),
         username: username.trim(),
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ message: "Administrador configurado con exito" }, { status: 201 });
 
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Error en el setup" }, { status: 500 });
   }
 }

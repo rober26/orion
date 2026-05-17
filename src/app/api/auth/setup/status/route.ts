@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const userCount = await prisma.user.count();
     return NextResponse.json({ hasAdmin: userCount > 0 });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ hasAdmin: true }); 
   }
 }

@@ -13,11 +13,12 @@ function createPrismaClient() {
 function hasAiDelegates(client: PrismaClient): boolean {
   const candidate = client as unknown as {
     userAiConfig?: unknown;
+    userAiConnection?: unknown;
     aiConversation?: unknown;
     aiMessage?: unknown;
   };
 
-  return Boolean(candidate.userAiConfig && candidate.aiConversation && candidate.aiMessage);
+  return Boolean(candidate.userAiConfig && candidate.userAiConnection && candidate.aiConversation && candidate.aiMessage);
 }
 
 const cachedClient = prismaGlobal.prisma;
