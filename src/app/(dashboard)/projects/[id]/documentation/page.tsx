@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ProjectSidebar from "@/src/components/projects/ProjectSidebar";
+import DocumentEditorModal from "@/src/components/projects/DocumentEditorModal";
 import { Book, FileText, Folder, Link2, Loader2, Plus, Unlink } from "lucide-react";
 
 interface ProjectFolder {
@@ -71,6 +72,8 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
   const [newFolderName, setNewFolderName] = useState("");
   const [selectedNotebookId, setSelectedNotebookId] = useState("");
   const [canEdit, setCanEdit] = useState(false);
+  const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
+  const [editingDocumentTitle, setEditingDocumentTitle] = useState("");
 
   const linkedNotebookIds = useMemo(
     () => new Set(data?.related.notebooks.map((notebook) => notebook.id) || []),
@@ -147,12 +150,19 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
         throw new Error(payload.error || "No se pudo crear el documento");
       }
 
-      window.location.href = `/notebooks?doc=${payload.id}`;
+      setEditingDocumentId(payload.id);
+      setEditingDocumentTitle("Documento nuevo");
+      await loadData();
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "No se pudo crear el documento");
     } finally {
       setSaving(false);
     }
+  };
+
+  const openDocumentEditor = (document: ProjectDocument) => {
+    setEditingDocumentId(document.id);
+    setEditingDocumentTitle(document.title || "Sin título");
   };
 
   const createProjectFolder = async () => {
@@ -328,17 +338,18 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
                   ) : (
                     <div className="space-y-2">
                       {data.project.documents.map((document) => (
-                        <Link
+                        <button
+                          type="button"
                           key={document.id}
-                          href={`/notebooks?doc=${document.id}`}
-                          className="flex items-center justify-between gap-2 rounded-xl border border-orion-border dark:border-orion-dark-border px-3 py-2 hover:bg-slate-100/60 dark:hover:bg-slate-800/40"
+                          onClick={() => openDocumentEditor(document)}
+                          className="flex items-center justify-between gap-2 rounded-xl border border-orion-border dark:border-orion-dark-border px-3 py-2"
                         >
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-slate-900 dark:text-white">{document.title}</p>
                             <p className="text-xs text-slate-500">{document.notebookId ? "Vinculado a cuaderno" : "Documento suelto"}</p>
                           </div>
                           <FileText size={14} className="text-slate-500" />
-                        </Link>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -432,6 +443,12 @@ export default function ProjectDocumentationPage({ params }: { params: Promise<{
           )}
         </section>
       </main>
+
+      <DocumentEditorModal
+        documentId={editingDocumentId}
+        title={editingDocumentTitle}
+        onClose={() => setEditingDocumentId(null)}
+      />
     </div>
   );
 }

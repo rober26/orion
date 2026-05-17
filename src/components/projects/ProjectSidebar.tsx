@@ -11,7 +11,8 @@ import {
   BookOpen,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import DocumentEditorModal from "@/src/components/projects/DocumentEditorModal";
+import { useParams, usePathname, useRouter } from "next/navigation";
 
 interface ProjectDocument {
   id: string;
@@ -33,7 +34,6 @@ export default function ProjectSidebar() {
   const params = useParams();
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const projectId = params.id as string;
 
   const [projectDocs, setProjectDocs] = useState<ProjectDocument[]>([]);
@@ -42,6 +42,8 @@ export default function ProjectSidebar() {
   const [isArchived, setIsArchived] = useState(false);
   const [canManage, setCanManage] = useState(false);
   const [canEdit, setCanEdit] = useState(true);
+  const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
+  const [editingDocumentTitle, setEditingDocumentTitle] = useState("");
 
   useEffect(() => {
     const fetchProjectData = async () => {
@@ -155,13 +157,20 @@ export default function ProjectSidebar() {
             </div>
           ) : (
             projectDocs.map((doc) => (
-              <SidebarLink
+              <button
                 key={doc.id}
-                href={`/notebooks?doc=${doc.id}`}
-                icon={<FileText size={18} />}
-                label={doc.title || "Sin título"}
-                active={pathname === "/notebooks" && searchParams.get("doc") === doc.id}
-              />
+                type="button"
+                onClick={() => {
+                  setEditingDocumentId(doc.id);
+                  setEditingDocumentTitle(doc.title || "Sin título");
+                }}
+                className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-slate-500 transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orion-primary/40 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              >
+                <span className="text-slate-400">
+                  <FileText size={18} />
+                </span>
+                <span className="truncate">{doc.title || "Sin título"}</span>
+              </button>
             ))
           )}
         </div>
@@ -178,6 +187,12 @@ export default function ProjectSidebar() {
         </div>
       )}
       </div>
+
+      <DocumentEditorModal
+        documentId={editingDocumentId}
+        title={editingDocumentTitle}
+        onClose={() => setEditingDocumentId(null)}
+      />
     </aside>
   );
 }
