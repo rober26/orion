@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+function getInternalOrigin(request: NextRequest): string {
+  const raw = process.env.INTERNAL_APP_URL?.trim();
+
+  if (raw) {
+    return raw.replace(/\/$/, '');
+  }
+
+  return request.nextUrl.origin;
+}
+
 function clearSessionCookie(response: NextResponse) {
   response.cookies.set('orion_session', '', {
     httpOnly: true,
@@ -12,6 +22,7 @@ function clearSessionCookie(response: NextResponse) {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('orion_session')?.value;
+  const internalOrigin = getInternalOrigin(request);
   const isAuthPage =
     pathname === '/login' ||
     pathname === '/register' ||
@@ -30,7 +41,7 @@ export async function proxy(request: NextRequest) {
 
   if (token && pathname !== '/setup') {
     try {
-      const sessionRes = await fetch(new URL('/api/auth/session', request.url), {
+      const sessionRes = await fetch(`${internalOrigin}/api/auth/session`, {
         headers: {
           cookie: request.headers.get('cookie') ?? '',
         },
@@ -64,7 +75,7 @@ export async function proxy(request: NextRequest) {
   }
 
   try {
-    const res = await fetch(new URL('/api/auth/setup/status', request.url));
+    const res = await fetch(`${internalOrigin}/api/auth/setup/status`);
     const { hasAdmin } = await res.json();
 
     if (hasAdmin && pathname === '/setup') {

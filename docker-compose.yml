@@ -12,6 +12,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-orion_admin}:${POSTGRES_PASSWORD:-orion_password}@db:5432/${POSTGRES_DB:-orion_db}?schema=public
       JWT_SECRET: ${JWT_SECRET:-orion_jwt_secret_super_seguro}
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-orion_app_encryption_key_12345}
+      INTERNAL_APP_URL: ${INTERNAL_APP_URL:-http://127.0.0.1:3000}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
       NODE_ENV: production
     ports:
       - "${APP_PORT:-3000}:3000"
