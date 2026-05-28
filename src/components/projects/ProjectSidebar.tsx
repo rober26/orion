@@ -9,6 +9,7 @@ import {
   Search,
   Users,
   BookOpen,
+  StickyNote,
 } from "lucide-react";
 import Link from "next/link";
 import DocumentEditorModal from "@/src/components/projects/DocumentEditorModal";
@@ -131,6 +132,12 @@ export default function ProjectSidebar() {
             icon={<BookOpen size={18} />}
             label="Documentación"
             active={isActive(`/projects/${projectId}/documentation`)}
+          />
+          <SidebarLink
+            href={`/projects/${projectId}/notes`}
+            icon={<StickyNote size={18} />}
+            label="Notas"
+            active={isActive(`/projects/${projectId}/notes`)}
           />
           <SidebarLink
             href={`/projects/${projectId}/members`}

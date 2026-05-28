@@ -13,6 +13,7 @@ type NotesQuery = {
   archived?: "true" | "false";
   pinned?: "true" | "false";
   projectId?: string;
+  unassigned?: "true" | "false";
 };
 
 function isUuid(value: string): boolean {
@@ -48,6 +49,7 @@ export async function GET(req: Request) {
     const archived = parseBoolean(searchParams.get("archived"));
     const pinned = parseBoolean(searchParams.get("pinned"));
     const projectId = searchParams.get("projectId")?.trim() || "";
+    const unassigned = parseBoolean(searchParams.get("unassigned"));
 
     if (projectId && !isUuid(projectId)) {
       return badRequest("projectId invalido");
@@ -58,6 +60,7 @@ export async function GET(req: Request) {
       archived: archived === null ? undefined : String(archived) as "true" | "false",
       pinned: pinned === null ? undefined : String(pinned) as "true" | "false",
       projectId: projectId || undefined,
+      unassigned: unassigned === null ? undefined : (String(unassigned) as "true" | "false"),
     };
 
     const notes = await prisma.quickNote.findMany({
@@ -74,6 +77,7 @@ export async function GET(req: Request) {
             }
           : {}),
         ...(filters.projectId ? { projectId: filters.projectId } : {}),
+        ...(filters.unassigned === "true" ? { projectId: null } : {}),
       },
       orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
       include: {
