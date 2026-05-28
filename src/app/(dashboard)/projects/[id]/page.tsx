@@ -1,7 +1,7 @@
 "use client";
 import { use, useEffect, useState } from "react";
 import ProjectSidebar from "@/src/components/projects/ProjectSidebar";
-import { FileText, CheckSquare, Users } from "lucide-react";
+import { CheckSquare, FileText, Users } from "lucide-react";
 
 interface ProjectActivityItem {
   id: string;
@@ -57,6 +57,7 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
     };
     fetchProject();
   }, [id]);
+
 
   if (loading) {
     return (
@@ -162,6 +163,7 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
             </div>
           )}
         </section>
+
       </main>
     </div>
   );

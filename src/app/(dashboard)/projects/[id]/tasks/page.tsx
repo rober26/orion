@@ -124,6 +124,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isBoardModalOpen, setIsBoardModalOpen] = useState(false);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
+  const [confirmDeleteBoard, setConfirmDeleteBoard] = useState(false);
   const [taskForm, setTaskForm] = useState<TaskFormState>(EMPTY_FORM);
   const [deleteConfirmTaskId, setDeleteConfirmTaskId] = useState<string | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -213,6 +214,10 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
     void loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    setConfirmDeleteBoard(false);
+  }, [selectedBoardId]);
+
   const createBoard = async () => {
     const name = newBoardName.trim();
     if (!name) {
@@ -232,6 +237,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
         throw new Error(payload.error || "No se pudo crear el tablero");
       }
       setNewBoardName("");
+      setIsBoardModalOpen(false);
       await loadData();
       setFeedback("Tablero creado");
     } catch (error) {
@@ -268,6 +274,35 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
       await loadData();
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "No se pudo crear la columna");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteBoard = async () => {
+    if (!selectedBoard) {
+      return;
+    }
+
+    if (!confirmDeleteBoard) {
+      setConfirmDeleteBoard(true);
+      return;
+    }
+
+    setSaving(true);
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/projects/${id}/kanban/boards/${selectedBoard.id}`, { method: "DELETE" });
+      const payload = (await res.json()) as ApiError;
+      if (!res.ok) {
+        throw new Error(payload.error || "No se pudo eliminar el tablero");
+      }
+
+      setConfirmDeleteBoard(false);
+      await loadData();
+      setFeedback("Tablero eliminado");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "No se pudo eliminar el tablero");
     } finally {
       setSaving(false);
     }
@@ -599,11 +634,11 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
           )}
 
           <div className="section-panel-compact space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-start gap-3">
               <select
                 value={selectedBoardId}
                 onChange={(event) => setSelectedBoardId(event.target.value)}
-                className="select-orion min-w-56"
+                className="select-orion !w-44 sm:!w-52 min-w-0"
               >
                 {boards.map((board) => (
                   <option key={board.id} value={board.id}>
@@ -612,47 +647,68 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                 ))}
               </select>
 
-              {canEdit && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewBoardName("");
-                      setIsBoardModalOpen(true);
-                    }}
-                    disabled={saving}
-                    className="btn-primary rounded-xl px-3 py-2 text-sm font-bold disabled:opacity-70"
-                  >
-                    <Plus size={14} /> Crear tablero
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewColumnName("");
-                      setIsColumnModalOpen(true);
-                    }}
-                    disabled={saving || !selectedBoard}
-                    className="btn-secondary text-sm"
-                  >
-                    <Plus size={14} /> Columna
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={openCreateTaskModal}
-                    disabled={saving || !selectedBoard || selectedBoard.columns.length === 0}
-                    className="btn-secondary text-sm"
-                  >
-                    <Plus size={14} /> Nueva tarea
-                  </button>
-                </>
-              )}
-
               {isDefaultBoard && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                <span className="inline-flex min-h-10 items-center gap-1 rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                   <Lock size={11} /> Tablero base bloqueado
                 </span>
+              )}
+
+              {canEdit && (
+                <div className="relative ml-auto flex flex-col items-end gap-2">
+                  {canEdit && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void deleteBoard()}
+                        disabled={saving || !selectedBoard || isDefaultBoard}
+                        className={`inline-flex min-h-10 items-center justify-center rounded-xl border border-red-300 text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/30 ${confirmDeleteBoard ? "px-3 text-xs font-semibold" : "min-w-10"}`}
+                        aria-label="Eliminar tablero"
+                        title="Eliminar tablero"
+                      >
+                        <Trash2 size={14} /> {confirmDeleteBoard ? "Confirmar borrado" : null}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewBoardName("");
+                          setIsBoardModalOpen(true);
+                        }}
+                        disabled={saving}
+                        className="btn-primary rounded-xl px-3 py-2 text-sm font-bold disabled:opacity-70"
+                      >
+                        <Plus size={14} /> Crear tablero
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {canEdit && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewColumnName("");
+                            setIsColumnModalOpen(true);
+                          }}
+                          disabled={saving || !selectedBoard}
+                          className="btn-secondary text-sm"
+                        >
+                          <Plus size={14} /> Columna
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={openCreateTaskModal}
+                          disabled={saving || !selectedBoard || selectedBoard.columns.length === 0}
+                          className="btn-secondary text-sm"
+                        >
+                          <Plus size={14} /> Nueva tarea
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
