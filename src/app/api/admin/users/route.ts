@@ -1,19 +1,30 @@
-import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { UserRole } from "@prisma/client";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { badRequest, forbidden, json, parseJson, serverError, unauthorized } from "@/src/lib/http";
+import { normalizeEmail, normalizeName, normalizeUsername, validateEmail, validatePassword, validateUsername } from "@/src/lib/validation/auth";
+
+type CreateAdminUserBody = {
+  email?: unknown;
+  username?: unknown;
+  password?: unknown;
+  firstName?: unknown;
+  lastName?: unknown;
+  role?: unknown;
+  isActive?: unknown;
+};
 
 export async function GET() {
   try {
     const sessionUser = await getSessionUser();
 
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     if (sessionUser.role !== "ADMIN") {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+      return forbidden();
     }
 
     const users = await prisma.user.findMany({
@@ -30,10 +41,10 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(users);
+    return json(users);
   } catch (error) {
     console.error("ADMIN_LIST_USERS_ERROR", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    return serverError();
   }
 }
 
@@ -42,45 +53,48 @@ export async function POST(request: Request) {
     const sessionUser = await getSessionUser();
 
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     if (sessionUser.role !== "ADMIN") {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+      return forbidden();
     }
 
-    const body = await request.json();
+    const body = await parseJson<CreateAdminUserBody>(request);
 
-    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-    const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
+    if (!body) {
+      return badRequest("Formato de solicitud invalido");
+    }
+
+    const email = normalizeEmail(body.email);
+    const username = normalizeUsername(body.username);
     const password = typeof body.password === "string" ? body.password : "";
-    const firstName = typeof body.firstName === "string" ? body.firstName.trim() : "";
-    const lastName = typeof body.lastName === "string" ? body.lastName.trim() : "";
+    const firstName = normalizeName(body.firstName);
+    const lastName = normalizeName(body.lastName);
     const role = body.role;
     const isActive = body.isActive;
 
-    if (!email || !username || !password) {
-      return NextResponse.json({ error: "Email, username y contraseña son obligatorios" }, { status: 400 });
+    const emailError = validateEmail(email);
+    if (emailError) {
+      return badRequest(emailError);
     }
 
-    if (password.length < 8) {
-      return NextResponse.json({ error: "La contraseña debe tener al menos 8 caracteres" }, { status: 400 });
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      return badRequest(usernameError);
     }
 
-    if (!email.includes("@")) {
-      return NextResponse.json({ error: "Email inválido" }, { status: 400 });
-    }
-
-    if (username.length < 3) {
-      return NextResponse.json({ error: "El username debe tener al menos 3 caracteres" }, { status: 400 });
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return badRequest(passwordError);
     }
 
     if (role !== undefined && role !== UserRole.USER && role !== UserRole.ADMIN) {
-      return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
+      return badRequest("Rol invalido");
     }
 
     if (isActive !== undefined && typeof isActive !== "boolean") {
-      return NextResponse.json({ error: "isActive inválido" }, { status: 400 });
+      return badRequest("isActive invalido");
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -107,16 +121,16 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json(user, { status: 201 });
+    return json(user, 201);
   } catch (error: unknown) {
     if (typeof error === "object" && error !== null && "code" in error) {
       const code = (error as { code?: unknown }).code;
       if (code === "P2002") {
-        return NextResponse.json({ error: "Email o username ya están en uso" }, { status: 409 });
+        return json({ error: "Email o username ya estan en uso" }, 409);
       }
     }
 
     console.error("ADMIN_CREATE_USER_ERROR", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    return serverError();
   }
 }

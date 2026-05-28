@@ -1,7 +1,7 @@
 import { ConnectionStatus } from "@prisma/client";
-import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { json, serverError, unauthorized } from "@/src/lib/http";
 
 function toUserSummary(user: { id: string; username: string; firstName: string | null; lastName: string | null; avatarUrl: string | null }) {
   return {
@@ -17,7 +17,7 @@ export async function GET() {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const [incomingPending, outgoingPending, accepted] = await Promise.all([
@@ -56,7 +56,7 @@ export async function GET() {
       }),
     ]);
 
-    return NextResponse.json({
+    return json({
       incomingPending: incomingPending.map((connection) => ({
         id: connection.id,
         createdAt: connection.createdAt,
@@ -78,6 +78,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error("GET_CONNECTIONS_ERROR", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    return serverError();
   }
 }

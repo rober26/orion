@@ -3,6 +3,7 @@ import { getSessionUser, type SessionUser } from "@/src/lib/auth";
 import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import prisma from "@/src/lib/prisma";
 import { canEditProjectContent, projectReadWhere } from "@/src/lib/permissions";
+import { getInvalidSessionMessage } from "@/src/lib/validation/auth";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -59,7 +60,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return unauthorized("Sesion invalida. Inicia sesion de nuevo");
+      return unauthorized(getInvalidSessionMessage());
     }
 
     const { id } = await params;
@@ -143,7 +144,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return unauthorized("Sesion invalida. Inicia sesion de nuevo");
+      return unauthorized(getInvalidSessionMessage());
     }
 
     const { id } = await params;
@@ -322,7 +323,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return unauthorized("Sesion invalida. Inicia sesion de nuevo");
+      return unauthorized(getInvalidSessionMessage());
     }
 
     const { id } = await params;
@@ -334,7 +335,37 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     }
 
     if (permanent) {
-      await prisma.project.delete({ where: { id } });
+      await prisma.$transaction(async (tx) => {
+        await tx.notebookRelation.deleteMany({
+          where: { projectId: id },
+        });
+
+        await tx.document.updateMany({
+          where: { projectId: id },
+          data: { projectId: null },
+        });
+
+        await tx.notebookFolder.updateMany({
+          where: { projectId: id },
+          data: { projectId: null },
+        });
+
+        await tx.workSession.updateMany({
+          where: { projectId: id },
+          data: { projectId: null },
+        });
+
+        await tx.file.deleteMany({
+          where: { projectId: id },
+        });
+
+        await tx.tag.deleteMany({
+          where: { projectId: id },
+        });
+
+        await tx.project.delete({ where: { id } });
+      });
+
       return json({ message: "Proyecto eliminado correctamente" });
     }
 

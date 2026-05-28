@@ -2,6 +2,7 @@ import prisma from "@/src/lib/prisma";
 import { getSessionUser, type SessionUser } from "@/src/lib/auth";
 import { badRequest, json, serverError, unauthorized } from "@/src/lib/http";
 import { projectAccessWhere } from "@/src/lib/permissions";
+import { getInvalidSessionMessage } from "@/src/lib/validation/auth";
 
 const PROJECT_NAME_MAX_LENGTH = 100;
 const PROJECT_STATUSES = ["active", "archived", "all"] as const;
@@ -40,7 +41,7 @@ export async function GET(req: Request) {
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return unauthorized("Sesion invalida. Inicia sesion de nuevo");
+      return unauthorized(getInvalidSessionMessage());
     }
 
     const { searchParams } = new URL(req.url);
@@ -84,7 +85,7 @@ export async function POST(req: Request) {
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return unauthorized("Sesion invalida. Inicia sesion de nuevo");
+      return unauthorized(getInvalidSessionMessage());
     }
 
     const body = await req.json();

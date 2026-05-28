@@ -1,40 +1,52 @@
 import bcrypt from "bcryptjs";
 import { UserRole } from "@prisma/client";
-import { NextResponse } from "next/server";
+import { badRequest, forbidden, json, parseJson, serverError } from "@/src/lib/http";
 import prisma from "@/src/lib/prisma";
 import { getAdminSettings } from "@/src/lib/admin-settings";
 import { sendWelcomeEmail } from "@/src/lib/email";
+import { normalizeEmail, normalizeName, normalizeUsername, validateEmail, validatePassword, validateUsername } from "@/src/lib/validation/auth";
+
+type RegisterBody = {
+  email?: unknown;
+  username?: unknown;
+  password?: unknown;
+  firstName?: unknown;
+  lastName?: unknown;
+};
 
 export async function POST(request: Request) {
   try {
     const settings = await getAdminSettings();
 
     if (!settings.allowRegistration) {
-      return NextResponse.json({ error: "El registro público está deshabilitado" }, { status: 403 });
+      return forbidden("El registro publico esta deshabilitado");
     }
 
-    const body = await request.json();
+    const body = await parseJson<RegisterBody>(request);
 
-    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-    const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
+    if (!body) {
+      return badRequest("Formato de solicitud invalido");
+    }
+
+    const email = normalizeEmail(body.email);
+    const username = normalizeUsername(body.username);
     const password = typeof body.password === "string" ? body.password : "";
-    const firstName = typeof body.firstName === "string" ? body.firstName.trim() : "";
-    const lastName = typeof body.lastName === "string" ? body.lastName.trim() : "";
+    const firstName = normalizeName(body.firstName);
+    const lastName = normalizeName(body.lastName);
 
-    if (!email || !username || !password) {
-      return NextResponse.json({ error: "Email, username y contraseña son obligatorios" }, { status: 400 });
+    const emailError = validateEmail(email);
+    if (emailError) {
+      return badRequest(emailError);
     }
 
-    if (!email.includes("@")) {
-      return NextResponse.json({ error: "Email inválido" }, { status: 400 });
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      return badRequest(usernameError);
     }
 
-    if (username.length < 3) {
-      return NextResponse.json({ error: "El username debe tener al menos 3 caracteres" }, { status: 400 });
-    }
-
-    if (password.length < 8) {
-      return NextResponse.json({ error: "La contraseña debe tener al menos 8 caracteres" }, { status: 400 });
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return badRequest(passwordError);
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -62,16 +74,16 @@ export async function POST(request: Request) {
       console.error("WELCOME_EMAIL_ERROR", emailError);
     }
 
-    return NextResponse.json({ message: "Registro exitoso", user }, { status: 201 });
+    return json({ message: "Registro exitoso", user }, 201);
   } catch (error: unknown) {
     if (typeof error === "object" && error !== null && "code" in error) {
       const code = (error as { code?: unknown }).code;
       if (code === "P2002") {
-        return NextResponse.json({ error: "Email o username ya están en uso" }, { status: 409 });
+        return json({ error: "Email o username ya estan en uso" }, 409);
       }
     }
 
     console.error("REGISTER_ERROR", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    return serverError();
   }
 }
