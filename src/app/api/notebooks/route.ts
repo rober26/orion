@@ -35,6 +35,7 @@ export async function GET() {
         _count: { select: { documents: true } },
         folder: true,
         documents: {
+          where: { projectId: null },
           orderBy: { position: "asc" },
           select: {
             id: true,
@@ -61,7 +62,7 @@ export async function GET() {
 
     return json(payload);
   } catch {
-    return json({ error: "Error al obtener notebooks" }, 500);
+    return serverError("Error al obtener notebooks");
   }
 }
 
@@ -72,8 +73,18 @@ export async function POST(req: Request) {
       return unauthorized();
     }
 
-    const body = await req.json();
-    const { title, description, folderId, color, icon } = body;
+    const body = (await req.json()) as {
+      title?: unknown;
+      description?: unknown;
+      folderId?: unknown;
+      color?: unknown;
+      icon?: unknown;
+    };
+    const title = typeof body.title === "string" ? body.title.trim() : "";
+    const description = typeof body.description === "string" ? body.description.trim() : "";
+    const folderId = typeof body.folderId === "string" ? body.folderId : "";
+    const color = typeof body.color === "string" ? body.color.trim() : "";
+    const icon = typeof body.icon === "string" ? body.icon.trim() : "";
 
     if (!title || typeof title !== "string") {
       return badRequest("Titulo requerido");

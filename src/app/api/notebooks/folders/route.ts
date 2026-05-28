@@ -1,14 +1,14 @@
-import { NextResponse } from "next/server";
 import { AccessRole } from "@prisma/client";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import { folderAccessWhere, folderEditorWhere, notebookAccessWhere, projectEditorWhere } from "@/src/lib/permissions";
 
 export async function GET() {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const baseAccess = folderAccessWhere(sessionUser.userId);
@@ -58,6 +58,7 @@ export async function GET() {
             },
             documents: {
               where: {
+                projectId: null,
                 OR: [{ creatorId: sessionUser.userId }, { notebook: notebookAccessWhere(sessionUser.userId) }],
               },
               orderBy: { position: "asc" },
@@ -90,9 +91,9 @@ export async function GET() {
       }),
     }));
 
-    return NextResponse.json(payload);
+    return json(payload);
   } catch {
-    return NextResponse.json({ error: "Error al obtener carpetas" }, { status: 500 });
+    return serverError("Error al obtener carpetas");
   }
 }
 
@@ -100,13 +101,13 @@ export async function POST(req: Request) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const { name, parentId, projectId } = await req.json();
 
     if (!name || typeof name !== "string") {
-      return NextResponse.json({ error: "Nombre obligatorio" }, { status: 400 });
+      return badRequest("Nombre obligatorio");
     }
 
     const effectiveProjectId = typeof projectId === "string" && projectId.trim() ? projectId : null;
@@ -121,7 +122,7 @@ export async function POST(req: Request) {
       });
 
       if (!project) {
-        return NextResponse.json({ error: "Acceso denegado al proyecto" }, { status: 403 });
+        return forbidden("Acceso denegado al proyecto");
       }
     }
 
@@ -154,10 +155,10 @@ export async function POST(req: Request) {
       return createdFolder;
     });
 
-    return NextResponse.json(folder);
+    return json(folder);
   } catch (error) {
     console.error("CREATE_FOLDER_ERROR", error);
-    return NextResponse.json({ error: "Error al crear carpeta" }, { status: 500 });
+    return serverError("Error al crear carpeta");
   }
 }
 
@@ -165,31 +166,31 @@ export async function PATCH(req: Request) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const { id, name, isPublic } = await req.json();
 
     if (!id || typeof id !== "string") {
-      return NextResponse.json({ error: "ID obligatorio" }, { status: 400 });
+      return badRequest("ID obligatorio");
     }
 
     if (name !== undefined && typeof name !== "string") {
-      return NextResponse.json({ error: "Nombre invalido" }, { status: 400 });
+      return badRequest("Nombre invalido");
     }
 
     if (isPublic !== undefined && typeof isPublic !== "boolean") {
-      return NextResponse.json({ error: "Visibilidad invalida" }, { status: 400 });
+      return badRequest("Visibilidad invalida");
     }
 
     const normalizedName = typeof name === "string" ? name.trim() : undefined;
 
     if (normalizedName !== undefined && !normalizedName) {
-      return NextResponse.json({ error: "Nombre obligatorio" }, { status: 400 });
+      return badRequest("Nombre obligatorio");
     }
 
     if (normalizedName === undefined && isPublic === undefined) {
-      return NextResponse.json({ error: "No hay cambios para actualizar" }, { status: 400 });
+      return badRequest("No hay cambios para actualizar");
     }
 
     const canAccess = await prisma.notebookFolder.findFirst({
@@ -201,7 +202,7 @@ export async function PATCH(req: Request) {
     });
 
     if (!canAccess) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+      return forbidden();
     }
 
     const folder = await prisma.$transaction(async (tx) => {
@@ -232,9 +233,9 @@ export async function PATCH(req: Request) {
       return updatedFolder;
     });
 
-    return NextResponse.json(folder);
+    return json(folder);
   } catch {
-    return NextResponse.json({ error: "Error al actualizar carpeta" }, { status: 500 });
+    return serverError("Error al actualizar carpeta");
   }
 }
 
@@ -242,13 +243,13 @@ export async function DELETE(req: Request) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const { id } = await req.json();
 
     if (!id || typeof id !== "string") {
-      return NextResponse.json({ error: "ID obligatorio" }, { status: 400 });
+      return badRequest("ID obligatorio");
     }
 
     const canAccess = await prisma.notebookFolder.findFirst({
@@ -260,7 +261,7 @@ export async function DELETE(req: Request) {
     });
 
     if (!canAccess) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+      return forbidden();
     }
 
     await prisma.$transaction([
@@ -273,9 +274,9 @@ export async function DELETE(req: Request) {
       }),
     ]);
 
-    return NextResponse.json({ message: "Carpeta eliminada correctamente" });
+    return json({ message: "Carpeta eliminada correctamente" });
   } catch (error) {
     console.error("DELETE_FOLDER_ERROR", error);
-    return NextResponse.json({ error: "Error al eliminar carpeta" }, { status: 500 });
+    return serverError("Error al eliminar carpeta");
   }
 }

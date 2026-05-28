@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import {
   canViewProject,
   documentAccessWhere,
@@ -9,17 +9,18 @@ import {
   projectReadWhere,
 } from "@/src/lib/permissions";
 import { resolveSessionUserId } from "@/src/lib/session-user";
+import { getInvalidSessionMessage } from "@/src/lib/validation/auth";
 
 export async function GET(req: Request) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return NextResponse.json({ error: "Sesion invalida. Inicia sesion de nuevo" }, { status: 401 });
+      return unauthorized(getInvalidSessionMessage());
     }
 
     const { searchParams } = new URL(req.url);
@@ -38,13 +39,13 @@ export async function GET(req: Request) {
       });
 
       if (!canAccessNotebook) {
-        return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+        return forbidden();
       }
     }
 
     if (projectId) {
       if (!(await canViewProject(projectId, actorUserId))) {
-        return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+        return forbidden();
       }
     }
 
@@ -119,10 +120,10 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json(payload);
+    return json(payload);
   } catch (error) {
     console.error("GET_DOCUMENTS_ERROR", error);
-    return NextResponse.json({ error: "Error al obtener notas" }, { status: 500 });
+    return serverError("Error al obtener notas");
   }
 }
 
@@ -130,22 +131,19 @@ export async function POST(req: Request) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return NextResponse.json({ error: "Sesion invalida. Inicia sesion de nuevo" }, { status: 401 });
+      return unauthorized(getInvalidSessionMessage());
     }
 
     const body = await req.json();
     const { title, notebookId } = body;
 
     if (!title) {
-      return NextResponse.json(
-        { error: "Titulo obligatorio" },
-        { status: 400 }
-      );
+      return badRequest("Titulo obligatorio");
     }
 
     if (notebookId) {
@@ -158,7 +156,7 @@ export async function POST(req: Request) {
       });
 
       if (!canUseNotebook) {
-        return NextResponse.json({ error: "Acceso denegado al cuaderno" }, { status: 403 });
+        return forbidden("Acceso denegado al cuaderno");
       }
     }
 
@@ -172,7 +170,7 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json(newDocument, { status: 201 });
+    return json(newDocument, 201);
   } catch (error: unknown) {
     console.error("Error al crear el documento:", error);
 
@@ -182,17 +180,9 @@ export async function POST(req: Request) {
         : "";
 
     if (errorCode === "P2023") {
-      return NextResponse.json(
-        { error: "Formato de ID (UUID) inválido" },
-        { status: 400 }
-      );
+      return badRequest("Formato de ID (UUID) invalido");
     }
 
-    const details = error instanceof Error ? error.message : "Error desconocido";
-
-    return NextResponse.json(
-      { error: "Error interno del servidor", details },
-      { status: 500 }
-    );
+    return serverError();
   }
 }

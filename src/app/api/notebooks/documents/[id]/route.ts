@@ -1,7 +1,7 @@
-// src/app/api/notebooks/documents/[id]/route.ts
-import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import { documentAccessWhere, documentEditorWhere, notebookEditorWhere } from "@/src/lib/permissions";
 
 async function findAccessibleDocument(id: string, userId: string) {
@@ -22,26 +22,23 @@ async function findEditableDocument(id: string, userId: string) {
   });
 }
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const { id } = await params;
 
     if (!id || id === "undefined") {
-      return NextResponse.json({ error: "ID no proporcionado" }, { status: 400 });
+      return badRequest("ID no proporcionado");
     }
 
     const document = await findAccessibleDocument(id, sessionUser.userId);
 
     if (!document) {
-      return NextResponse.json({ error: "Acceso denegado o documento no encontrado" }, { status: 403 });
+      return forbidden("Acceso denegado o documento no encontrado");
     }
 
     const directMembership = await prisma.documentUser.findFirst({
@@ -55,43 +52,48 @@ export async function GET(
     const editableDocument = await findEditableDocument(id, sessionUser.userId);
     const canEdit = Boolean(editableDocument);
 
-    const response = {
+    return json({
       ...document,
       currentUserRole:
         document.creatorId === sessionUser.userId ? "OWNER" : canEdit ? directMembership?.role ?? "EDITOR" : "READER",
       isSharedWithMe: document.creatorId !== sessionUser.userId && Boolean(directMembership),
-    };
-
-    return NextResponse.json(response);
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error desconocido";
     console.error("Error en GET [id]:", message);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    return serverError("Error interno");
   }
 }
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const { id } = await params;
     const existing = await findEditableDocument(id, sessionUser.userId);
 
     if (!existing) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+      return forbidden();
     }
 
-    const body = await req.json();
-    const { title, content, notebookId, position, isPublic } = body;
+    const body = (await req.json()) as {
+      title?: unknown;
+      content?: unknown;
+      notebookId?: unknown;
+      position?: unknown;
+      isPublic?: unknown;
+    };
+    const title = typeof body.title === "string" ? body.title : undefined;
+    const content = body.content;
+    const notebookId = typeof body.notebookId === "string" ? body.notebookId : body.notebookId === null ? null : undefined;
+    const position = typeof body.position === "number" ? body.position : undefined;
+    const isPublic = typeof body.isPublic === "boolean" ? body.isPublic : undefined;
 
-    if (isPublic !== undefined && typeof isPublic !== "boolean") {
-      return NextResponse.json({ error: "Visibilidad invalida" }, { status: 400 });
+    if (body.isPublic !== undefined && isPublic === undefined) {
+      return badRequest("Visibilidad invalida");
     }
 
     if (notebookId) {
@@ -104,52 +106,51 @@ export async function PATCH(
       });
 
       if (!canUseNotebook) {
-        return NextResponse.json({ error: "Acceso denegado al cuaderno" }, { status: 403 });
+        return forbidden("Acceso denegado al cuaderno");
       }
     }
 
+    const updateData: Prisma.DocumentUncheckedUpdateInput = {
+      ...(title !== undefined && { title }),
+      ...(content !== undefined && { content: content as Prisma.InputJsonValue }),
+      ...(notebookId !== undefined && { notebookId }),
+      ...(position !== undefined && { position }),
+      ...(isPublic !== undefined && { isPublic }),
+    };
+
     const updatedDocument = await prisma.document.update({
       where: { id },
-      data: {
-        ...(title !== undefined && { title }),
-        ...(content !== undefined && { content }),
-        ...(notebookId !== undefined && { notebookId }),
-        ...(position !== undefined && { position }),
-        ...(isPublic !== undefined && { isPublic }),
-      },
+      data: updateData,
     });
 
-    return NextResponse.json(updatedDocument);
+    return json(updatedDocument);
   } catch (error: unknown) {
     console.error("Error al actualizar:", error);
-    return NextResponse.json({ error: "Error al guardar los cambios" }, { status: 500 });
+    return serverError("Error al guardar los cambios");
   }
 }
 
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const { id } = await params;
     const existing = await findEditableDocument(id, sessionUser.userId);
 
     if (!existing) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+      return forbidden();
     }
 
     await prisma.document.delete({
       where: { id },
     });
 
-    return NextResponse.json({ message: "Documento eliminado correctamente" });
+    return json({ message: "Documento eliminado correctamente" });
   } catch (error: unknown) {
     console.error("Error al eliminar documento:", error);
-    return NextResponse.json({ error: "Error al eliminar documento" }, { status: 500 });
+    return serverError("Error al eliminar documento");
   }
 }

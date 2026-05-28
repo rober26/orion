@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import { folderEditorWhere, notebookAccessWhere, notebookEditorWhere } from "@/src/lib/permissions";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -21,10 +21,10 @@ export async function GET(req: Request, { params }: RouteParams) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
-    const { id } = await params; 
+    const { id } = await params;
 
     const notebook = await prisma.notebook.findFirst({
       where: {
@@ -38,6 +38,7 @@ export async function GET(req: Request, { params }: RouteParams) {
           take: 1,
         },
         documents: {
+          where: { projectId: null },
           orderBy: { position: "asc" },
           select: {
             id: true,
@@ -57,16 +58,13 @@ export async function GET(req: Request, { params }: RouteParams) {
     });
 
     if (!notebook) {
-      return NextResponse.json(
-        { error: "Notebook no encontrado" },
-        { status: 404 }
-      );
+      return json({ error: "Notebook no encontrado" }, 404);
     }
 
     const notebookMembership = notebook.users[0] ?? null;
     const isNotebookOwnerLike = notebook.ownerId === sessionUser.userId || notebook.creatorId === sessionUser.userId;
 
-    return NextResponse.json({
+    return json({
       ...notebook,
       currentUserRole: isNotebookOwnerLike ? "OWNER" : notebookMembership?.role ?? null,
       isSharedWithMe: !isNotebookOwnerLike && Boolean(notebookMembership),
@@ -87,10 +85,7 @@ export async function GET(req: Request, { params }: RouteParams) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error desconocido";
     console.error("Error al obtener el cuaderno:", message);
-    return NextResponse.json(
-      { error: "Error al obtener el notebook" },
-      { status: 500 }
-    );
+    return serverError("Error al obtener el notebook");
   }
 }
 
@@ -98,20 +93,20 @@ export async function PUT(req: Request, { params }: RouteParams) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const { id } = await params;
 
     if (!(await canEditNotebook(id, sessionUser.userId))) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+      return forbidden();
     }
 
     const body = await req.json();
     const { title, description, color, icon, folderId, isPublic } = body;
 
     if (isPublic !== undefined && typeof isPublic !== "boolean") {
-      return NextResponse.json({ error: "Visibilidad invalida" }, { status: 400 });
+      return badRequest("Visibilidad invalida");
     }
 
     if (folderId) {
@@ -124,7 +119,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
       });
 
       if (!folder) {
-        return NextResponse.json({ error: "Acceso denegado a carpeta" }, { status: 403 });
+        return forbidden("Acceso denegado a carpeta");
       }
     }
 
@@ -151,14 +146,11 @@ export async function PUT(req: Request, { params }: RouteParams) {
       return updated;
     });
 
-    return NextResponse.json(updatedNotebook);
+    return json(updatedNotebook);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error desconocido";
     console.error("Error al actualizar el cuaderno:", message);
-    return NextResponse.json(
-      { error: "Error al actualizar el notebook" },
-      { status: 500 }
-    );
+    return serverError("Error al actualizar el notebook");
   }
 }
 
@@ -166,26 +158,23 @@ export async function DELETE(req: Request, { params }: RouteParams) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const { id } = await params;
 
     if (!(await canEditNotebook(id, sessionUser.userId))) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+      return forbidden();
     }
 
     await prisma.notebook.delete({
       where: { id },
     });
 
-    return NextResponse.json({ message: "Notebook eliminado correctamente" });
+    return json({ message: "Notebook eliminado correctamente" });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error desconocido";
     console.error("Error al eliminar el cuaderno:", message);
-    return NextResponse.json(
-      { error: "Error al eliminar el notebook" },
-      { status: 500 }
-    );
+    return serverError("Error al eliminar el notebook");
   }
 }

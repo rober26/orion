@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
 import { AccessRole } from "@prisma/client";
 import prisma from "@/src/lib/prisma";
 import { getSessionUser } from "@/src/lib/auth";
+import { json, serverError, unauthorized } from "@/src/lib/http";
 
 export async function GET() {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return unauthorized();
     }
 
     const [sharedNotebooks, sharedDocuments, sharedFolders] = await Promise.all([
@@ -43,6 +43,7 @@ export async function GET() {
         where: {
           userId: sessionUser.userId,
           document: {
+            projectId: null,
             creatorId: { not: sessionUser.userId },
           },
         },
@@ -83,7 +84,7 @@ export async function GET() {
       }),
     ]);
 
-    return NextResponse.json({
+    return json({
       folders: sharedFolders.map((item) => ({
         id: item.folder.id,
         name: item.folder.name,
@@ -109,6 +110,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error("GET_SHARED_WITH_ME_ERROR", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    return serverError();
   }
 }
