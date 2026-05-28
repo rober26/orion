@@ -201,7 +201,7 @@ export default function Navbar() {
       <header className="surface-panel sticky top-0 z-40 w-full shrink-0 rounded-none border-x-0 border-t-0 bg-white/85 px-3 py-2 backdrop-blur-sm sm:px-4 lg:px-6 dark:bg-slate-900/85">
         <div className="relative flex items-center gap-3">
           <Link href="/" className="inline-flex items-center gap-2 rounded-xl px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800">
-            <Image src="/orion_logo.svg" alt="Logo Orion" width={22} height={22} />
+            <Image src="/svg/2.svg" alt="Logo Orion" width={32} height={32} className="h-7 w-7 sm:h-8 sm:w-8" />
           </Link>
 
           <nav className="hidden items-center gap-1 lg:flex">
