@@ -5,6 +5,7 @@ import { canEditProjectContent, canViewProject, hasAcceptedConnection } from "@/
 import { canEditCalendarContent, canViewCalendar } from "@/src/lib/calendar-access";
 import prisma from "@/src/lib/prisma";
 import { resolveSessionUserId } from "@/src/lib/session-user";
+import { invalidSessionResponse } from "@/src/lib/calendar/errors";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -56,7 +57,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return unauthorized("Sesion invalida. Inicia sesion de nuevo");
+      return invalidSessionResponse();
     }
 
     const { id } = await params;
@@ -101,7 +102,7 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return unauthorized("Sesion invalida. Inicia sesion de nuevo");
+      return invalidSessionResponse();
     }
 
     const { id } = await params;

@@ -5,6 +5,7 @@ import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/li
 import { canEditProjectContent, projectAccessWhere } from "@/src/lib/permissions";
 import { calendarAccessWhere, canEditCalendarContent, ensureDefaultCalendar } from "@/src/lib/calendar-access";
 import { resolveSessionUserId } from "@/src/lib/session-user";
+import { CALENDAR_ERROR_MESSAGE, invalidSessionResponse } from "@/src/lib/calendar/errors";
 
 const EVENT_TITLE_MAX_LENGTH = 100;
 
@@ -117,7 +118,7 @@ export async function GET(req: Request) {
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return unauthorized("Sesion invalida. Inicia sesion de nuevo");
+      return invalidSessionResponse();
     }
 
     const { searchParams } = new URL(req.url);
@@ -127,7 +128,7 @@ export async function GET(req: Request) {
     const includeTasks = parseFlag(searchParams.get("includeTasks"), true);
     const includeProjects = parseFlag(searchParams.get("includeProjects"), true);
     if (!normalized) {
-      return badRequest("Rango de fechas invalido");
+      return badRequest(CALENDAR_ERROR_MESSAGE.invalidRange);
     }
 
     const { from, to } = normalized;
@@ -277,31 +278,40 @@ export async function GET(req: Request) {
         });
 
     const mergedEvents = [
-      ...events.map((event) => ({
-        id: event.id,
-        title: event.title,
-        description: event.description,
-        location: event.location,
-        start: event.startDate,
-        end: event.endDate,
-        allDay: event.isAllDay,
-        sourceType: "event" as const,
-        projectId: event.projectId,
-        projectName: event.project?.name ?? null,
-        calendarId: ("calendarId" in event ? event.calendarId : null) ?? null,
-        calendarName: ("calendar" in event ? event.calendar?.name : null) ?? null,
-        color: ("calendar" in event ? event.calendar?.color : null) ?? event.project?.color ?? null,
-        isReadOnly: ("calendarId" in event ? event.calendarId : null)
-          ? !editableCalendarIds.has(event.calendarId as string)
-          : event.projectId
-            ? !editableProjectIds.has(event.projectId)
-            : true,
-        canReschedule: ("calendarId" in event ? event.calendarId : null)
-          ? editableCalendarIds.has(event.calendarId as string)
-          : event.projectId
-            ? editableProjectIds.has(event.projectId)
-            : false,
-      })),
+      ...events.map((event) => {
+        const eventWithCalendar = event as {
+          calendarId?: string | null;
+          calendar?: { name: string; color: string | null } | null;
+        };
+        const eventCalendarId = eventWithCalendar.calendarId ?? null;
+        const eventCalendar = eventWithCalendar.calendar ?? null;
+
+        return {
+          id: event.id,
+          title: event.title,
+          description: event.description,
+          location: event.location,
+          start: event.startDate,
+          end: event.endDate,
+          allDay: event.isAllDay,
+          sourceType: "event" as const,
+          projectId: event.projectId,
+          projectName: event.project?.name ?? null,
+          calendarId: eventCalendarId ?? null,
+          calendarName: eventCalendar?.name ?? null,
+          color: eventCalendar?.color ?? event.project?.color ?? null,
+          isReadOnly: eventCalendarId
+            ? !editableCalendarIds.has(eventCalendarId)
+            : event.projectId
+              ? !editableProjectIds.has(event.projectId)
+              : true,
+          canReschedule: eventCalendarId
+            ? editableCalendarIds.has(eventCalendarId)
+            : event.projectId
+              ? editableProjectIds.has(event.projectId)
+              : false,
+        };
+      }),
       ...tasks.flatMap((task) => {
         if (!task.dueDate) {
           return [];
@@ -371,7 +381,7 @@ export async function POST(req: Request) {
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return unauthorized("Sesion invalida. Inicia sesion de nuevo");
+      return invalidSessionResponse();
     }
 
     const body = (await req.json()) as {
@@ -400,18 +410,18 @@ export async function POST(req: Request) {
     }
 
     if (!projectId && !calendarId) {
-      return badRequest("calendarId o projectId obligatorio");
+      return badRequest(CALENDAR_ERROR_MESSAGE.missingOwnerReference);
     }
 
     const startDate = typeof body.startDate === "string" ? new Date(body.startDate) : null;
     const endDate = typeof body.endDate === "string" ? new Date(body.endDate) : null;
 
     if (!startDate || Number.isNaN(startDate.getTime()) || !endDate || Number.isNaN(endDate.getTime())) {
-      return badRequest("Fechas invalidas");
+      return badRequest(CALENDAR_ERROR_MESSAGE.invalidDates);
     }
 
     if (endDate < startDate) {
-      return badRequest("La fecha de fin no puede ser menor a la de inicio");
+      return badRequest(CALENDAR_ERROR_MESSAGE.endBeforeStart);
     }
 
     if (calendarId) {

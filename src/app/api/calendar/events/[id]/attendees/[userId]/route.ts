@@ -5,6 +5,7 @@ import { canEditProjectContent, canViewProject } from "@/src/lib/permissions";
 import { canEditCalendarContent, canViewCalendar } from "@/src/lib/calendar-access";
 import prisma from "@/src/lib/prisma";
 import { resolveSessionUserId } from "@/src/lib/session-user";
+import { invalidSessionResponse } from "@/src/lib/calendar/errors";
 
 type RouteParams = { params: Promise<{ id: string; userId: string }> };
 
@@ -25,7 +26,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return unauthorized("Sesion invalida. Inicia sesion de nuevo");
+      return invalidSessionResponse();
     }
 
     const { id, userId } = await params;
@@ -102,7 +103,7 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return unauthorized("Sesion invalida. Inicia sesion de nuevo");
+      return invalidSessionResponse();
     }
 
     const { id, userId } = await params;

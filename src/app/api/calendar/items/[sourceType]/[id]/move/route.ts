@@ -4,6 +4,7 @@ import { canEditProjectContent } from "@/src/lib/permissions";
 import { canEditCalendarContent } from "@/src/lib/calendar-access";
 import prisma from "@/src/lib/prisma";
 import { resolveSessionUserId } from "@/src/lib/session-user";
+import { CALENDAR_ERROR_MESSAGE, invalidSessionResponse } from "@/src/lib/calendar/errors";
 
 type RouteParams = { params: Promise<{ sourceType: string; id: string }> };
 
@@ -16,7 +17,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     const actorUserId = await resolveSessionUserId(sessionUser);
     if (!actorUserId) {
-      return unauthorized("Sesion invalida. Inicia sesion de nuevo");
+      return invalidSessionResponse();
     }
 
     const { sourceType, id } = await params;
@@ -37,7 +38,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     const calendarId = typeof body.calendarId === "string" ? body.calendarId : "";
 
     if (!projectId && !calendarId) {
-      return badRequest("projectId o calendarId obligatorio");
+      return badRequest(CALENDAR_ERROR_MESSAGE.missingOwnerReference);
     }
 
     if (calendarId) {
@@ -56,11 +57,11 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       const allDay = body.allDay === true;
 
       if (!start || Number.isNaN(start.getTime()) || !end || Number.isNaN(end.getTime())) {
-        return badRequest("Fechas invalidas");
+        return badRequest(CALENDAR_ERROR_MESSAGE.invalidDates);
       }
 
       if (end < start) {
-        return badRequest("La fecha de fin no puede ser menor a la de inicio");
+        return badRequest(CALENDAR_ERROR_MESSAGE.endBeforeStart);
       }
 
       const existing = await prisma.event.findUnique({ where: { id }, select: { projectId: true, calendarId: true } });
