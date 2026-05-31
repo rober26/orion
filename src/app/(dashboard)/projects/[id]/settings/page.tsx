@@ -24,11 +24,6 @@ interface ProjectSettingsData {
   }>;
 }
 
-interface TeamOption {
-  id: string;
-  name: string;
-}
-
 const PROJECT_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#14b8a6", "#f97316"];
 
 export default function ProjectSettingsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -39,8 +34,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState<ProjectSettingsData | null>(null);
-  const [teams, setTeams] = useState<TeamOption[]>([]);
-  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+
 
   useEffect(() => {
     const loadProject = async () => {
@@ -48,39 +42,14 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
       setError(null);
 
       try {
-        const [projectRes, teamsRes] = await Promise.all([fetch(`/api/projects/${id}`), fetch("/api/social/teams")]);
-        const [projectPayload, teamsPayloadRaw] = (await Promise.all([projectRes.json(), teamsRes.json()])) as [
-          ProjectSettingsData & ApiError,
-          unknown,
-        ];
+        const projectRes = await fetch(`/api/projects/${id}`);
+        const projectPayload = (await projectRes.json()) as ProjectSettingsData & ApiError;
 
         if (!projectRes.ok) {
           throw new Error(projectPayload.error || "No se pudo cargar el proyecto");
         }
 
         setForm(projectPayload);
-        setSelectedGroupIds((projectPayload.groups || []).map((item) => item.group.id));
-
-        const teamsPayload = teamsPayloadRaw as ApiError;
-
-        if (!teamsRes.ok) {
-          throw new Error(teamsPayload.error || "No se pudieron cargar equipos");
-        }
-
-        const normalizedTeams = Array.isArray(teamsPayloadRaw)
-          ? teamsPayloadRaw
-              .filter((item): item is { id: string; name: string } => {
-                if (typeof item !== "object" || item === null) {
-                  return false;
-                }
-
-                const candidate = item as { id?: unknown; name?: unknown };
-                return typeof candidate.id === "string" && typeof candidate.name === "string";
-              })
-              .map((team) => ({ id: team.id, name: team.name }))
-          : [];
-
-        setTeams(normalizedTeams);
       } catch (loadError) {
         const message = loadError instanceof Error ? loadError.message : "No se pudo cargar la configuracion";
         setError(message);
@@ -117,7 +86,6 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           color: form.color || "#3b82f6",
           isPublic: form.isPublic,
           isArchived: form.isArchived,
-          groupIds: selectedGroupIds,
         }),
       });
 
@@ -234,39 +202,6 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
                     className="input-orion"
                     placeholder="#3b82f6"
                   />
-                </div>
-              </label>
-
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Equipos asignados</span>
-                <div className="space-y-2 rounded-xl border border-orion-border p-3 dark:border-orion-dark-border">
-                  {teams.length === 0 ? (
-                    <p className="text-sm text-slate-500">No tienes equipos disponibles</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {teams.map((team) => {
-                        const active = selectedGroupIds.includes(team.id);
-                        return (
-                          <button
-                            key={team.id}
-                            type="button"
-                            onClick={() =>
-                              setSelectedGroupIds((prev) =>
-                                prev.includes(team.id) ? prev.filter((id) => id !== team.id) : [...prev, team.id],
-                              )
-                            }
-                            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                              active
-                                ? "border-orion-primary bg-orion-primary-soft text-orion-primary"
-                                : "border-orion-border text-slate-600 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-300 dark:hover:bg-slate-800"
-                            }`}
-                          >
-                            {team.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               </label>
 
