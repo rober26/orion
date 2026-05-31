@@ -6,12 +6,19 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
-const navigationTargets = [
-  { label: "Resumen", href: "/" },
-  { label: "Calendario", href: "/calendar" },
-  { label: "Proyectos", href: "/projects" },
-  { label: "Notebooks", href: "/notebooks" },
-  { label: "IA Chat", href: "/ai/chat" },
+type SearchSuggestion = {
+  label: string;
+  href: string;
+  kind: "page" | "project" | "task" | "document";
+  subtitle?: string | null;
+};
+
+const staticNavigationTargets: SearchSuggestion[] = [
+  { label: "Resumen", href: "/", kind: "page" },
+  { label: "Calendario", href: "/calendar", kind: "page" },
+  { label: "Proyectos", href: "/projects", kind: "page" },
+  { label: "Notebooks", href: "/notebooks", kind: "page" },
+  { label: "IA Chat", href: "/ai/chat", kind: "page" },
 ];
 
 export default function Navbar() {
@@ -21,6 +28,8 @@ export default function Navbar() {
   const [userRole, setUserRole] = useState<string>("USER");
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchSuggestion[]>([]);
+  const [searching, setSearching] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
@@ -113,22 +122,108 @@ export default function Navbar() {
     }
   }, [isMobileSearchOpen]);
 
-  const suggestions = useMemo(() => {
+  const staticSuggestions = useMemo(() => {
     const term = query.trim().toLowerCase();
 
     if (!term) {
       return [];
     }
 
-    return navigationTargets
+    return staticNavigationTargets
       .filter((item) => item.label.toLowerCase().includes(term) || item.href.toLowerCase().includes(term))
-      .slice(0, 6);
+      .slice(0, 4);
   }, [query]);
 
+  const suggestions = useMemo(() => {
+    const combined = [...searchResults, ...staticSuggestions];
+    const uniqueByHref = new Map<string, SearchSuggestion>();
+
+    for (const item of combined) {
+      if (!uniqueByHref.has(item.href)) {
+        uniqueByHref.set(item.href, item);
+      }
+    }
+
+    return Array.from(uniqueByHref.values()).slice(0, 8);
+  }, [searchResults, staticSuggestions]);
+
   const mobileNavigationTargets = useMemo(
-    () => navigationTargets.filter((item) => item.href !== "/"),
+    () => staticNavigationTargets.filter((item) => item.href !== "/"),
     [],
   );
+
+  useEffect(() => {
+    const term = query.trim();
+
+    if (term.length < 2) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setSearching(true);
+
+      try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(term)}`, {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          setSearchResults([]);
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          results?: Array<{
+            title: string;
+            href: string;
+            type: "project" | "task" | "document";
+            subtitle: string | null;
+          }>;
+        };
+
+        const normalized = Array.isArray(payload.results)
+          ? payload.results.map((item) => ({
+              label: item.title,
+              href: item.href,
+              kind: item.type,
+              subtitle: item.subtitle,
+            }))
+          : [];
+
+        setSearchResults(normalized);
+      } catch (error) {
+        if ((error as { name?: string })?.name !== "AbortError") {
+          setSearchResults([]);
+        }
+      } finally {
+        setSearching(false);
+      }
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [query]);
+
+  function suggestionKindLabel(kind: SearchSuggestion["kind"]): string {
+    if (kind === "project") {
+      return "Proyecto";
+    }
+
+    if (kind === "task") {
+      return "Tarea";
+    }
+
+    if (kind === "document") {
+      return "Documento";
+    }
+
+    return "Pagina";
+  }
 
   const handleNavigate = (href: string) => {
     router.push(href);
@@ -205,7 +300,7 @@ export default function Navbar() {
           </Link>
 
           <nav className="hidden items-center gap-1 lg:flex">
-            {navigationTargets.map((item) => {
+            {staticNavigationTargets.map((item) => {
               const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
               return (
                 <Link
@@ -241,18 +336,24 @@ export default function Navbar() {
               className="input-orion h-9 pl-9 text-sm"
             />
 
-            {showSuggestions && suggestions.length > 0 && (
+            {showSuggestions && (suggestions.length > 0 || searching) && (
               <div className="surface-panel absolute left-0 right-0 top-11 z-50 overflow-hidden rounded-xl p-1 shadow-2xl">
                 {suggestions.map((item) => (
                   <button
-                    key={item.href}
+                    key={`${item.kind}:${item.href}`}
                     onMouseDown={() => handleNavigate(item.href)}
                     className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
-                    <span>{item.label}</span>
-                    <span className="text-xs text-slate-400">{item.href}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate">{item.label}</span>
+                      {item.subtitle ? <span className="block truncate text-xs text-slate-400">{item.subtitle}</span> : null}
+                    </span>
+                    <span className="ml-3 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      {suggestionKindLabel(item.kind)}
+                    </span>
                   </button>
                 ))}
+                {searching && <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p>}
               </div>
             )}
           </div>
@@ -547,17 +648,22 @@ export default function Navbar() {
               <div className="space-y-1">
                 {suggestions.map((item) => (
                   <button
-                    key={item.href}
+                    key={`${item.kind}:${item.href}`}
                     onMouseDown={() => handleNavigate(item.href)}
                     className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
-                    <span>{item.label}</span>
-                    <span className="text-xs text-slate-400">{item.href}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate">{item.label}</span>
+                      {item.subtitle ? <span className="block truncate text-xs text-slate-400">{item.subtitle}</span> : null}
+                    </span>
+                    <span className="ml-3 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      {suggestionKindLabel(item.kind)}
+                    </span>
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="px-2 py-3 text-xs text-slate-500 dark:text-slate-400">Escribe para encontrar paginas rapido.</p>
+              <p className="px-2 py-3 text-xs text-slate-500 dark:text-slate-400">Escribe para buscar paginas, proyectos, tareas y documentos.</p>
             )}
           </div>
         </div>

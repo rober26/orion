@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, X } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useState } from "react";
 import QuickNoteModal, { type QuickNoteDraft } from "@/src/components/notes/QuickNoteModal";
 
@@ -8,9 +8,14 @@ export default function QuickNoteFab() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const handleSave = async (draft: QuickNoteDraft) => {
     if (!draft.title && !draft.content) {
       setError("Escribe una nota para guardar.");
+      return;
+    }
+
+    if (isSubmitting) {
       return;
     }
 
@@ -54,15 +59,19 @@ export default function QuickNoteFab() {
             setIsOpen((current) => !current);
           }
         }}
+        disabled={isSubmitting}
         className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-orion-primary text-white shadow-lg shadow-blue-500/30 transition-transform hover:scale-105 active:scale-95"
         aria-label="Crear nota rapida"
+        aria-expanded={isOpen}
       >
-        {isOpen ? <X size={20} /> : <Plus size={20} />}
+        {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <Plus size={20} />}
       </button>
 
       <QuickNoteModal
         open={isOpen}
         title="Nueva nota rapida"
+        presentation="popover"
+        showHeaderClose={false}
         submitting={isSubmitting}
         error={error}
         onClose={() => {
