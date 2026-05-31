@@ -3,6 +3,7 @@ import { getSessionUser } from "@/src/lib/auth";
 import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import prisma from "@/src/lib/prisma";
 import { canEditCalendarContent, canViewCalendar } from "@/src/lib/calendar-access";
+import { parseProjectCalendarName, toCalendarDisplayName } from "@/src/lib/project-calendar";
 import { resolveSessionUserId } from "@/src/lib/session-user";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -55,10 +56,14 @@ export async function GET(_req: Request, { params }: RouteParams) {
       return badRequest("Calendario no encontrado");
     }
 
+    const linkedProject = parseProjectCalendarName(calendar.name);
+
     const canEdit = await canEditCalendarContent(id, actorUserId);
 
     return json({
       ...calendar,
+      name: toCalendarDisplayName(calendar.name),
+      projectId: linkedProject?.projectId ?? null,
       canEdit,
     });
   } catch (error) {
@@ -96,6 +101,19 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     if (nextName !== undefined && !nextName) {
       return badRequest("Nombre obligatorio");
+    }
+
+    const existing = await prisma.calendar.findUnique({ where: { id }, select: { name: true } });
+    if (!existing) {
+      return badRequest("Calendario no encontrado");
+    }
+
+    if (parseProjectCalendarName(existing.name)) {
+      return badRequest("Los calendarios de proyecto no se editan manualmente");
+    }
+
+    if (nextName !== undefined && parseProjectCalendarName(nextName)) {
+      return badRequest("Ese nombre esta reservado para calendarios de proyecto");
     }
 
     if (nextName !== undefined && nextName.length > CALENDAR_NAME_MAX_LENGTH) {

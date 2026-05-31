@@ -41,14 +41,11 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       return badRequest(CALENDAR_ERROR_MESSAGE.missingOwnerReference);
     }
 
-    if (calendarId) {
-      if (!(await canEditCalendarContent(calendarId, actorUserId))) {
-        return forbidden();
-      }
-    } else if (projectId) {
-      if (!(await canEditProjectContent(projectId, actorUserId))) {
-        return forbidden();
-      }
+    const canEditByProject = projectId ? await canEditProjectContent(projectId, actorUserId) : false;
+    const canEditByCalendar = calendarId ? await canEditCalendarContent(calendarId, actorUserId) : false;
+
+    if (!(canEditByProject || canEditByCalendar)) {
+      return forbidden();
     }
 
     if (sourceType === "event") {
@@ -65,11 +62,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       }
 
       const existing = await prisma.event.findUnique({ where: { id }, select: { projectId: true, calendarId: true } });
-      if (
-        !existing ||
-        (projectId && existing.projectId !== projectId) ||
-        (calendarId && existing.calendarId !== calendarId)
-      ) {
+      if (!existing || existing.projectId !== (projectId || null) || existing.calendarId !== (calendarId || null)) {
         return badRequest("Evento no encontrado");
       }
 

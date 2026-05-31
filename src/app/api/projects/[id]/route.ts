@@ -1,13 +1,29 @@
-import { ProjectRole } from "@prisma/client";
+import { AccessRole, CalendarVisibility, ProjectRole } from "@prisma/client";
 import { getSessionUser, type SessionUser } from "@/src/lib/auth";
 import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import prisma from "@/src/lib/prisma";
 import { canEditProjectContent, projectReadWhere } from "@/src/lib/permissions";
+import { buildProjectCalendarName, buildProjectCalendarPrefix } from "@/src/lib/project-calendar";
 import { getInvalidSessionMessage } from "@/src/lib/validation/auth";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 const PROJECT_NAME_MAX_LENGTH = 100;
+
+function parseGroupIds(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0),
+    ),
+  );
+}
 
 function isValidHexColor(value: string): boolean {
   return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value);
@@ -15,6 +31,21 @@ function isValidHexColor(value: string): boolean {
 
 function getMembersCount(ownerId: string, creatorId: string, memberUserIds: string[]): number {
   return new Set([ownerId, creatorId, ...memberUserIds]).size;
+}
+
+function isMissingCalendarSchemaError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return false;
+  }
+
+  const code = (error as { code?: unknown }).code;
+  if (code !== "P2021" && code !== "P2022") {
+    return false;
+  }
+
+  const meta = (error as { meta?: unknown }).meta;
+  const metaText = typeof meta === "object" && meta !== null ? JSON.stringify(meta).toLowerCase() : "";
+  return metaText.includes("calendar");
 }
 
 async function resolveSessionUserId(sessionUser: SessionUser): Promise<string | null> {
@@ -80,6 +111,16 @@ export async function GET(_req: Request, { params }: RouteParams) {
         users: {
           select: {
             userId: true,
+          },
+        },
+        groups: {
+          include: {
+            group: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
         tasks: {
@@ -159,6 +200,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       color?: unknown;
       isPublic?: unknown;
       isArchived?: unknown;
+      groupIds?: unknown;
+      groupId?: unknown;
     };
 
     const data: {
@@ -223,6 +266,45 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       data.isArchived = body.isArchived;
     }
 
+    const requestedGroupIds = (() => {
+      if (body.groupIds !== undefined) {
+        return parseGroupIds(body.groupIds);
+      }
+
+      if (body.groupId !== undefined) {
+        if (body.groupId === null) {
+          return [];
+        }
+
+        if (typeof body.groupId !== "string") {
+          return null;
+        }
+
+        const value = body.groupId.trim();
+        return value ? [value] : [];
+      }
+
+      return undefined;
+    })();
+
+    if (requestedGroupIds === null) {
+      return badRequest("Equipo invalido");
+    }
+
+    if (Array.isArray(requestedGroupIds) && requestedGroupIds.length > 0) {
+      const groups = await prisma.group.findMany({
+        where: {
+          id: { in: requestedGroupIds },
+          OR: [{ ownerId: actorUserId }, { members: { some: { userId: actorUserId } } }],
+        },
+        select: { id: true },
+      });
+
+      if (groups.length !== requestedGroupIds.length) {
+        return badRequest("No tienes acceso a alguno de los equipos seleccionados");
+      }
+    }
+
     if (Object.keys(data).length === 0) {
       return badRequest("No hay cambios para actualizar");
     }
@@ -238,6 +320,79 @@ export async function PATCH(req: Request, { params }: RouteParams) {
           users: {
             select: {
               userId: true,
+            },
+          },
+        },
+      });
+
+      try {
+        const prefix = buildProjectCalendarPrefix(updatedProject.id);
+        const linkedCalendar = await tx.calendar.findFirst({
+          where: {
+            ownerId: updatedProject.ownerId,
+            name: {
+              startsWith: prefix,
+            },
+          },
+          orderBy: [{ createdAt: "asc" }],
+          select: { id: true },
+        });
+
+        if (linkedCalendar) {
+          await tx.calendar.update({
+            where: { id: linkedCalendar.id },
+            data: {
+              name: buildProjectCalendarName(updatedProject.id, updatedProject.name),
+              color: updatedProject.color,
+            },
+          });
+        } else {
+          await tx.calendar.create({
+            data: {
+              name: buildProjectCalendarName(updatedProject.id, updatedProject.name),
+              color: updatedProject.color,
+              visibility: CalendarVisibility.PRIVATE,
+              ownerId: updatedProject.ownerId,
+              creatorId: actorUserId,
+              users: {
+                create: {
+                  userId: updatedProject.ownerId,
+                  role: AccessRole.OWNER,
+                  invitedBy: actorUserId,
+                },
+              },
+            },
+          });
+        }
+      } catch (calendarError) {
+        if (!isMissingCalendarSchemaError(calendarError)) {
+          throw calendarError;
+        }
+      }
+
+      if (Array.isArray(requestedGroupIds)) {
+        await tx.projectGroup.deleteMany({
+          where: { projectId: id },
+        });
+
+        if (requestedGroupIds.length > 0) {
+          await tx.projectGroup.createMany({
+            data: requestedGroupIds.map((groupId) => ({
+              projectId: id,
+              groupId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      const groups = await tx.projectGroup.findMany({
+        where: { projectId: id },
+        include: {
+          group: {
+            select: {
+              id: true,
+              name: true,
             },
           },
         },
@@ -297,7 +452,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         });
       }
 
-      return updatedProject;
+      return {
+        ...updatedProject,
+        groups,
+      };
     });
 
     return json({
@@ -336,6 +494,11 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
     if (permanent) {
       await prisma.$transaction(async (tx) => {
+        const project = await tx.project.findUnique({
+          where: { id },
+          select: { id: true, ownerId: true },
+        });
+
         await tx.notebookRelation.deleteMany({
           where: { projectId: id },
         });
@@ -362,6 +525,23 @@ export async function DELETE(req: Request, { params }: RouteParams) {
         await tx.tag.deleteMany({
           where: { projectId: id },
         });
+
+        if (project) {
+          try {
+            await tx.calendar.deleteMany({
+              where: {
+                ownerId: project.ownerId,
+                name: {
+                  startsWith: buildProjectCalendarPrefix(project.id),
+                },
+              },
+            });
+          } catch (calendarError) {
+            if (!isMissingCalendarSchemaError(calendarError)) {
+              throw calendarError;
+            }
+          }
+        }
 
         await tx.project.delete({ where: { id } });
       });

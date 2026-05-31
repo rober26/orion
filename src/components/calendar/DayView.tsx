@@ -3,6 +3,7 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Calendar, CheckSquare, FolderKanban } from "lucide-react";
 import type { CalendarEventItem } from "@/src/components/calendar/types";
 import { eventIntersectsDay, formatHourLabel } from "@/src/lib/calendar-utils";
 
@@ -11,12 +12,20 @@ interface DayViewProps {
   events: CalendarEventItem[];
   onEventClick: (event: CalendarEventItem) => void;
   onSlotClick: (day: Date, hour: number) => void;
+  onSlotContextMenu: (day: Date, hour: number, x: number, y: number) => void;
   onEventContextMenu: (event: CalendarEventItem, x: number, y: number) => void;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, index) => index);
 
-export default function DayView({ day, events, onEventClick, onSlotClick, onEventContextMenu }: DayViewProps) {
+export default function DayView({
+  day,
+  events,
+  onEventClick,
+  onSlotClick,
+  onSlotContextMenu,
+  onEventContextMenu,
+}: DayViewProps) {
   const dayEvents = events.filter((event) => eventIntersectsDay(new Date(event.start), new Date(event.end), day));
 
   return (
@@ -38,7 +47,7 @@ export default function DayView({ day, events, onEventClick, onSlotClick, onEven
           return (
             <div key={hour} className="grid grid-cols-[56px_1fr] sm:grid-cols-[72px_1fr] min-h-9 sm:min-h-10 border-b border-orion-border/60 dark:border-orion-dark-border/60">
               <div className="px-2 sm:px-3 py-2 text-[10px] sm:text-xs text-slate-400">{formatHourLabel(new Date(2024, 0, 1, hour, 0))}</div>
-              <DayDropCell day={day} hour={hour} onClick={onSlotClick}>
+              <DayDropCell day={day} hour={hour} onClick={onSlotClick} onContextMenu={onSlotContextMenu}>
                 {eventsForHour.map((event) => (
                   <DraggableDayEvent
                     key={`${event.sourceType}:${event.id}`}
@@ -56,7 +65,19 @@ export default function DayView({ day, events, onEventClick, onSlotClick, onEven
   );
 }
 
-function DayDropCell({ day, hour, children, onClick }: { day: Date; hour: number; children: React.ReactNode; onClick: (day: Date, hour: number) => void }) {
+function DayDropCell({
+  day,
+  hour,
+  children,
+  onClick,
+  onContextMenu,
+}: {
+  day: Date;
+  hour: number;
+  children: React.ReactNode;
+  onClick: (day: Date, hour: number) => void;
+  onContextMenu: (day: Date, hour: number, x: number, y: number) => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({
     id: `hour:${format(day, "yyyy-MM-dd")}:${hour}`,
     data: { day, hour },
@@ -66,6 +87,10 @@ function DayDropCell({ day, hour, children, onClick }: { day: Date; hour: number
     <div
       ref={setNodeRef}
       onClick={() => onClick(day, hour)}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onContextMenu(day, hour, event.clientX, event.clientY);
+      }}
       className={`px-2 py-1 space-y-1 ${isOver ? "bg-blue-100/70 dark:bg-blue-950/35" : ""}`}
     >
       {children}
@@ -108,7 +133,16 @@ function DraggableDayEvent({
       {...attributes}
       {...listeners}
     >
-      {item.title}
+      <span className="inline-flex items-center gap-1.5">
+        {item.sourceType === "project" ? (
+          <FolderKanban size={12} />
+        ) : item.sourceType === "task" ? (
+          <CheckSquare size={12} />
+        ) : (
+          <Calendar size={12} />
+        )}
+        <span className="truncate">{item.title}</span>
+      </span>
     </button>
   );
 }

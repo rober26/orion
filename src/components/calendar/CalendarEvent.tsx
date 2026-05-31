@@ -1,5 +1,5 @@
 "use client";
-import { FileText, FolderKanban } from "lucide-react";
+import { Calendar, CheckSquare, FolderKanban } from "lucide-react";
 import type { CalendarSourceType } from "@/src/components/calendar/types";
 
 interface CalendarEventProps {
@@ -40,7 +40,7 @@ export default function CalendarEvent({ title, type, color, timeLabel, draggable
       title={draggable ? "Arrastra para reprogramar" : undefined}
       aria-label={title}
     >
-      {isProject ? <FolderKanban size={10} /> : <FileText size={10} />}
+      {isProject ? <FolderKanban size={10} /> : isTask ? <CheckSquare size={10} /> : <Calendar size={10} />}
       <span className="truncate">{timeLabel ? `${timeLabel} · ${title}` : title}</span>
     </button>
   );

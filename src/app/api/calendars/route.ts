@@ -3,6 +3,7 @@ import { getSessionUser } from "@/src/lib/auth";
 import { badRequest, json, serverError, unauthorized } from "@/src/lib/http";
 import prisma from "@/src/lib/prisma";
 import { ensureDefaultCalendar, calendarAccessWhere } from "@/src/lib/calendar-access";
+import { parseProjectCalendarName, toCalendarDisplayName } from "@/src/lib/project-calendar";
 import { resolveSessionUserId } from "@/src/lib/session-user";
 
 const CALENDAR_NAME_MAX_LENGTH = 100;
@@ -54,6 +55,7 @@ export async function GET() {
 
     return json(
       calendars.map((calendar) => {
+        const linkedProject = parseProjectCalendarName(calendar.name);
         const role =
           calendar.ownerId === actorUserId || calendar.creatorId === actorUserId
             ? AccessRole.OWNER
@@ -61,12 +63,13 @@ export async function GET() {
 
         return {
           id: calendar.id,
-          name: calendar.name,
+          name: toCalendarDisplayName(calendar.name),
           color: calendar.color,
           visibility: calendar.visibility,
           isDefault: calendar.isDefault,
           role,
           source: role === AccessRole.OWNER ? "owned" : "shared",
+          projectId: linkedProject?.projectId ?? null,
         };
       }),
     );
@@ -100,6 +103,10 @@ export async function POST(req: Request) {
 
     if (!name) {
       return badRequest("Nombre obligatorio");
+    }
+
+    if (parseProjectCalendarName(name)) {
+      return badRequest("Ese nombre esta reservado para calendarios de proyecto");
     }
 
     if (name.length > CALENDAR_NAME_MAX_LENGTH) {
@@ -139,6 +146,7 @@ export async function POST(req: Request) {
         ...created,
         role: AccessRole.OWNER,
         source: "owned",
+        projectId: null,
       },
       201,
     );

@@ -3,6 +3,7 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { addDays, format, startOfWeek } from "date-fns";
 import { es } from "date-fns/locale";
+import { Calendar, CheckSquare, FolderKanban } from "lucide-react";
 import type { CalendarEventItem } from "@/src/components/calendar/types";
 import { eventIntersectsDay, formatHourLabel } from "@/src/lib/calendar-utils";
 
@@ -11,12 +12,20 @@ interface WeekViewProps {
   events: CalendarEventItem[];
   onEventClick: (event: CalendarEventItem) => void;
   onSlotClick: (day: Date, hour: number) => void;
+  onSlotContextMenu: (day: Date, hour: number, x: number, y: number) => void;
   onEventContextMenu: (event: CalendarEventItem, x: number, y: number) => void;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, index) => index);
 
-export default function WeekView({ anchorDate, events, onEventClick, onSlotClick, onEventContextMenu }: WeekViewProps) {
+export default function WeekView({
+  anchorDate,
+  events,
+  onEventClick,
+  onSlotClick,
+  onSlotContextMenu,
+  onEventContextMenu,
+}: WeekViewProps) {
   const weekStart = startOfWeek(anchorDate, { weekStartsOn: 1 });
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
 
@@ -25,50 +34,70 @@ export default function WeekView({ anchorDate, events, onEventClick, onSlotClick
 
   return (
     <div className="h-full min-h-0 surface-panel rounded-2xl sm:rounded-[1.5rem] overflow-hidden flex flex-col">
-      <div className="grid grid-cols-8 border-b border-orion-border dark:border-orion-dark-border bg-slate-50/60 dark:bg-slate-900/40 shrink-0">
-        <div className="p-1 text-[10px] text-slate-400">Hora</div>
-        {days.map((day) => (
-          <div key={day.toISOString()} className="p-1 text-center border-l border-orion-border dark:border-orion-dark-border">
-            <p className="text-[9px] sm:text-[10px] text-slate-400 uppercase">{format(day, "EEE", { locale: es })}</p>
-            <p className="text-[11px] sm:text-xs font-semibold text-slate-700 dark:text-slate-200">{format(day, "d")}</p>
+      <div className="flex-1 min-h-0 overflow-auto overscroll-contain">
+        <div className="min-w-[760px]">
+          <div className="grid grid-cols-8 border-b border-orion-border dark:border-orion-dark-border bg-slate-50/60 dark:bg-slate-900/40 shrink-0">
+            <div className="p-1.5 text-[10px] text-slate-400">Hora</div>
+            {days.map((day) => (
+              <div key={day.toISOString()} className="p-1.5 text-center border-l border-orion-border dark:border-orion-dark-border">
+                <p className="text-[10px] text-slate-400 uppercase">{format(day, "EEE", { locale: es })}</p>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">{format(day, "d")}</p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div className="overflow-y-auto flex-1 min-h-0 overscroll-contain">
-        {HOURS.map((hour) => (
-          <div key={hour} className="grid grid-cols-8 min-h-10 sm:min-h-11 border-b border-orion-border/60 dark:border-orion-dark-border/60">
-            <div className="px-2 py-1 text-[10px] text-slate-400">{formatHourLabel(new Date(2024, 0, 1, hour, 0))}</div>
+          {HOURS.map((hour) => (
+            <div key={hour} className="grid grid-cols-8 min-h-11 border-b border-orion-border/60 dark:border-orion-dark-border/60">
+              <div className="px-2 py-1.5 text-[10px] text-slate-400">{formatHourLabel(new Date(2024, 0, 1, hour, 0))}</div>
 
-            {days.map((day) => {
-              const eventsForDay = getDayEvents(day).filter((event) => {
-                const start = new Date(event.start);
-                return event.allDay ? hour === 0 : start.getHours() === hour;
-              });
+              {days.map((day) => {
+                const eventsForDay = getDayEvents(day).filter((event) => {
+                  const start = new Date(event.start);
+                  return event.allDay ? hour === 0 : start.getHours() === hour;
+                });
 
-              return (
-                <WeekDropCell key={`${day.toISOString()}:${hour}`} day={day} hour={hour} onClick={onSlotClick}>
-                  <div className="space-y-1">
-                    {eventsForDay.map((event) => (
-                      <DraggableWeekEvent
-                        key={`${event.sourceType}:${event.id}`}
-                        item={event}
-                        onClick={onEventClick}
-                        onContextMenu={onEventContextMenu}
-                      />
-                    ))}
-                  </div>
-                </WeekDropCell>
-              );
-            })}
-          </div>
-        ))}
+                return (
+                  <WeekDropCell
+                    key={`${day.toISOString()}:${hour}`}
+                    day={day}
+                    hour={hour}
+                    onClick={onSlotClick}
+                    onContextMenu={onSlotContextMenu}
+                  >
+                    <div className="space-y-1">
+                      {eventsForDay.map((event) => (
+                        <DraggableWeekEvent
+                          key={`${event.sourceType}:${event.id}`}
+                          item={event}
+                          onClick={onEventClick}
+                          onContextMenu={onEventContextMenu}
+                        />
+                      ))}
+                    </div>
+                  </WeekDropCell>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-function WeekDropCell({ day, hour, children, onClick }: { day: Date; hour: number; children: React.ReactNode; onClick: (day: Date, hour: number) => void }) {
+function WeekDropCell({
+  day,
+  hour,
+  children,
+  onClick,
+  onContextMenu,
+}: {
+  day: Date;
+  hour: number;
+  children: React.ReactNode;
+  onClick: (day: Date, hour: number) => void;
+  onContextMenu: (day: Date, hour: number, x: number, y: number) => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({
     id: `hour:${format(day, "yyyy-MM-dd")}:${hour}`,
     data: { day, hour },
@@ -78,6 +107,10 @@ function WeekDropCell({ day, hour, children, onClick }: { day: Date; hour: numbe
     <div
       ref={setNodeRef}
       onClick={() => onClick(day, hour)}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onContextMenu(day, hour, event.clientX, event.clientY);
+      }}
       className={`px-1 py-1 border-l border-orion-border/60 dark:border-orion-dark-border/60 ${
         isOver ? "bg-blue-100/70 dark:bg-blue-950/35" : ""
       }`}
@@ -122,7 +155,16 @@ function DraggableWeekEvent({
       {...attributes}
       {...listeners}
     >
-      {item.title}
+      <span className="inline-flex items-center gap-1">
+        {item.sourceType === "project" ? (
+          <FolderKanban size={11} />
+        ) : item.sourceType === "task" ? (
+          <CheckSquare size={11} />
+        ) : (
+          <Calendar size={11} />
+        )}
+        <span className="truncate">{item.title}</span>
+      </span>
     </button>
   );
 }
