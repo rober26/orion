@@ -1,8 +1,9 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { Loader2, Pencil, StickyNote, Trash2, X } from "lucide-react";
+import { Loader2, Pencil, StickyNote, Trash2 } from "lucide-react";
 import ProjectSidebar from "@/src/components/projects/ProjectSidebar";
+import QuickNoteModal, { type QuickNoteDraft } from "@/src/components/notes/QuickNoteModal";
 
 interface QuickNoteItem {
   id: string;
@@ -10,6 +11,11 @@ interface QuickNoteItem {
   content: string;
   color: string;
   updatedAt: string;
+  project?: {
+    id: string;
+    name: string;
+    color?: string | null;
+  } | null;
 }
 
 interface ProjectPermissionsResponse {
@@ -27,8 +33,6 @@ export default function ProjectNotesPage({ params }: { params: Promise<{ id: str
   const [canEdit, setCanEdit] = useState(false);
 
   const [editingNote, setEditingNote] = useState<QuickNoteItem | null>(null);
-  const [editingTitle, setEditingTitle] = useState("");
-  const [editingContent, setEditingContent] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
@@ -74,11 +78,9 @@ export default function ProjectNotesPage({ params }: { params: Promise<{ id: str
 
   const openEdit = (note: QuickNoteItem) => {
     setEditingNote(note);
-    setEditingTitle(note.title || "");
-    setEditingContent(note.content || "");
   };
 
-  const saveEdited = async () => {
+  const saveEdited = async (draft: QuickNoteDraft) => {
     if (!editingNote || savingNote) {
       return;
     }
@@ -89,9 +91,10 @@ export default function ProjectNotesPage({ params }: { params: Promise<{ id: str
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: editingTitle.slice(0, 120),
-          content: editingContent.slice(0, 10000),
-          projectId: id,
+          title: draft.title,
+          content: draft.content,
+          color: draft.color,
+          projectId: draft.projectId,
         }),
       });
 
@@ -166,16 +169,26 @@ export default function ProjectNotesPage({ params }: { params: Promise<{ id: str
           ) : notes.length === 0 ? (
             <div className="surface-soft rounded-[2rem] p-8 text-center text-slate-400 italic">No hay notas para este proyecto.</div>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {notes.map((note) => (
-                <article key={note.id} className="rounded-2xl border border-black/10 p-3" style={{ backgroundColor: note.color }}>
-                  <div className="mb-1 flex items-center justify-between gap-2">
+                <article
+                  key={note.id}
+                  className="group relative min-h-[160px] rounded-2xl border border-black/10 p-3 shadow-[0_8px_18px_rgba(15,23,42,0.12)] transition-transform hover:-translate-y-0.5"
+                  style={{ backgroundColor: note.color }}
+                >
+                  <div className="pointer-events-none absolute right-0 top-0 h-0 w-0 border-b-[14px] border-l-[14px] border-b-white/50 border-l-transparent" />
+                  <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.28),transparent_45%)]" />
+                  <div className="mb-2 flex items-center justify-between gap-2">
                     <h3 className="truncate text-sm font-bold text-slate-900">{note.title || "Nota sin titulo"}</h3>
                     <span className="text-[10px] font-semibold text-slate-600">{new Date(note.updatedAt).toLocaleDateString()}</span>
                   </div>
-                  <p className="line-clamp-3 whitespace-pre-wrap text-xs leading-relaxed text-slate-700">{note.content || "(Sin contenido)"}</p>
+                  <p className="line-clamp-6 whitespace-pre-wrap text-xs leading-relaxed text-slate-700">{note.content || "(Sin contenido)"}</p>
 
-                  <div className="mt-2 flex items-center justify-end gap-2">
+                  {note.project ? (
+                    <p className="mt-2 truncate text-[10px] font-semibold uppercase tracking-wide text-slate-700/80">{note.project.name}</p>
+                  ) : null}
+
+                  <div className="absolute bottom-3 right-3 flex items-center justify-end gap-2 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
                     {canEdit ? (
                       <button
                         type="button"
@@ -203,52 +216,30 @@ export default function ProjectNotesPage({ params }: { params: Promise<{ id: str
         </section>
       </main>
 
-      {editingNote ? (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-xl rounded-2xl border border-orion-border bg-orion-surface p-4 shadow-2xl dark:border-orion-dark-border dark:bg-slate-900">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Editar nota del proyecto</h3>
-              <button
-                type="button"
-                onClick={() => setEditingNote(null)}
-                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={editingTitle}
-                onChange={(event) => setEditingTitle(event.target.value.slice(0, 120))}
-                placeholder="Titulo"
-                className="input-orion"
-              />
-              <textarea
-                value={editingContent}
-                onChange={(event) => setEditingContent(event.target.value.slice(0, 10000))}
-                placeholder="Contenido"
-                className="input-orion min-h-[180px]"
-              />
-            </div>
-
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button type="button" onClick={() => setEditingNote(null)} className="btn-secondary text-sm" disabled={savingNote}>
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => void saveEdited()}
-                disabled={savingNote}
-                className="btn-primary rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-70"
-              >
-                {savingNote ? <Loader2 size={14} className="animate-spin" /> : "Guardar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <QuickNoteModal
+        open={editingNote !== null}
+        title="Editar nota del proyecto"
+        initialValue={
+          editingNote
+            ? {
+                title: editingNote.title,
+                content: editingNote.content,
+                color: editingNote.color,
+                projectId: editingNote.project?.id || id,
+              }
+            : undefined
+        }
+        submitting={savingNote}
+        error={notesError}
+        onClose={() => {
+          if (!savingNote) {
+            setEditingNote(null);
+          }
+        }}
+        onSave={(draft) => {
+          void saveEdited(draft);
+        }}
+      />
     </div>
   );
 }
