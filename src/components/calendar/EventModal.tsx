@@ -8,6 +8,8 @@ interface EventModalProps {
   calendars: UserCalendarItem[];
   projects: CalendarProjectItem[];
   initialDate: Date;
+  initialProjectId?: string | null;
+  lockProjectSelection?: boolean;
   editingEvent: CalendarEventItem | null;
   onClose: () => void;
   onSaved: () => Promise<void>;
@@ -33,7 +35,17 @@ function mergeDateAndTimeToIso(dateValue: string, timeValue: string): string {
   return new Date(`${dateValue}T${timeValue}`).toISOString();
 }
 
-export default function EventModal({ calendars, open, projects, initialDate, editingEvent, onClose, onSaved }: EventModalProps) {
+export default function EventModal({
+  calendars,
+  open,
+  projects,
+  initialDate,
+  initialProjectId,
+  lockProjectSelection,
+  editingEvent,
+  onClose,
+  onSaved,
+}: EventModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
@@ -50,6 +62,13 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
 
   const defaultProjectId = useMemo(() => projects[0]?.id ?? "", [projects]);
   const defaultCalendarId = useMemo(() => calendars[0]?.id ?? "", [calendars]);
+  const calendarByProjectId = useMemo(() => {
+    const pairs = calendars
+      .filter((calendar): calendar is UserCalendarItem & { projectId: string } => Boolean(calendar.projectId))
+      .map((calendar) => [calendar.projectId, calendar.id] as const);
+
+    return new Map<string, string>(pairs);
+  }, [calendars]);
 
   useEffect(() => {
     if (!open) {
@@ -69,7 +88,8 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
       setTitle(editingEvent.title);
       setDescription(editingEvent.description || "");
       setLocation(editingEvent.location || "");
-      setCalendarId(editingEvent.calendarId || defaultCalendarId);
+      const linkedCalendarId = editingEvent.projectId ? calendarByProjectId.get(editingEvent.projectId) : null;
+      setCalendarId(linkedCalendarId || editingEvent.calendarId || defaultCalendarId);
       setProjectId(editingEvent.projectId || "");
       setStartDate(toLocalDatetimeInputValue(start));
       setEndDate(toLocalDatetimeInputValue(end));
@@ -89,8 +109,11 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
     setTitle("");
     setDescription("");
     setLocation("");
-    setCalendarId(defaultCalendarId);
-    setProjectId(defaultProjectId);
+    const resolvedProjectId = initialProjectId || defaultProjectId;
+    const linkedCalendarId = resolvedProjectId ? (calendarByProjectId.get(resolvedProjectId) ?? "") : "";
+
+    setProjectId(resolvedProjectId);
+    setCalendarId(linkedCalendarId || defaultCalendarId);
     setStartDate(toLocalDatetimeInputValue(start));
     setEndDate(toLocalDatetimeInputValue(end));
     setDayOnlyDate(toLocalDateInputValue(start));
@@ -98,7 +121,22 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
     setIsAllDay(false);
     setTimeMode("range");
     setError(null);
-  }, [open, initialDate, editingEvent, defaultProjectId, defaultCalendarId]);
+  }, [open, initialDate, editingEvent, defaultProjectId, defaultCalendarId, initialProjectId, calendarByProjectId]);
+
+  useEffect(() => {
+    if (!open || editingEvent) {
+      return;
+    }
+
+    if (!projectId) {
+      return;
+    }
+
+    const linkedCalendarId = calendarByProjectId.get(projectId);
+    if (linkedCalendarId) {
+      setCalendarId(linkedCalendarId);
+    }
+  }, [calendarByProjectId, editingEvent, open, projectId]);
 
   useEffect(() => {
     if (timeMode === "all-day") {
@@ -113,6 +151,9 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
     return null;
   }
 
+  const isLockedByProjectContext = !editingEvent && Boolean(lockProjectSelection && initialProjectId);
+  const isProjectBoundCalendar = Boolean(projectId && calendarByProjectId.has(projectId));
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -123,7 +164,7 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
         throw new Error("El titulo es obligatorio");
       }
 
-      if (!calendarId && !projectId) {
+      if (!projectId && !calendarId) {
         throw new Error("Selecciona un calendario o un proyecto");
       }
 
@@ -146,7 +187,7 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
         title: title.trim(),
         description: description.trim(),
         location: location.trim(),
-        calendarId: calendarId || null,
+        calendarId: projectId ? null : calendarId || null,
         projectId: projectId || null,
         startDate: finalStart,
         endDate: finalEnd,
@@ -207,16 +248,12 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
             className="input-orion"
           />
 
-          <select value={calendarId} onChange={(event) => setCalendarId(event.target.value)} className="select-orion">
-            <option value="">Sin calendario</option>
-            {calendars.map((calendar) => (
-              <option key={calendar.id} value={calendar.id}>
-                {calendar.name}
-              </option>
-            ))}
-          </select>
-
-          <select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="select-orion">
+          <select
+            value={projectId}
+            onChange={(event) => setProjectId(event.target.value)}
+            className="select-orion"
+            disabled={Boolean(editingEvent) || isLockedByProjectContext}
+          >
             <option value="">Sin proyecto</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
@@ -224,6 +261,28 @@ export default function EventModal({ calendars, open, projects, initialDate, edi
               </option>
             ))}
           </select>
+
+          {!projectId ? (
+            <select
+              value={calendarId}
+              onChange={(event) => setCalendarId(event.target.value)}
+              className="select-orion"
+              disabled={Boolean(editingEvent)}
+            >
+              <option value="">Sin calendario</option>
+              {calendars.map((calendar) => (
+                <option key={calendar.id} value={calendar.id}>
+                  {calendar.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="rounded-lg border border-orion-border dark:border-orion-dark-border px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
+              {isProjectBoundCalendar
+                ? "Este evento se guardara en el calendario del proyecto automaticamente."
+                : "Este evento se asociara al proyecto seleccionado."}
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2">
             <button

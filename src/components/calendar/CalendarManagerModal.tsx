@@ -26,7 +26,10 @@ export default function CalendarManagerModal({ open, calendars, initialCalendarI
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const ownedCalendars = useMemo(() => calendars.filter((calendar) => calendar.role === "OWNER"), [calendars]);
+  const ownedCalendars = useMemo(
+    () => calendars.filter((calendar) => calendar.role === "OWNER" && !calendar.projectId),
+    [calendars],
+  );
   const selectedCalendar = useMemo(
     () => ownedCalendars.find((calendar) => calendar.id === selectedId) || null,
     [ownedCalendars, selectedId],
@@ -182,6 +185,7 @@ export default function CalendarManagerModal({ open, calendars, initialCalendarI
 
             <div className="rounded-xl border border-orion-border dark:border-orion-dark-border p-4 space-y-3">
               <h4 className="text-sm font-black uppercase tracking-wider text-slate-500">Nuevo calendario</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-300">Crea un calendario para separar trabajo personal, equipo o clientes.</p>
               <input
                 className="input-orion"
                 placeholder="Nombre"
@@ -204,8 +208,8 @@ export default function CalendarManagerModal({ open, calendars, initialCalendarI
                   <option value="PUBLIC">Publico</option>
                 </select>
               </div>
-              <button type="button" className="btn-primary" disabled={loading} onClick={() => void createCalendar()}>
-                Crear calendario
+              <button type="button" className="btn-primary w-full" disabled={loading} onClick={() => void createCalendar()}>
+                Crear calendario nuevo
               </button>
             </div>
 

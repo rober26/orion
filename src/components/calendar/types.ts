@@ -35,6 +35,7 @@ export interface UserCalendarItem {
   isDefault: boolean;
   role: "OWNER" | "EDITOR" | "READER";
   source: "owned" | "shared";
+  projectId: string | null;
 }
 
 export interface CalendarMemberItem {

@@ -11,11 +11,20 @@ interface MonthViewProps {
   currentMonth: Date;
   events: CalendarEventItem[];
   onDayClick: (day: Date) => void;
+  onDayContextMenu: (day: Date, x: number, y: number) => void;
   onEventClick: (event: CalendarEventItem) => void;
   onEventContextMenu: (event: CalendarEventItem, x: number, y: number) => void;
 }
 
-export default function MonthView({ days, currentMonth, events, onDayClick, onEventClick, onEventContextMenu }: MonthViewProps) {
+export default function MonthView({
+  days,
+  currentMonth,
+  events,
+  onDayClick,
+  onDayContextMenu,
+  onEventClick,
+  onEventContextMenu,
+}: MonthViewProps) {
   const weeks = days.length > 35 ? 6 : 5;
   const getEventsForDay = (day: Date): CalendarEventItem[] => {
     return events.filter((event) => eventIntersectsDay(new Date(event.start), new Date(event.end), day));
@@ -37,16 +46,22 @@ export default function MonthView({ days, currentMonth, events, onDayClick, onEv
       >
         {days.map((day, i) => {
           const dayEvents = getEventsForDay(day);
-          const visibleEvents = dayEvents.slice(0, 3);
+          const visibleEvents = dayEvents.slice(0, 2);
           const remaining = dayEvents.length - visibleEvents.length;
           const isCurrentMonth = isSameMonth(day, currentMonth);
 
           return (
-            <MonthDayCell key={i} day={day} isCurrentMonth={isCurrentMonth} onDayClick={onDayClick}>
-              <div className="flex justify-between items-start mb-1.5">
+            <MonthDayCell
+              key={i}
+              day={day}
+              isCurrentMonth={isCurrentMonth}
+              onDayClick={onDayClick}
+              onDayContextMenu={onDayContextMenu}
+            >
+              <div className="flex justify-between items-start mb-1">
                 <span
                   className={`
-                    text-[11px] sm:text-xs font-bold w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full transition-all
+                    text-[10px] sm:text-xs font-bold w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-full transition-all
                     ${
                       isToday(day)
                         ? "bg-orion-primary text-white"
@@ -58,7 +73,7 @@ export default function MonthView({ days, currentMonth, events, onDayClick, onEv
                 </span>
               </div>
 
-              <div className="flex-1 min-h-0 space-y-1 overflow-y-auto custom-scrollbar">
+              <div className="flex-1 min-h-0 space-y-0.5 overflow-y-auto custom-scrollbar">
                 {visibleEvents.map((event) => (
                   <DraggableMonthEvent
                     key={`${event.sourceType}:${event.id}:${day.toISOString()}`}
@@ -72,7 +87,7 @@ export default function MonthView({ days, currentMonth, events, onDayClick, onEv
                 {remaining > 0 ? (
                   <button
                     type="button"
-                     className="w-full text-left px-1.5 py-1 rounded-md text-[10px] font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-orion-primary"
+                     className="w-full text-left px-1 py-0.5 rounded-md text-[9px] sm:text-[10px] font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-orion-primary"
                     onClick={(event) => {
                       event.stopPropagation();
                       onDayClick(day);
@@ -94,11 +109,13 @@ function MonthDayCell({
   day,
   isCurrentMonth,
   onDayClick,
+  onDayContextMenu,
   children,
 }: {
   day: Date;
   isCurrentMonth: boolean;
   onDayClick: (day: Date) => void;
+  onDayContextMenu: (day: Date, x: number, y: number) => void;
   children: React.ReactNode;
 }) {
   const dropId = `day:${format(day, "yyyy-MM-dd")}`;
@@ -108,8 +125,12 @@ function MonthDayCell({
     <div
       ref={setNodeRef}
       onClick={() => onDayClick(day)}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onDayContextMenu(day, event.clientX, event.clientY);
+      }}
       className={`
-        min-h-0 h-full p-1 sm:p-1.5 border-r border-b border-orion-border/80 dark:border-orion-dark-border group transition-all cursor-pointer
+        min-h-0 h-full p-0.5 sm:p-1.5 border-r border-b border-orion-border/80 dark:border-orion-dark-border group transition-all cursor-pointer
         ${!isCurrentMonth ? "bg-slate-50/20 dark:bg-slate-950/10 opacity-40" : isWeekend(day) ? "bg-slate-50/35 dark:bg-slate-900/35" : "bg-white dark:bg-slate-900"}
         ${isCurrentMonth ? "hover:bg-slate-50 dark:hover:bg-slate-800/60" : ""}
         ${isOver ? "ring-2 ring-orion-primary/40 bg-blue-50/40 dark:bg-blue-950/20" : ""}

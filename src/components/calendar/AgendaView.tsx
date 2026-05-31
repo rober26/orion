@@ -4,6 +4,7 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { addDays, startOfDay } from "date-fns";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Calendar, CheckSquare, FolderKanban } from "lucide-react";
 import type { CalendarEventItem } from "@/src/components/calendar/types";
 
 interface AgendaViewProps {
@@ -11,10 +12,18 @@ interface AgendaViewProps {
   events: CalendarEventItem[];
   onEventClick: (event: CalendarEventItem) => void;
   onDayClick: (day: Date) => void;
+  onDayContextMenu: (day: Date, x: number, y: number) => void;
   onEventContextMenu: (event: CalendarEventItem, x: number, y: number) => void;
 }
 
-export default function AgendaView({ anchorDate, events, onEventClick, onDayClick, onEventContextMenu }: AgendaViewProps) {
+export default function AgendaView({
+  anchorDate,
+  events,
+  onEventClick,
+  onDayClick,
+  onDayContextMenu,
+  onEventContextMenu,
+}: AgendaViewProps) {
   const sorted = [...events].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   const dropDays = Array.from({ length: 30 }, (_, index) => addDays(startOfDay(anchorDate), index));
   const dayCountMap = sorted.reduce<Record<string, number>>((acc, item) => {
@@ -37,12 +46,13 @@ export default function AgendaView({ anchorDate, events, onEventClick, onDayClic
       <div className="border-b lg:border-b-0 lg:border-r border-orion-border dark:border-orion-dark-border overflow-x-auto lg:overflow-y-auto">
         <div className="flex lg:flex-col min-w-max lg:min-w-0 divide-x lg:divide-x-0 lg:divide-y divide-orion-border dark:divide-orion-dark-border">
           {dropDays.map((day) => (
-            <AgendaDropLane
-              key={day.toISOString()}
-              day={day}
-              onClick={onDayClick}
-              count={dayCountMap[format(day, "yyyy-MM-dd")] ?? 0}
-            />
+              <AgendaDropLane
+                key={day.toISOString()}
+                day={day}
+                onClick={onDayClick}
+                onContextMenu={onDayContextMenu}
+                count={dayCountMap[format(day, "yyyy-MM-dd")] ?? 0}
+              />
           ))}
         </div>
       </div>
@@ -78,7 +88,17 @@ export default function AgendaView({ anchorDate, events, onEventClick, onDayClic
   );
 }
 
-function AgendaDropLane({ day, onClick, count }: { day: Date; onClick: (day: Date) => void; count: number }) {
+function AgendaDropLane({
+  day,
+  onClick,
+  onContextMenu,
+  count,
+}: {
+  day: Date;
+  onClick: (day: Date) => void;
+  onContextMenu: (day: Date, x: number, y: number) => void;
+  count: number;
+}) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day:${format(day, "yyyy-MM-dd")}`,
     data: { day },
@@ -89,6 +109,10 @@ function AgendaDropLane({ day, onClick, count }: { day: Date; onClick: (day: Dat
       type="button"
       ref={setNodeRef}
       onClick={() => onClick(day)}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onContextMenu(day, event.clientX, event.clientY);
+      }}
       className={`w-full text-left px-3 py-2.5 min-h-12 transition-colors ${
         isOver ? "bg-blue-100/70 dark:bg-blue-950/35" : "hover:bg-slate-50 dark:hover:bg-slate-900"
       }`}
@@ -161,7 +185,16 @@ function DraggableAgendaEvent({
               ) : null}
             </div>
             <p className="mt-0.5 truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{item.title}</p>
-            <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-300">{item.calendarName || item.projectName || "Sin fuente"}</p>
+            <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-300">
+              {item.sourceType === "project" ? (
+                <FolderKanban size={12} />
+              ) : item.sourceType === "task" ? (
+                <CheckSquare size={12} />
+              ) : (
+                <Calendar size={12} />
+              )}
+              <span className="truncate">{item.calendarName || item.projectName || "Sin fuente"}</span>
+            </div>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 "use client";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { formatMonth } from "@/src/lib/calendar-utils";
 import type { CalendarView } from "@/src/components/calendar/types";
 
@@ -10,6 +10,7 @@ interface CalendarHeaderProps {
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onToday: () => void;
+  onAddEvent: () => void;
   onToggleCalendars: () => void;
   isCalendarsOpen: boolean;
 }
@@ -28,6 +29,7 @@ export default function CalendarHeader({
   onPrevMonth,
   onNextMonth,
   onToday,
+  onAddEvent,
   onToggleCalendars,
   isCalendarsOpen,
 }: CalendarHeaderProps) {
@@ -39,8 +41,78 @@ export default function CalendarHeader({
         </h2>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-[auto_auto] lg:flex lg:flex-wrap items-stretch lg:items-center gap-1.5 w-full lg:w-auto">
-        <div className="flex items-center justify-between gap-1.5 bg-orion-surface dark:bg-slate-900 p-1 rounded-xl sm:rounded-2xl border border-orion-border dark:border-orion-dark-border shadow-sm">
+      <div className="w-full lg:hidden flex flex-col gap-1.5">
+        <div className="flex items-center justify-between gap-1.5">
+          <div className="flex items-center justify-between gap-1 bg-orion-surface dark:bg-slate-900 p-0.5 rounded-xl border border-orion-border dark:border-orion-dark-border shadow-sm">
+            <button
+              type="button"
+              aria-label="Periodo anterior"
+              onClick={onPrevMonth}
+              className="min-h-8 min-w-8 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
+            >
+              <ChevronLeft size={16} className="text-slate-600 dark:text-slate-400" />
+            </button>
+            <button
+              type="button"
+              onClick={onToday}
+              className="min-h-8 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-orion-primary hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
+            >
+              Hoy
+            </button>
+            <button
+              type="button"
+              aria-label="Periodo siguiente"
+              onClick={onNextMonth}
+              className="min-h-8 min-w-8 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
+            >
+              <ChevronRight size={16} className="text-slate-600 dark:text-slate-400" />
+            </button>
+          </div>
+
+          <div className="inline-flex items-center justify-end gap-1">
+            <button
+              type="button"
+              className="btn-primary inline-flex h-8 w-8 items-center justify-center p-0"
+              onClick={onAddEvent}
+              aria-label="Anadir evento"
+              title="Anadir evento"
+            >
+              <Plus size={15} />
+            </button>
+
+            <button
+              type="button"
+              className="btn-secondary inline-flex h-8 w-8 items-center justify-center p-0"
+              onClick={onToggleCalendars}
+              aria-expanded={isCalendarsOpen}
+              aria-label="Mis calendarios"
+              title="Mis calendarios"
+            >
+              <CalendarDays size={15} />
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 items-center gap-1 bg-orion-surface dark:bg-slate-900 p-1 rounded-xl border border-orion-border dark:border-orion-dark-border shadow-sm min-w-0">
+          {VIEWS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onViewChange(item.id)}
+              className={`px-1 py-1.5 text-[10px] font-semibold rounded-lg transition-all whitespace-nowrap ${
+                view === item.id
+                  ? "bg-orion-primary text-white"
+                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="hidden lg:flex lg:flex-wrap items-stretch lg:items-center gap-1.5 w-auto">
+        <div className="flex items-center justify-between gap-1.5 bg-orion-surface dark:bg-slate-900 p-1 rounded-2xl border border-orion-border dark:border-orion-dark-border shadow-sm">
           <button
             type="button"
             aria-label="Periodo anterior"
@@ -66,13 +138,13 @@ export default function CalendarHeader({
           </button>
         </div>
 
-        <div className="grid grid-cols-4 items-center gap-1 bg-orion-surface dark:bg-slate-900 p-1 rounded-xl sm:rounded-2xl border border-orion-border dark:border-orion-dark-border shadow-sm">
+        <div className="grid grid-cols-4 items-center gap-1 bg-orion-surface dark:bg-slate-900 p-1 rounded-2xl border border-orion-border dark:border-orion-dark-border shadow-sm min-w-0">
           {VIEWS.map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => onViewChange(item.id)}
-              className={`px-2 sm:px-2.5 py-1.5 text-[10px] sm:text-xs font-semibold rounded-lg transition-all ${
+              className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
                 view === item.id
                   ? "bg-orion-primary text-white"
                   : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -83,14 +155,28 @@ export default function CalendarHeader({
           ))}
         </div>
 
-        <button
-          type="button"
-          className="btn-secondary w-full sm:w-auto !px-3 !py-1.5 !text-xs inline-flex items-center gap-2"
-          onClick={onToggleCalendars}
-          aria-expanded={isCalendarsOpen}
-        >
-          Mis calendarios
-        </button>
+        <div className="inline-flex items-center justify-end gap-1.5">
+          <button
+            type="button"
+            className="btn-primary inline-flex h-9 w-9 items-center justify-center p-0"
+            onClick={onAddEvent}
+            aria-label="Anadir evento"
+            title="Anadir evento"
+          >
+            <Plus size={16} />
+          </button>
+
+          <button
+            type="button"
+            className="btn-secondary inline-flex h-9 w-9 items-center justify-center p-0"
+            onClick={onToggleCalendars}
+            aria-expanded={isCalendarsOpen}
+            aria-label="Mis calendarios"
+            title="Mis calendarios"
+          >
+            <CalendarDays size={16} />
+          </button>
+        </div>
       </div>
     </header>
   );

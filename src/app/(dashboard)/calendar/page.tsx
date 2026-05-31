@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { DndContext, DragEndEvent, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { addDays, addMonths, addWeeks, subDays, subMonths, subWeeks } from "date-fns";
 import { MoreVertical, X } from "lucide-react";
@@ -32,6 +33,7 @@ const CALENDAR_COLOR_PRESETS = [
 ] as const;
 
 export default function CalendarPage() {
+  const searchParams = useSearchParams();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [view, setView] = useState<CalendarView>("month");
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
@@ -57,11 +59,17 @@ export default function CalendarPage() {
   const [contextEvent, setContextEvent] = useState<CalendarEventItem | null>(null);
   const [calendarMenuPosition, setCalendarMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [contextCalendar, setContextCalendar] = useState<UserCalendarItem | null>(null);
+  const [createMenuPosition, setCreateMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [createMenuDate, setCreateMenuDate] = useState<Date | null>(null);
   const [managerInitialCalendarId, setManagerInitialCalendarId] = useState<string | null>(null);
   const [shareInitialCalendarId, setShareInitialCalendarId] = useState<string | null>(null);
   const [colorTargetCalendarId, setColorTargetCalendarId] = useState<string | null>(null);
   const colorInputRef = useRef<HTMLInputElement | null>(null);
   const hasHydratedSettings = useRef(false);
+  const initialProjectId = useMemo(() => {
+    const projectId = searchParams.get("projectId")?.trim();
+    return projectId || null;
+  }, [searchParams]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -91,7 +99,7 @@ export default function CalendarPage() {
     return raw.filter((item) => {
       if (item.sourceType === "event") {
         if (!item.calendarId) {
-          return false;
+          return Boolean(item.projectId);
         }
 
         return visibleCalendarIds.includes(item.calendarId);
@@ -315,6 +323,24 @@ export default function CalendarPage() {
   }, [contextEvent]);
 
   useEffect(() => {
+    if (!createMenuDate) {
+      return;
+    }
+
+    const close = () => {
+      setCreateMenuDate(null);
+      setCreateMenuPosition(null);
+    };
+
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [createMenuDate]);
+
+  useEffect(() => {
     if (!contextCalendar) {
       return;
     }
@@ -405,9 +431,36 @@ export default function CalendarPage() {
   };
 
   const openCreateModalAtDate = useCallback((date: Date) => {
+    setContextEvent(null);
+    setContextMenuPosition(null);
+    setContextCalendar(null);
+    setCalendarMenuPosition(null);
+    setCreateMenuDate(null);
+    setCreateMenuPosition(null);
     setEditingEvent(null);
     setSelectedDate(date);
     setIsModalOpen(true);
+  }, []);
+
+  const openCreateContextMenu = useCallback((date: Date, x: number, y: number) => {
+    setContextEvent(null);
+    setContextMenuPosition(null);
+    setContextCalendar(null);
+    setCalendarMenuPosition(null);
+    setCreateMenuDate(date);
+    setCreateMenuPosition({ x, y });
+  }, []);
+
+  const openDayViewAtDate = useCallback((date: Date) => {
+    setCurrentMonth(new Date(date));
+    setView("day");
+    setSelectedEvent(null);
+    setContextEvent(null);
+    setContextMenuPosition(null);
+    setContextCalendar(null);
+    setCalendarMenuPosition(null);
+    setCreateMenuDate(null);
+    setCreateMenuPosition(null);
   }, []);
 
   const openEventContextMenu = useCallback((item: CalendarEventItem, x: number, y: number) => {
@@ -574,6 +627,11 @@ export default function CalendarPage() {
             date.setHours(hour, 0, 0, 0);
             openCreateModalAtDate(date);
           }}
+          onSlotContextMenu={(day, hour, x, y) => {
+            const date = new Date(day);
+            date.setHours(hour, 0, 0, 0);
+            openCreateContextMenu(date, x, y);
+          }}
           onEventContextMenu={openEventContextMenu}
         />
       );
@@ -590,6 +648,11 @@ export default function CalendarPage() {
             date.setHours(hour, 0, 0, 0);
             openCreateModalAtDate(date);
           }}
+          onSlotContextMenu={(day, hour, x, y) => {
+            const date = new Date(day);
+            date.setHours(hour, 0, 0, 0);
+            openCreateContextMenu(date, x, y);
+          }}
           onEventContextMenu={openEventContextMenu}
         />
       );
@@ -601,7 +664,8 @@ export default function CalendarPage() {
           anchorDate={currentMonth}
           events={events}
           onEventClick={(event) => setSelectedEvent(event)}
-          onDayClick={(day) => openCreateModalAtDate(day)}
+          onDayClick={(day) => openDayViewAtDate(day)}
+          onDayContextMenu={(day, x, y) => openCreateContextMenu(day, x, y)}
           onEventContextMenu={openEventContextMenu}
         />
       );
@@ -612,12 +676,13 @@ export default function CalendarPage() {
         days={days}
         currentMonth={currentMonth}
         events={events}
-        onDayClick={(day) => openCreateModalAtDate(day)}
+        onDayClick={(day) => openDayViewAtDate(day)}
+        onDayContextMenu={(day, x, y) => openCreateContextMenu(day, x, y)}
         onEventClick={(event) => setSelectedEvent(event)}
         onEventContextMenu={openEventContextMenu}
       />
     );
-  }, [view, currentMonth, events, days, openCreateModalAtDate, openEventContextMenu]);
+  }, [view, currentMonth, events, days, openCreateContextMenu, openCreateModalAtDate, openDayViewAtDate, openEventContextMenu]);
 
   const toggleCalendarVisibility = (calendarId: string) => {
     setVisibleCalendarIds((current) => {
@@ -631,7 +696,7 @@ export default function CalendarPage() {
 
   return (
     <div className="app-page overflow-hidden">
-      <div className="app-page-content max-w-none p-1.5 sm:p-2.5 lg:p-3 h-full min-h-0 flex flex-col gap-1.5 sm:gap-2">
+      <div className="app-page-content max-w-none p-0 h-full min-h-0 flex flex-col gap-1.5 sm:gap-2">
         {eventsError ? (
           <div className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
             {eventsError}
@@ -644,7 +709,7 @@ export default function CalendarPage() {
           </div>
         ) : null}
 
-        <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
+        <div className="flex-1 min-h-0 min-w-0 overflow-hidden px-1 pb-1 sm:px-0 sm:pb-0">
           <section className="section-panel h-full flex-1 p-2 sm:p-2.5 flex flex-col min-h-0 min-w-0 overflow-hidden relative">
             <CalendarHeader
               currentMonth={currentMonth}
@@ -653,6 +718,7 @@ export default function CalendarPage() {
               onPrevMonth={onPrev}
               onNextMonth={onNext}
               onToday={() => setCurrentMonth(new Date())}
+              onAddEvent={() => openCreateModalAtDate(new Date(currentMonth))}
               onToggleCalendars={() => setIsCalendarsOpen((current) => !current)}
               isCalendarsOpen={isCalendarsOpen}
             />
@@ -709,14 +775,23 @@ export default function CalendarPage() {
                 >
                   <div className="flex items-center justify-between px-2 py-1.5 border-b border-orion-border dark:border-orion-dark-border">
                     <h2 className="text-xs font-black tracking-widest uppercase text-slate-500">Mis calendarios</h2>
-                    <button
-                      type="button"
-                      className="btn-secondary inline-flex h-8 w-8 items-center justify-center p-0"
-                      onClick={() => setIsCalendarsOpen(false)}
-                      aria-label="Cerrar panel de calendarios"
-                    >
-                      <X size={14} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        className="btn-primary !px-2 !py-1 !text-[10px]"
+                        onClick={() => openCreateModalAtDate(new Date(currentMonth))}
+                      >
+                        Anadir evento
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary inline-flex h-8 w-8 items-center justify-center p-0"
+                        onClick={() => setIsCalendarsOpen(false)}
+                        aria-label="Cerrar panel de calendarios"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
                   </div>
 
                   {isCalendarsLoading ? (
@@ -727,10 +802,11 @@ export default function CalendarPage() {
                     </div>
                   ) : (
                     <div className="mt-3 space-y-2 max-h-[40dvh] overflow-y-auto pr-1">
-                      {calendars.map((calendar) => {
-                        const active = visibleCalendarIds.includes(calendar.id);
-                        const isOwner = calendar.role === "OWNER";
-                        return (
+                          {calendars.map((calendar) => {
+                            const active = visibleCalendarIds.includes(calendar.id);
+                            const isOwner = calendar.role === "OWNER";
+                            const isProjectCalendar = Boolean(calendar.projectId);
+                            return (
                           <div
                             key={calendar.id}
                             className="flex items-center gap-2 rounded-xl border border-orion-border dark:border-orion-dark-border px-3 py-2"
@@ -747,13 +823,17 @@ export default function CalendarPage() {
                             <span className="text-[10px] text-slate-500 uppercase">{calendar.visibility}</span>
                             <button
                               type="button"
+                              disabled={isProjectCalendar}
                               className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                               aria-label={`Opciones de ${calendar.name}`}
                               onClick={(event) => {
                                 event.stopPropagation();
+                                if (isProjectCalendar) {
+                                  return;
+                                }
                                 openCalendarContextMenu(calendar, event.clientX, event.clientY);
                               }}
-                              title={isOwner ? "Configurar o compartir" : "Solo el propietario puede gestionar este calendario"}
+                              title={isProjectCalendar ? "Los calendarios de proyecto se gestionan desde el proyecto" : isOwner ? "Configurar o compartir" : "Solo el propietario puede gestionar este calendario"}
                             >
                               <MoreVertical size={14} />
                             </button>
@@ -796,6 +876,26 @@ export default function CalendarPage() {
                       tone: "danger",
                       onSelect: () => {
                         void deleteFromContextMenu();
+                      },
+                    },
+                  ]}
+                />
+
+                <ContextMenu
+                  open={createMenuDate !== null && createMenuPosition !== null}
+                  position={createMenuPosition}
+                  onRequestClose={() => {
+                    setCreateMenuDate(null);
+                    setCreateMenuPosition(null);
+                  }}
+                  items={[
+                    {
+                      label: "Anadir evento",
+                      onSelect: () => {
+                        if (!createMenuDate) {
+                          return;
+                        }
+                        openCreateModalAtDate(createMenuDate);
                       },
                     },
                   ]}
@@ -893,6 +993,8 @@ export default function CalendarPage() {
         calendars={calendars}
         projects={projects}
         initialDate={selectedDate}
+        initialProjectId={initialProjectId}
+        lockProjectSelection={Boolean(initialProjectId)}
         editingEvent={editingEvent}
         onClose={() => setIsModalOpen(false)}
         onSaved={fetchEvents}

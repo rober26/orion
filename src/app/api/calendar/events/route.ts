@@ -4,6 +4,7 @@ import { getSessionUser } from "@/src/lib/auth";
 import { badRequest, forbidden, json, serverError, unauthorized } from "@/src/lib/http";
 import { canEditProjectContent, projectAccessWhere } from "@/src/lib/permissions";
 import { calendarAccessWhere, canEditCalendarContent, ensureDefaultCalendar } from "@/src/lib/calendar-access";
+import { buildProjectCalendarName, buildProjectCalendarPrefix } from "@/src/lib/project-calendar";
 import { resolveSessionUserId } from "@/src/lib/session-user";
 import { CALENDAR_ERROR_MESSAGE, invalidSessionResponse } from "@/src/lib/calendar/errors";
 
@@ -107,6 +108,56 @@ function isMissingCalendarSchemaError(error: unknown): boolean {
   const metaText = typeof meta === "object" && meta !== null ? JSON.stringify(meta).toLowerCase() : "";
 
   return metaText.includes("calendar");
+}
+
+async function ensureProjectCalendarForEvent(projectId: string, actorUserId: string): Promise<string | null> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      name: true,
+      color: true,
+      ownerId: true,
+    },
+  });
+
+  if (!project) {
+    return null;
+  }
+
+  const prefix = buildProjectCalendarPrefix(project.id);
+  const existing = await prisma.calendar.findFirst({
+    where: {
+      ownerId: project.ownerId,
+      name: { startsWith: prefix },
+    },
+    orderBy: [{ createdAt: "asc" }],
+    select: { id: true },
+  });
+
+  if (existing) {
+    return existing.id;
+  }
+
+  const created = await prisma.calendar.create({
+    data: {
+      name: buildProjectCalendarName(project.id, project.name),
+      color: project.color || "#2563eb",
+      visibility: "PRIVATE",
+      ownerId: project.ownerId,
+      creatorId: actorUserId,
+      users: {
+        create: {
+          userId: project.ownerId,
+          role: AccessRole.OWNER,
+          invitedBy: actorUserId,
+        },
+      },
+    },
+    select: { id: true },
+  });
+
+  return created.id;
 }
 
 export async function GET(req: Request) {
@@ -285,6 +336,8 @@ export async function GET(req: Request) {
         };
         const eventCalendarId = eventWithCalendar.calendarId ?? null;
         const eventCalendar = eventWithCalendar.calendar ?? null;
+        const canEditByProject = event.projectId ? editableProjectIds.has(event.projectId) : false;
+        const canEditByCalendar = eventCalendarId ? editableCalendarIds.has(eventCalendarId) : false;
 
         return {
           id: event.id,
@@ -300,16 +353,8 @@ export async function GET(req: Request) {
           calendarId: eventCalendarId ?? null,
           calendarName: eventCalendar?.name ?? null,
           color: eventCalendar?.color ?? event.project?.color ?? null,
-          isReadOnly: eventCalendarId
-            ? !editableCalendarIds.has(eventCalendarId)
-            : event.projectId
-              ? !editableProjectIds.has(event.projectId)
-              : true,
-          canReschedule: eventCalendarId
-            ? editableCalendarIds.has(eventCalendarId)
-            : event.projectId
-              ? editableProjectIds.has(event.projectId)
-              : false,
+          isReadOnly: !(canEditByProject || canEditByCalendar),
+          canReschedule: canEditByProject || canEditByCalendar,
         };
       }),
       ...tasks.flatMap((task) => {
@@ -398,8 +443,8 @@ export async function POST(req: Request) {
     const title = typeof body.title === "string" ? body.title.trim() : "";
     const description = typeof body.description === "string" ? body.description.trim() : "";
     const location = typeof body.location === "string" ? body.location.trim() : "";
-    const projectId = typeof body.projectId === "string" ? body.projectId : "";
-    const calendarId = typeof body.calendarId === "string" ? body.calendarId : "";
+    const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
+    const calendarId = typeof body.calendarId === "string" ? body.calendarId.trim() : "";
 
     if (!title) {
       return badRequest("Titulo obligatorio");
@@ -424,7 +469,24 @@ export async function POST(req: Request) {
       return badRequest(CALENDAR_ERROR_MESSAGE.endBeforeStart);
     }
 
-    if (calendarId) {
+    let resolvedProjectId: string | null = projectId || null;
+    let resolvedCalendarId: string | null = calendarId || null;
+
+    if (projectId) {
+      if (!(await canEditProjectContent(projectId, actorUserId))) {
+        return forbidden();
+      }
+
+      try {
+        resolvedCalendarId = await ensureProjectCalendarForEvent(projectId, actorUserId);
+      } catch (error) {
+        if (isMissingCalendarSchemaError(error)) {
+          resolvedCalendarId = null;
+        } else {
+          throw error;
+        }
+      }
+    } else if (calendarId) {
       try {
         if (!(await canEditCalendarContent(calendarId, actorUserId))) {
           return forbidden();
@@ -436,10 +498,6 @@ export async function POST(req: Request) {
 
         throw error;
       }
-    } else if (projectId) {
-      if (!(await canEditProjectContent(projectId, actorUserId))) {
-        return forbidden();
-      }
     }
 
     const created = await prisma.event.create({
@@ -450,8 +508,8 @@ export async function POST(req: Request) {
         startDate,
         endDate,
         isAllDay: parseBoolean(body.isAllDay),
-        projectId: projectId || null,
-        calendarId: calendarId || null,
+        projectId: resolvedProjectId,
+        calendarId: resolvedCalendarId,
         creatorId: actorUserId,
       },
       select: {
