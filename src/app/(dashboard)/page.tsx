@@ -66,7 +66,9 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <StatsGrid />
+        <div className="hidden sm:block">
+          <StatsGrid />
+        </div>
 
         <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[1.65fr_1fr]">
           <UpcomingList />

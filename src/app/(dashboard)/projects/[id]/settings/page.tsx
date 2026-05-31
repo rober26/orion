@@ -16,7 +16,20 @@ interface ProjectSettingsData {
   color: string | null;
   isPublic: boolean;
   isArchived: boolean;
+  groups?: Array<{
+    group: {
+      id: string;
+      name: string;
+    };
+  }>;
 }
+
+interface TeamOption {
+  id: string;
+  name: string;
+}
+
+const PROJECT_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#14b8a6", "#f97316"];
 
 export default function ProjectSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -26,6 +39,8 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState<ProjectSettingsData | null>(null);
+  const [teams, setTeams] = useState<TeamOption[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
 
   useEffect(() => {
     const loadProject = async () => {
@@ -33,14 +48,39 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
       setError(null);
 
       try {
-        const res = await fetch(`/api/projects/${id}`);
-        const payload = (await res.json()) as ProjectSettingsData & ApiError;
+        const [projectRes, teamsRes] = await Promise.all([fetch(`/api/projects/${id}`), fetch("/api/social/teams")]);
+        const [projectPayload, teamsPayloadRaw] = (await Promise.all([projectRes.json(), teamsRes.json()])) as [
+          ProjectSettingsData & ApiError,
+          unknown,
+        ];
 
-        if (!res.ok) {
-          throw new Error(payload.error || "No se pudo cargar el proyecto");
+        if (!projectRes.ok) {
+          throw new Error(projectPayload.error || "No se pudo cargar el proyecto");
         }
 
-        setForm(payload);
+        setForm(projectPayload);
+        setSelectedGroupIds((projectPayload.groups || []).map((item) => item.group.id));
+
+        const teamsPayload = teamsPayloadRaw as ApiError;
+
+        if (!teamsRes.ok) {
+          throw new Error(teamsPayload.error || "No se pudieron cargar equipos");
+        }
+
+        const normalizedTeams = Array.isArray(teamsPayloadRaw)
+          ? teamsPayloadRaw
+              .filter((item): item is { id: string; name: string } => {
+                if (typeof item !== "object" || item === null) {
+                  return false;
+                }
+
+                const candidate = item as { id?: unknown; name?: unknown };
+                return typeof candidate.id === "string" && typeof candidate.name === "string";
+              })
+              .map((team) => ({ id: team.id, name: team.name }))
+          : [];
+
+        setTeams(normalizedTeams);
       } catch (loadError) {
         const message = loadError instanceof Error ? loadError.message : "No se pudo cargar la configuracion";
         setError(message);
@@ -77,6 +117,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           color: form.color || "#3b82f6",
           isPublic: form.isPublic,
           isArchived: form.isArchived,
+          groupIds: selectedGroupIds,
         }),
       });
 
@@ -96,7 +137,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
     }
   };
 
-  const archiveProject = async (archive: boolean) => {
+  const archiveProject = async (archive: boolean, successMessage?: string) => {
     if (!form || saving) {
       return;
     }
@@ -118,7 +159,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
       }
 
       setForm((prev) => (prev ? { ...prev, isArchived: payload.isArchived } : prev));
-      setSuccess(archive ? "Proyecto archivado" : "Proyecto restaurado");
+      setSuccess(successMessage || (archive ? "Proyecto archivado" : "Proyecto restaurado"));
       router.refresh();
     } catch (archiveError) {
       const message = archiveError instanceof Error ? archiveError.message : "No se pudo actualizar el estado";
@@ -144,7 +185,6 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           <section className="w-full max-w-4xl space-y-3">
             <header className="page-head">
               <h1 className="page-title">Ajustes del proyecto</h1>
-              <p className="page-subtitle">Actualiza los datos generales y el estado del proyecto.</p>
             </header>
 
             <div className="section-panel-compact space-y-4">
@@ -171,13 +211,63 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
 
               <label className="block">
                 <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Color</span>
-                <input
-                  type="text"
-                  value={form.color || "#3b82f6"}
-                  onChange={(event) => setForm({ ...form, color: event.target.value })}
-                  className="input-orion"
-                  placeholder="#3b82f6"
-                />
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {PROJECT_COLORS.map((color) => {
+                      const active = (form.color || "#3b82f6").toLowerCase() === color.toLowerCase();
+                      return (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => setForm({ ...form, color })}
+                          className={`h-8 w-8 rounded-full border-2 transition ${active ? "border-slate-900 dark:border-white" : "border-white/60 dark:border-slate-700"}`}
+                          style={{ backgroundColor: color }}
+                          aria-label={`Seleccionar color ${color}`}
+                        />
+                      );
+                    })}
+                  </div>
+                  <input
+                    type="text"
+                    value={form.color || "#3b82f6"}
+                    onChange={(event) => setForm({ ...form, color: event.target.value })}
+                    className="input-orion"
+                    placeholder="#3b82f6"
+                  />
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Equipos asignados</span>
+                <div className="space-y-2 rounded-xl border border-orion-border p-3 dark:border-orion-dark-border">
+                  {teams.length === 0 ? (
+                    <p className="text-sm text-slate-500">No tienes equipos disponibles</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {teams.map((team) => {
+                        const active = selectedGroupIds.includes(team.id);
+                        return (
+                          <button
+                            key={team.id}
+                            type="button"
+                            onClick={() =>
+                              setSelectedGroupIds((prev) =>
+                                prev.includes(team.id) ? prev.filter((id) => id !== team.id) : [...prev, team.id],
+                              )
+                            }
+                            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                              active
+                                ? "border-orion-primary bg-orion-primary-soft text-orion-primary"
+                                : "border-orion-border text-slate-600 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-300 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            {team.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </label>
 
               <label className="flex items-center justify-between rounded-xl border border-orion-border px-4 py-3 dark:border-orion-dark-border">
@@ -208,6 +298,17 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
                 >
                   {form.isArchived ? "Restaurar proyecto" : "Archivar proyecto"}
                 </button>
+
+                {!form.isArchived ? (
+                  <button
+                    type="button"
+                    onClick={() => void archiveProject(true, "Proyecto finalizado manualmente")}
+                    disabled={saving}
+                    className="rounded-xl border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-70 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/20"
+                  >
+                    Finalizar proyecto
+                  </button>
+                ) : null}
 
                 <button
                   type="button"

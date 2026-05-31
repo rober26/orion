@@ -20,6 +20,28 @@ import { CalendarClock, Edit3, Loader2, Lock, Plus, Trash2, X } from "lucide-rea
 type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH";
 
+interface TaskSubtask {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+  position: number;
+}
+
+interface TaskComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  user: UserSummary;
+}
+
+interface TaskTag {
+  tag: {
+    id: string;
+    name: string;
+    color: string;
+  };
+}
+
 interface UserSummary {
   id: string;
   username: string;
@@ -41,6 +63,9 @@ interface TaskItem {
   position: number;
   columnId: string | null;
   assignees: TaskAssignee[];
+  subtasks: TaskSubtask[];
+  comments: TaskComment[];
+  tags: TaskTag[];
 }
 
 interface KanbanColumn {
@@ -80,6 +105,9 @@ interface TaskFormState {
   priority: TaskPriority;
   columnId: string;
   assigneeIds: string[];
+  subtasksText: string;
+  commentsText: string;
+  tagsText: string;
 }
 
 const EMPTY_FORM: TaskFormState = {
@@ -90,10 +118,31 @@ const EMPTY_FORM: TaskFormState = {
   priority: "MEDIUM",
   columnId: "",
   assigneeIds: [],
+  subtasksText: "",
+  commentsText: "",
+  tagsText: "",
 };
 
 const DEFAULT_BOARD_NAME = "Tareas";
 const DEFAULT_COLUMNS = ["Por asignar", "Por hacer", "En progreso", "Completado"];
+
+function parseMultilineEntries(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function parseTagEntries(value: string): string[] {
+  return Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0),
+    ),
+  );
+}
 
 function fullName(user: UserSummary): string {
   const value = `${user.firstName || ""} ${user.lastName || ""}`.trim();
@@ -343,6 +392,9 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
       priority: task.priority,
       columnId: task.columnId || "",
       assigneeIds: task.assignees.map((assignee) => assignee.user.id),
+      subtasksText: task.subtasks.map((item) => item.title).join("\n"),
+      commentsText: task.comments.map((item) => item.content).join("\n"),
+      tagsText: task.tags.map((item) => item.tag.name).join(", "),
     });
     setDeleteConfirmTaskId(null);
     setIsTaskModalOpen(true);
@@ -374,6 +426,9 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
         priority: taskForm.priority,
         columnId: taskForm.columnId || null,
         assigneeIds: taskForm.assigneeIds,
+        subtasks: parseMultilineEntries(taskForm.subtasksText),
+        commentContents: parseMultilineEntries(taskForm.commentsText),
+        tagNames: parseTagEntries(taskForm.tagsText),
       };
 
       const url = taskForm.id ? `/api/projects/${id}/tasks/${taskForm.id}` : `/api/projects/${id}/tasks`;
@@ -392,7 +447,9 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
 
       closeTaskModal();
       await loadData();
-      setFeedback(taskForm.id ? "Tarea actualizada" : "Tarea creada");
+      if (!taskForm.id) {
+        setFeedback("Tarea creada");
+      }
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "No se pudo guardar la tarea");
     } finally {
@@ -619,7 +676,6 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
         <section className="w-full space-y-3">
           <header className="page-head">
             <h1 className="page-title">Tareas</h1>
-            <p className="page-subtitle">Tablero personalizable con drag & drop y CRUD completo de tareas.</p>
             {!canEdit && (
               <p className="mt-2 inline-flex items-center rounded-full bg-slate-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                 Solo lectura
@@ -954,6 +1010,36 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                   </div>
                 )}
               </label>
+
+              <label className="block md:col-span-2">
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Subtareas (una por línea)</span>
+                <textarea
+                  value={taskForm.subtasksText}
+                  onChange={(event) => setTaskForm((prev) => ({ ...prev, subtasksText: event.target.value }))}
+                  className="input-orion min-h-24 resize-none"
+                  placeholder={"Ej.\nDefinir alcance\nValidar con equipo\nCerrar pendiente"}
+                />
+              </label>
+
+              <label className="block md:col-span-2">
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Comentarios iniciales (uno por línea)</span>
+                <textarea
+                  value={taskForm.commentsText}
+                  onChange={(event) => setTaskForm((prev) => ({ ...prev, commentsText: event.target.value }))}
+                  className="input-orion min-h-20 resize-none"
+                  placeholder={"Ej.\nRecordar dependencias\nPendiente revisión funcional"}
+                />
+              </label>
+
+              <label className="block md:col-span-2">
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Etiquetas (separadas por coma)</span>
+                <input
+                  value={taskForm.tagsText}
+                  onChange={(event) => setTaskForm((prev) => ({ ...prev, tagsText: event.target.value }))}
+                  className="input-orion"
+                  placeholder="backend, urgente, cliente"
+                />
+              </label>
             </div>
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
@@ -1122,6 +1208,24 @@ function TaskCard({
       </div>
 
       {task.description ? <p className="text-xs text-slate-500 line-clamp-3">{task.description}</p> : null}
+
+      {task.tags.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {task.tags.map((item) => (
+            <span key={item.tag.id} className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: `${item.tag.color}22`, color: item.tag.color }}>
+              #{item.tag.name}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {task.subtasks.length > 0 ? (
+        <div className="text-[11px] text-slate-500">
+          {task.subtasks.filter((item) => item.isCompleted).length}/{task.subtasks.length} subtareas completadas
+        </div>
+      ) : null}
+
+      {task.comments.length > 0 ? <div className="text-[11px] text-slate-500">{task.comments.length} comentarios</div> : null}
 
       <div className="text-[11px] text-slate-500 inline-flex items-center gap-1">
         <CalendarClock size={12} />

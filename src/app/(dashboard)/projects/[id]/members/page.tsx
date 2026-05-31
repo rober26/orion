@@ -202,7 +202,6 @@ export default function ProjectMembersPage({ params }: { params: Promise<{ id: s
         <section className="w-full space-y-3">
           <header className="page-head">
             <h1 className="page-title">Miembros del proyecto</h1>
-            <p className="page-subtitle">Invita usuarios y define permisos de colaboración.</p>
             {!canManage && (
               <p className="mt-2 inline-flex items-center rounded-full bg-slate-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                 Solo lectura

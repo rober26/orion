@@ -127,7 +127,6 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
            <h1 className="page-title">
              {project.name}
            </h1>
-          <p className="page-subtitle">{project.description}</p>
         </header>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
