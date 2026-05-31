@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -15,7 +15,7 @@ import {
 import { SortableContext, arrayMove, useSortable, rectSortingStrategy, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import ProjectSidebar from "@/src/components/projects/ProjectSidebar";
-import { CalendarClock, Edit3, Loader2, Lock, Plus, Trash2, X } from "lucide-react";
+import { CalendarClock, Edit3, Loader2, Lock, Plus, Search, Trash2, X } from "lucide-react";
 
 type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH";
@@ -147,16 +147,6 @@ function parseTagEntries(value: string): string[] {
 function fullName(user: UserSummary): string {
   const value = `${user.firstName || ""} ${user.lastName || ""}`.trim();
   return value || user.username;
-}
-
-function statusLabel(status: TaskStatus): string {
-  if (status === "IN_PROGRESS") {
-    return "En progreso";
-  }
-  if (status === "DONE") {
-    return "Hecho";
-  }
-  return "Por hacer";
 }
 
 export default function ProjectTasksPage({ params }: { params: Promise<{ id: string }> }) {
@@ -391,10 +381,10 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
       dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
       priority: task.priority,
       columnId: task.columnId || "",
-      assigneeIds: task.assignees.map((assignee) => assignee.user.id),
-      subtasksText: task.subtasks.map((item) => item.title).join("\n"),
-      commentsText: task.comments.map((item) => item.content).join("\n"),
-      tagsText: task.tags.map((item) => item.tag.name).join(", "),
+      assigneeIds: (task.assignees || []).map((assignee) => assignee.user.id),
+      subtasksText: (task.subtasks || []).map((item) => item.title).join("\n"),
+      commentsText: (task.comments || []).map((item) => item.content).join("\n"),
+      tagsText: (task.tags || []).map((item) => item.tag.name).join(", "),
     });
     setDeleteConfirmTaskId(null);
     setIsTaskModalOpen(true);
@@ -482,7 +472,6 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
       return;
     }
 
-    setSaving(true);
     try {
       await Promise.all(
         updates.map((update) =>
@@ -496,11 +485,9 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
           }),
         ),
       );
-      await loadData();
     } catch (error) {
+      await loadData();
       setFeedback(error instanceof Error ? error.message : "No se pudieron reordenar tareas");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -509,7 +496,6 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
       return;
     }
 
-    setSaving(true);
     try {
       await Promise.all(
         updates.map((update) =>
@@ -520,11 +506,9 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
           }),
         ),
       );
-      await loadData();
     } catch (error) {
+      await loadData();
       setFeedback(error instanceof Error ? error.message : "No se pudieron reordenar columnas");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -558,7 +542,12 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
       }
 
       const reordered = arrayMove(selectedBoard.columns, sourceIndex, targetIndex);
-      await updateColumnPositions(reordered.map((column, index) => ({ columnId: column.id, position: index })));
+      setBoards((prev) =>
+        prev.map((board) =>
+          board.id !== selectedBoardId ? board : { ...board, columns: reordered },
+        ),
+      );
+      void updateColumnPositions(reordered.map((column, index) => ({ columnId: column.id, position: index })));
       setActiveTaskId(null);
       return;
     }
@@ -600,7 +589,19 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
         }
 
         const reordered = arrayMove(sourceColumn.tasks, fromIndex, toIndex);
-        await updateTaskPositions(
+        setBoards((prev) =>
+          prev.map((board) =>
+            board.id !== selectedBoardId
+              ? board
+              : {
+                  ...board,
+                  columns: board.columns.map((col) =>
+                    col.id === sourceColumn.id ? { ...col, tasks: reordered } : col,
+                  ),
+                },
+          ),
+        );
+        void updateTaskPositions(
           reordered.map((task, index) => ({
             taskId: task.id,
             columnId: sourceColumn.id,
@@ -619,7 +620,21 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
         columnId: targetColumn.id,
       });
 
-      await updateTaskPositions([
+      setBoards((prev) =>
+        prev.map((board) =>
+          board.id !== selectedBoardId
+            ? board
+            : {
+                ...board,
+                columns: board.columns.map((col) => {
+                  if (col.id === sourceColumn.id) return { ...col, tasks: sourceTasks };
+                  if (col.id === targetColumn.id) return { ...col, tasks: targetTasks };
+                  return col;
+                }),
+              },
+        ),
+      );
+      void updateTaskPositions([
         ...sourceTasks.map((task, index) => ({ taskId: task.id, columnId: sourceColumn.id, position: index })),
         ...targetTasks.map((task, index) => ({ taskId: task.id, columnId: targetColumn.id, position: index })),
       ]);
@@ -644,7 +659,21 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
       const sourceTasks = sourceColumn.tasks.filter((task) => task.id !== draggedTask.id);
       const targetTasks = [...targetColumn.tasks, { ...draggedTask, columnId: targetColumn.id }];
 
-      await updateTaskPositions([
+      setBoards((prev) =>
+        prev.map((board) =>
+          board.id !== selectedBoardId
+            ? board
+            : {
+                ...board,
+                columns: board.columns.map((col) => {
+                  if (col.id === sourceColumn.id) return { ...col, tasks: sourceTasks };
+                  if (col.id === targetColumn.id) return { ...col, tasks: targetTasks };
+                  return col;
+                }),
+              },
+        ),
+      );
+      void updateTaskPositions([
         ...sourceTasks.map((task, index) => ({ taskId: task.id, columnId: sourceColumn.id, position: index })),
         ...targetTasks.map((task, index) => ({ taskId: task.id, columnId: targetColumn.id, position: index })),
       ]);
@@ -951,64 +980,21 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                 </select>
               </label>
 
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Estado</span>
-                <div className="input-orion inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                  <CalendarClock size={14} />
-                  {taskForm.id ? statusLabel(taskById.get(taskForm.id)?.status || "TODO") : "Por hacer"}
-                </div>
-              </label>
-
               <label className="block md:col-span-2">
                 <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Asignados</span>
-                <select
-                  multiple
-                  value={taskForm.assigneeIds}
-                  onChange={(event) => {
-                    const values = Array.from(event.target.selectedOptions).map((option) => option.value);
-                    setTaskForm((prev) => ({ ...prev, assigneeIds: values }));
-                  }}
-                  className="select-orion min-h-24"
-                >
-                  {editableMembers.map((member) => (
-                    <option key={member.user.id} value={member.user.id}>
-                      {fullName(member.user)}
-                    </option>
-                  ))}
-                </select>
-                {taskForm.assigneeIds.length > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {taskForm.assigneeIds.map((userId) => {
-                      const user = editableMembers.find((member) => member.user.id === userId)?.user;
-                      if (!user) {
-                        return null;
-                      }
-
-                      return (
-                        <button
-                          key={userId}
-                          type="button"
-                          onClick={() =>
-                            setTaskForm((prev) => ({
-                              ...prev,
-                              assigneeIds: prev.assigneeIds.filter((id) => id !== userId),
-                            }))
-                          }
-                          className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                        >
-                          {fullName(user)} <X size={10} className="inline" />
-                        </button>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      onClick={() => setTaskForm((prev) => ({ ...prev, assigneeIds: [] }))}
-                      className="rounded-full border border-orion-border px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      Deseleccionar usuarios
-                    </button>
-                  </div>
-                )}
+                <AssigneeSearch
+                  members={editableMembers}
+                  selectedIds={taskForm.assigneeIds}
+                  onToggle={(userId) =>
+                    setTaskForm((prev) => ({
+                      ...prev,
+                      assigneeIds: prev.assigneeIds.includes(userId)
+                        ? prev.assigneeIds.filter((id) => id !== userId)
+                        : [...prev.assigneeIds, userId],
+                    }))
+                  }
+                  onClear={() => setTaskForm((prev) => ({ ...prev, assigneeIds: [] }))}
+                />
               </label>
 
               <label className="block md:col-span-2">
@@ -1016,7 +1002,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                 <textarea
                   value={taskForm.subtasksText}
                   onChange={(event) => setTaskForm((prev) => ({ ...prev, subtasksText: event.target.value }))}
-                  className="input-orion min-h-24 resize-none"
+                  className="input-orion min-h-[4.5rem] resize-none text-sm"
                   placeholder={"Ej.\nDefinir alcance\nValidar con equipo\nCerrar pendiente"}
                 />
               </label>
@@ -1026,7 +1012,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                 <textarea
                   value={taskForm.commentsText}
                   onChange={(event) => setTaskForm((prev) => ({ ...prev, commentsText: event.target.value }))}
-                  className="input-orion min-h-20 resize-none"
+                  className="input-orion min-h-[4.5rem] resize-none text-sm"
                   placeholder={"Ej.\nRecordar dependencias\nPendiente revisión funcional"}
                 />
               </label>
@@ -1209,7 +1195,7 @@ function TaskCard({
 
       {task.description ? <p className="text-xs text-slate-500 line-clamp-3">{task.description}</p> : null}
 
-      {task.tags.length > 0 ? (
+      {task.tags?.length > 0 ? (
         <div className="flex flex-wrap gap-1">
           {task.tags.map((item) => (
             <span key={item.tag.id} className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: `${item.tag.color}22`, color: item.tag.color }}>
@@ -1219,13 +1205,13 @@ function TaskCard({
         </div>
       ) : null}
 
-      {task.subtasks.length > 0 ? (
+      {task.subtasks?.length > 0 ? (
         <div className="text-[11px] text-slate-500">
           {task.subtasks.filter((item) => item.isCompleted).length}/{task.subtasks.length} subtareas completadas
         </div>
       ) : null}
 
-      {task.comments.length > 0 ? <div className="text-[11px] text-slate-500">{task.comments.length} comentarios</div> : null}
+      {task.comments?.length > 0 ? <div className="text-[11px] text-slate-500">{task.comments.length} comentarios</div> : null}
 
       <div className="text-[11px] text-slate-500 inline-flex items-center gap-1">
         <CalendarClock size={12} />
@@ -1241,6 +1227,97 @@ function ColumnDropZone({ id, children }: { id: string; children: React.ReactNod
   return (
     <div ref={setNodeRef} className={`rounded-2xl p-1.5 transition-colors ${isOver ? "bg-orion-primary/10 ring-2 ring-orion-primary/35" : ""}`}>
       {children}
+    </div>
+  );
+}
+
+function AssigneeSearch({
+  members,
+  selectedIds,
+  onToggle,
+  onClear,
+}: {
+  members: { user: UserSummary }[];
+  selectedIds: string[];
+  onToggle: (userId: string) => void;
+  onClear: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filtered = useMemo(
+    () => members.filter((m) => !selectedIds.includes(m.user.id) && fullName(m.user).toLowerCase().includes(query.toLowerCase())),
+    [members, selectedIds, query],
+  );
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <div className="relative">
+        <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          className="input-orion py-1.5 pl-8 pr-3 text-sm"
+          placeholder="Buscar miembros..."
+        />
+      </div>
+      {open && filtered.length > 0 && (
+        <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 overflow-y-auto rounded-xl border border-orion-border bg-white p-1 shadow-lg dark:border-orion-dark-border dark:bg-slate-900">
+          {filtered.map((member) => (
+            <button
+              key={member.user.id}
+              type="button"
+              onClick={() => {
+                onToggle(member.user.id);
+                setQuery("");
+              }}
+              className="w-full rounded-lg px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              {fullName(member.user)}
+            </button>
+          ))}
+        </div>
+      )}
+      {selectedIds.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {selectedIds.map((userId) => {
+            const user = members.find((m) => m.user.id === userId)?.user;
+            if (!user) return null;
+            return (
+              <button
+                key={userId}
+                type="button"
+                onClick={() => onToggle(userId)}
+                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                {fullName(user)} <X size={10} />
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={onClear}
+            className="rounded-full border border-orion-border px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            Limpiar
+          </button>
+        </div>
+      )}
     </div>
   );
 }
