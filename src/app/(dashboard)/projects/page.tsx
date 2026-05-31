@@ -15,6 +15,11 @@ interface Project {
   };
 }
 
+interface TeamOption {
+  id: string;
+  name: string;
+}
+
 interface ApiError {
   error?: string;
 }
@@ -34,7 +39,9 @@ export default function ProjectsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
+  const [newProjectTeamIds, setNewProjectTeamIds] = useState<string[]>([]);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [teamOptions, setTeamOptions] = useState<TeamOption[]>([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editProjectName, setEditProjectName] = useState("");
@@ -89,6 +96,21 @@ export default function ProjectsPage() {
   }, [fetchActiveProjects, fetchArchivedProjects]);
 
   useEffect(() => {
+    fetch("/api/social/teams", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json()) as Array<{ id: string; name: string }>;
+        if (!response.ok || !Array.isArray(payload)) {
+          setTeamOptions([]);
+          return;
+        }
+        setTeamOptions(payload.map((item) => ({ id: item.id, name: item.name })));
+      })
+      .catch(() => {
+        setTeamOptions([]);
+      });
+  }, []);
+
+  useEffect(() => {
     const onGlobalPointerDown = (event: PointerEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.closest("[data-project-menu='true']")) {
@@ -110,6 +132,7 @@ export default function ProjectsPage() {
   const resetCreateModal = () => {
     setNewProjectName("");
     setNewProjectDescription("");
+    setNewProjectTeamIds([]);
     setCreateError(null);
   };
 
@@ -151,6 +174,7 @@ export default function ProjectsPage() {
           name,
           description,
           color: DEFAULT_PROJECT_COLOR,
+          groupIds: newProjectTeamIds,
         }),
       });
 
@@ -320,9 +344,6 @@ export default function ProjectsPage() {
           <h1 className="page-title leading-none">
             Proyectos
           </h1>
-          <p className="page-subtitle">
-            Gestiona tus proyectos y objetivos.
-          </p>
         </div>
         
         <div className="relative flex items-center gap-2 sm:gap-3">
@@ -592,6 +613,39 @@ export default function ProjectsPage() {
                   className="input-orion min-h-28 resize-none"
                   maxLength={300}
                 />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Equipo</span>
+                <div className="space-y-2 rounded-xl border border-orion-border p-3 dark:border-orion-dark-border">
+                  {teamOptions.length === 0 ? (
+                    <p className="text-sm text-slate-500">No tienes equipos disponibles</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {teamOptions.map((team) => {
+                        const active = newProjectTeamIds.includes(team.id);
+                        return (
+                          <button
+                            key={team.id}
+                            type="button"
+                            onClick={() =>
+                              setNewProjectTeamIds((prev) =>
+                                prev.includes(team.id) ? prev.filter((id) => id !== team.id) : [...prev, team.id],
+                              )
+                            }
+                            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                              active
+                                ? "border-orion-primary bg-orion-primary-soft text-orion-primary"
+                                : "border-orion-border text-slate-600 hover:bg-slate-100 dark:border-orion-dark-border dark:text-slate-300 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            {team.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </label>
 
               {createError && (
