@@ -23,11 +23,6 @@ async function parseResponse<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-export async function getMyProfile(): Promise<UserProfile> {
-  const res = await fetch("/api/users/me", { cache: "no-store" });
-  return parseResponse<UserProfile>(res);
-}
-
 export async function updateMyProfile(payload: {
   firstName: string;
   lastName: string;

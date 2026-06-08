@@ -274,6 +274,7 @@ export default function Navbar() {
         aria-label="Cerrar menu"
         onClick={() => {
           setIsMobileMenuOpen(false);
+          setIsAccountMenuOpen(false);
           setShowSuggestions(false);
         }}
         className={`fixed inset-0 z-30 bg-slate-950/35 backdrop-blur-[1px] transition-opacity duration-200 lg:hidden ${
@@ -360,7 +361,7 @@ export default function Navbar() {
 
           <button
             onClick={() => setIsAccountMenuOpen((prev) => !prev)}
-            className="hidden h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-blue-100 text-orion-primary transition-all hover:ring-4 hover:ring-blue-500/10 lg:flex dark:bg-blue-900/30"
+            className="hidden h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-blue-100 text-orion-primary transition-all hover:ring-4 hover:ring-blue-500/10 sm:flex dark:bg-blue-900/30"
             aria-label="Abrir menu de cuenta"
             aria-expanded={isAccountMenuOpen}
             aria-controls="orion-account-menu"
@@ -425,7 +426,7 @@ export default function Navbar() {
               <div className="mt-2 border-t border-orion-border pt-2 dark:border-orion-dark-border">
                 <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Administracion</p>
                 <Link
-                  href="/social/perfil?tab=admin"
+                  href="/admin-panel"
                   onClick={() => setIsAccountMenuOpen(false)}
                   className={`block rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
                     pathname.startsWith("/social/perfil") ? "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -433,14 +434,6 @@ export default function Navbar() {
                   role="menuitem"
                 >
                   Administracion
-                </Link>
-                <Link
-                  href="/admin-panel/access-requests"
-                  onClick={() => setIsAccountMenuOpen(false)}
-                  className="mt-1 block rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                  role="menuitem"
-                >
-                  Solicitudes acceso
                 </Link>
               </div>
             ) : null}
@@ -568,18 +561,11 @@ export default function Navbar() {
                       <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Administracion</p>
                       <div className="grid grid-cols-1 gap-2">
                         <Link
-                          href="/social/perfil?tab=admin"
+                          href="/admin-panel"
                           onClick={() => setIsMobileMenuOpen(false)}
                           className="rounded-xl bg-slate-50 px-3 py-2 text-center text-xs font-bold uppercase tracking-wide text-slate-600 transition-colors hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300"
                         >
                           Administracion
-                        </Link>
-                        <Link
-                          href="/admin-panel/access-requests"
-                          onClick={() => setIsMobileMenuOpen(false)}
-                          className="rounded-xl bg-slate-50 px-3 py-2 text-center text-xs font-bold uppercase tracking-wide text-slate-600 transition-colors hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300"
-                        >
-                          Solicitudes
                         </Link>
                       </div>
                     </div>

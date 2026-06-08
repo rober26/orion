@@ -1,18 +1,17 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useState } from "react";
-import AdminPanel from "./components/AdminPanel";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import ProfileEdit from "./components/ProfileEdit";
 import ProfileSecurity from "./components/ProfileSecurity";
 import ProfileView from "./components/ProfileView";
-import SystemSettings from "./components/SystemSettings";
 import { useProfileData } from "./hooks/useProfileData";
 import type { UserProfile } from "./types";
 
-type ProfileTab = "profile" | "security" | "admin";
+type ProfileTab = "profile" | "security";
 
 export default function ProfileContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { profile, publicProjects, publicFolders, publicNotebooks, publicDocuments, publicCalendars, loading, error, refreshProfile } =
     useProfileData();
@@ -20,15 +19,18 @@ export default function ProfileContent() {
   const [localProfile, setLocalProfile] = useState<UserProfile | null>(null);
 
   const activeProfile = localProfile || profile;
-  const isAdmin = activeProfile?.role === "ADMIN";
   const requestedTab = searchParams.get("tab");
+
+  useEffect(() => {
+    if (requestedTab === "admin" || requestedTab === "system") {
+      router.replace("/admin-panel");
+    }
+  }, [requestedTab, router]);
+
   const activeTab: ProfileTab =
     requestedTab === "security"
       ? "security"
-      :
-    (requestedTab === "admin" || requestedTab === "system") && isAdmin
-      ? "admin"
-        : "profile";
+      : "profile";
 
   const handleProfileUpdated = (updatedProfile: UserProfile) => {
     setLocalProfile(updatedProfile);
@@ -72,13 +74,6 @@ export default function ProfileContent() {
       )}
 
       {activeTab === "security" && <ProfileSecurity />}
-
-      {activeTab === "admin" && isAdmin && (
-        <div className="space-y-5">
-          <AdminPanel />
-          <SystemSettings />
-        </div>
-      )}
     </div>
   );
 }

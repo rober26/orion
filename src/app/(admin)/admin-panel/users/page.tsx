@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircle, Plus, Shield, Users } from "lucide-react";
+import { LoaderCircle, Plus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   createAdminUser,
@@ -165,19 +165,6 @@ export default function AdminUsersPage() {
           </div>
         )}
       </section>
-
-      <section className="surface-soft p-6">
-        <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
-          <Shield size={16} />
-          Notas operativas
-        </h2>
-        <ul className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-          <li>El alta de usuario define contraseña inicial manual.</li>
-          <li>El rol inicial puede ser USER o ADMIN.</li>
-          <li>El estado inicial puede ser activo o bloqueado.</li>
-        </ul>
-      </section>
-
       {isCreateOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
           <div className="surface-panel w-full max-w-xl p-5 sm:p-6">
