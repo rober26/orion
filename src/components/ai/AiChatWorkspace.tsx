@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircle, MessageSquare, Plus, Send, Settings, X } from "lucide-react";
+import { LoaderCircle, MessageSquare, MoreHorizontal, Plus, Send, Settings, X } from "lucide-react";
 import { CSSProperties, FormEvent, KeyboardEvent, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import AiConfigPanel from "./AiConfigPanel";
 import {
@@ -61,8 +61,17 @@ export default function AiChatWorkspace() {
     () => conversations.find((item) => item.id === activeConversationId) ?? null,
     [activeConversationId, conversations],
   );
+  const menuConversation = useMemo(
+    () => conversations.find((item) => item.id === openConversationMenuId) ?? null,
+    [conversations, openConversationMenuId],
+  );
   const connectionOptions: AiConnection[] = config.connections || [];
   const hasConnections = connectionOptions.length > 0;
+
+  const closeConversationMenu = () => {
+    setOpenConversationMenuId(null);
+    setConversationMenuPosition(null);
+  };
 
   useEffect(() => {
     const settingsId = conversationSettings?.id;
@@ -75,32 +84,31 @@ export default function AiChatWorkspace() {
       return;
     }
 
-    setConversationSettings((prev) =>
-      prev
-        ? {
-            ...prev,
-            title: source.title,
-            personaStyle: source.personaStyle || "",
-            primaryFunction: source.primaryFunction || "",
-          }
-        : prev,
-    );
-  }, [conversationSettings, conversations]);
-
-  useEffect(() => {
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("[data-row-menu='true']")) {
-        return;
+    setConversationSettings((prev) => {
+      if (!prev) {
+        return prev;
       }
 
-      setOpenConversationMenuId(null);
-      setConversationMenuPosition(null);
-    };
+      const nextTitle = source.title;
+      const nextPersonaStyle = source.personaStyle || "";
+      const nextPrimaryFunction = source.primaryFunction || "";
 
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => window.removeEventListener("pointerdown", onPointerDown);
-  }, []);
+      if (
+        prev.title === nextTitle
+        && prev.personaStyle === nextPersonaStyle
+        && prev.primaryFunction === nextPrimaryFunction
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        title: nextTitle,
+        personaStyle: nextPersonaStyle,
+        primaryFunction: nextPrimaryFunction,
+      };
+    });
+  }, [conversationSettings?.id, conversations]);
 
   const loadConversations = async (focusConversationId?: string | null) => {
     setLoadingConversations(true);
@@ -272,6 +280,23 @@ export default function AiChatWorkspace() {
     }
   };
 
+  const onConversationActionMenuToggle = (conversationId: string, event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (openConversationMenuId === conversationId) {
+      closeConversationMenu();
+      return;
+    }
+
+    const target = event.currentTarget.getBoundingClientRect();
+    const nextX = Math.round(target.right);
+    const nextY = Math.round(target.bottom + 4);
+
+    setOpenConversationMenuId(conversationId);
+    setConversationMenuPosition({ x: nextX, y: nextY });
+  };
+
   const onCancelSending = () => {
     const pendingSend = pendingSendRef.current;
 
@@ -284,13 +309,6 @@ export default function AiChatWorkspace() {
     sendAbortRef.current?.abort();
     sendAbortRef.current = null;
     setSending(false);
-  };
-
-  const onConversationActionMenu = (conversation: AiConversationListItem, event: MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setOpenConversationMenuId((prev) => (prev === conversation.id ? null : conversation.id));
-    setConversationMenuPosition(null);
   };
 
   const selectedConnectionId = activeConversation?.connectionId || config.defaultConnectionId || "";
@@ -524,6 +542,7 @@ export default function AiChatWorkspace() {
                     key={conversation.id}
                     onContextMenu={(event) => {
                       event.preventDefault();
+                      event.stopPropagation();
                       setOpenConversationMenuId(conversation.id);
                       setConversationMenuPosition({ x: event.clientX, y: event.clientY });
                     }}
@@ -567,45 +586,12 @@ export default function AiChatWorkspace() {
                     <div className="absolute right-2 top-2" data-row-menu="true">
                       <button
                         type="button"
-                        onClick={(event) => onConversationActionMenu(conversation, event)}
+                        onClick={(event) => onConversationActionMenuToggle(conversation.id, event)}
                         className="btn-secondary inline-flex h-7 w-7 items-center justify-center p-0"
-                        aria-label="Abrir opciones de conversacion"
+                        aria-label="Abrir menu de conversacion"
                       >
-                        <Settings size={13} />
+                        <MoreHorizontal size={13} />
                       </button>
-                      <ContextMenu
-                        open={openConversationMenuId === conversation.id}
-                        position={openConversationMenuId === conversation.id ? conversationMenuPosition : null}
-                        onRequestClose={() => {
-                          setOpenConversationMenuId(null);
-                          setConversationMenuPosition(null);
-                        }}
-                        items={[
-                          {
-                            label: "Configuracion",
-                            onSelect: () => {
-                              openConversationSettings(conversation);
-                            },
-                          },
-                          {
-                            label: "Renombrar",
-                            onSelect: () => {
-                              setOpenConversationMenuId(null);
-                              setConversationMenuPosition(null);
-                              setRenameConversation({ id: conversation.id, value: conversation.title });
-                            },
-                          },
-                          {
-                            label: "Eliminar",
-                            tone: "danger",
-                            onSelect: () => {
-                              setOpenConversationMenuId(null);
-                              setConversationMenuPosition(null);
-                              void onDeleteConversation(conversation.id);
-                            },
-                          },
-                        ]}
-                      />
                     </div>
                   </article>
                 );
@@ -878,6 +864,7 @@ export default function AiChatWorkspace() {
                       key={conversation.id}
                     onContextMenu={(event) => {
                       event.preventDefault();
+                      event.stopPropagation();
                       setOpenConversationMenuId(conversation.id);
                       setConversationMenuPosition({ x: event.clientX, y: event.clientY });
                     }}
@@ -924,45 +911,12 @@ export default function AiChatWorkspace() {
                       <div className="absolute right-2 top-2" data-row-menu="true">
                         <button
                           type="button"
-                          onClick={(event) => onConversationActionMenu(conversation, event)}
+                          onClick={(event) => onConversationActionMenuToggle(conversation.id, event)}
                           className="btn-secondary inline-flex h-7 w-7 items-center justify-center p-0"
-                          aria-label="Abrir opciones de conversacion"
+                          aria-label="Abrir menu de conversacion"
                         >
-                          <Settings size={13} />
+                          <MoreHorizontal size={13} />
                         </button>
-                        <ContextMenu
-                          open={openConversationMenuId === conversation.id}
-                          position={openConversationMenuId === conversation.id ? conversationMenuPosition : null}
-                          onRequestClose={() => {
-                            setOpenConversationMenuId(null);
-                            setConversationMenuPosition(null);
-                          }}
-                          items={[
-                            {
-                              label: "Configuracion",
-                              onSelect: () => {
-                                openConversationSettings(conversation);
-                              },
-                            },
-                            {
-                              label: "Renombrar",
-                              onSelect: () => {
-                                  setOpenConversationMenuId(null);
-                                  setConversationMenuPosition(null);
-                                  setRenameConversation({ id: conversation.id, value: conversation.title });
-                                },
-                            },
-                            {
-                              label: "Eliminar",
-                              tone: "danger",
-                              onSelect: () => {
-                                  setOpenConversationMenuId(null);
-                                  setConversationMenuPosition(null);
-                                  void onDeleteConversation(conversation.id);
-                                },
-                            },
-                          ]}
-                        />
                       </div>
                     </article>
                   );
@@ -981,6 +935,39 @@ export default function AiChatWorkspace() {
             <AiConfigPanel onConfigSaved={onConfigSaved} />
           </div>
       </aside>
+
+      <ContextMenu
+        open={Boolean(menuConversation && conversationMenuPosition)}
+        position={conversationMenuPosition}
+        onRequestClose={closeConversationMenu}
+        items={
+          menuConversation
+            ? [
+                {
+                  label: "Configuracion",
+                  onSelect: () => {
+                    openConversationSettings(menuConversation);
+                  },
+                },
+                {
+                  label: "Renombrar",
+                  onSelect: () => {
+                    setRenameConversation({ id: menuConversation.id, value: menuConversation.title });
+                    closeConversationMenu();
+                  },
+                },
+                {
+                  label: "Eliminar",
+                  tone: "danger",
+                  onSelect: () => {
+                    void onDeleteConversation(menuConversation.id);
+                    closeConversationMenu();
+                  },
+                },
+              ]
+            : []
+        }
+      />
     </div>
   );
 }

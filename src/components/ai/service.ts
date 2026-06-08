@@ -115,16 +115,6 @@ export async function updateAiConversationConnection(conversationId: string, con
   await parseResponse<{ ok: true }>(res);
 }
 
-export async function renameAiConversation(conversationId: string, title: string): Promise<void> {
-  const res = await fetch(`/api/ai/conversations/${conversationId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
-  });
-
-  await parseResponse<{ ok: true }>(res);
-}
-
 export async function updateAiConversationSettings(payload: {
   conversationId: string;
   title?: string;
