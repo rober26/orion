@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -39,7 +39,6 @@ export default function ProjectNotesPage({ params }: { params: Promise<{ id: str
   const [viewingNote, setViewingNote] = useState<QuickNoteItem | null>(null);
   const [viewingTitle, setViewingTitle] = useState("");
   const [viewingContent, setViewingContent] = useState("");
-  const [savingViewingNote, setSavingViewingNote] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [isSorting, setIsSorting] = useState(false);
@@ -98,7 +97,6 @@ export default function ProjectNotesPage({ params }: { params: Promise<{ id: str
         return;
       }
 
-      setSavingViewingNote(true);
       fetch(`/api/notes/${currentNote.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -119,9 +117,6 @@ export default function ProjectNotesPage({ params }: { params: Promise<{ id: str
         })
         .catch((err: Error) => {
           setNotesError(err.message || "No se pudo guardar");
-        })
-        .finally(() => {
-          setSavingViewingNote(false);
         });
     }, 800);
 
@@ -140,7 +135,7 @@ export default function ProjectNotesPage({ params }: { params: Promise<{ id: str
     localStorage.setItem(`project-notes-order:${id}`, JSON.stringify(orderedIds));
   };
 
-  const applyStoredOrder = (incomingNotes: QuickNoteItem[]) => {
+  const applyStoredOrder = useCallback((incomingNotes: QuickNoteItem[]) => {
     if (typeof window === "undefined") {
       return incomingNotes;
     }
@@ -160,7 +155,7 @@ export default function ProjectNotesPage({ params }: { params: Promise<{ id: str
     } catch {
       return incomingNotes;
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     const load = async () => {
@@ -201,7 +196,7 @@ export default function ProjectNotesPage({ params }: { params: Promise<{ id: str
     };
 
     void load();
-  }, [id]);
+  }, [applyStoredOrder, id]);
 
   const openEdit = (note: QuickNoteItem) => {
     setEditingNote(note);
@@ -458,9 +453,7 @@ function SortableProjectNoteCard({
     id: note.id,
     disabled: !canEdit,
   });
-  const cardRef = useRef<HTMLElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const [dragDimensions, setDragDimensions] = useState<{ width: number; height: number } | null>(null);
   const [rowSpan, setRowSpan] = useState(18);
 
   useEffect(() => {
@@ -494,25 +487,6 @@ function SortableProjectNoteCard({
     };
   }, [note.title, note.content, note.project?.name, canEdit, deleting, isSorting]);
 
-  useEffect(() => {
-    if (!isDragging) {
-      setDragDimensions(null);
-      return;
-    }
-
-    const rect = cardRef.current?.getBoundingClientRect();
-    if (!rect) {
-      return;
-    }
-
-    setDragDimensions({ width: rect.width, height: rect.height });
-  }, [isDragging]);
-
-  const bindNodeRef = (node: HTMLElement | null) => {
-    cardRef.current = node;
-    setNodeRef(node);
-  };
-
   const previewText = (() => {
     const normalized = (note.content || "(Sin contenido)").replace(/\s+/g, " ").trim();
     if (normalized.length <= 1200) {
@@ -524,14 +498,12 @@ function SortableProjectNoteCard({
 
   return (
     <article
-      ref={bindNodeRef}
+      ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
         backgroundColor: note.color,
         zIndex: isDragging ? 20 : 1,
-        width: isDragging && dragDimensions ? `${dragDimensions.width}px` : undefined,
-        height: isDragging && dragDimensions ? `${dragDimensions.height}px` : undefined,
         gridRowEnd: `span ${rowSpan}`,
       }}
       className={`group relative min-h-[120px] select-none overflow-hidden rounded-2xl border border-black/10 p-3 shadow-[0_6px_14px_rgba(15,23,42,0.1)] ${

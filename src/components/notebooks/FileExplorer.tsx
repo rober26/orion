@@ -35,6 +35,7 @@ import {
   PanelLeftOpen,
   Plus,
   Share2,
+  StickyNote,
   X,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -156,6 +157,7 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
   const searchParams = useSearchParams();
   const selectedDocId = searchParams.get("doc");
   const activeFolderFromRoute = searchParams.get("folder");
+  const activeTabFromRoute = searchParams.get("tab");
 
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
@@ -1053,6 +1055,23 @@ export default function FileExplorer({ collapsible = false }: FileExplorerProps)
           {dragLabel ? <div className="px-3 py-1.5 rounded-md bg-orion-primary text-white text-xs">{dragLabel}</div> : null}
         </DragOverlay>
       </DndContext>
+
+      <div className="border-t border-orion-border px-3 py-3 dark:border-orion-dark-border">
+        <button
+          type="button"
+          onClick={() => router.push("/notebooks?tab=quick-notes")}
+          className={`w-full rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orion-primary/60 ${
+            activeTabFromRoute === "quick-notes"
+              ? "bg-slate-800 text-white"
+              : "text-slate-200 hover:bg-slate-800"
+          }`}
+        >
+          <span className="inline-flex items-center gap-2">
+            <StickyNote size={14} className="text-orion-primary" />
+            Notas rapidas
+          </span>
+        </button>
+      </div>
       </div>
 
       {shareTarget && (

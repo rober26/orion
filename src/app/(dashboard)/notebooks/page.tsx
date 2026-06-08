@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import FileExplorer from "@/src/components/notebooks/FileExplorer";
 import Editor from "@/src/components/notebooks/Editor";
 import ExplorerPanel from "@/src/components/notebooks/ExplorerPanel";
+import QuickNoteModal, { type QuickNoteDraft } from "@/src/components/notes/QuickNoteModal";
 import { BookOpen, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 
 type QuickNote = {
@@ -32,10 +33,8 @@ function NotebooksContent() {
   const [notesLoading, setNotesLoading] = useState(true);
   const [notesError, setNotesError] = useState<string | null>(null);
   const [notesSearch, setNotesSearch] = useState("");
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState("");
-  const [editingContent, setEditingContent] = useState("");
-  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
+  const [editingNote, setEditingNote] = useState<QuickNote | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
   const handleCreateNote = async () => {
@@ -89,7 +88,7 @@ function NotebooksContent() {
         throw new Error((payload as { error?: string }).error || "No se pudieron cargar notas rapidas");
       }
 
-      setQuickNotes(Array.isArray(payload) ? payload.slice(0, 12) : []);
+      setQuickNotes(Array.isArray(payload) ? payload.slice(0, 18) : []);
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudieron cargar notas rapidas";
       setNotesError(message);
@@ -107,25 +106,23 @@ function NotebooksContent() {
     return () => clearTimeout(timer);
   }, [loadQuickNotes]);
 
-  const openEditModal = (note: QuickNote) => {
-    setEditingNoteId(note.id);
-    setEditingTitle(note.title || "");
-    setEditingContent(note.content || "");
-  };
+  const openEditModal = (note: QuickNote) => setEditingNote(note);
 
-  const saveEditedNote = async (noteId: string) => {
-    if (savingNoteId) {
+  const saveEditedNote = async (draft: QuickNoteDraft) => {
+    if (!editingNote || savingNote) {
       return;
     }
 
     try {
-      setSavingNoteId(noteId);
-      const response = await fetch(`/api/notes/${noteId}`, {
+      setSavingNote(true);
+      const response = await fetch(`/api/notes/${editingNote.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: editingTitle.slice(0, 120),
-          content: editingContent.slice(0, 10000),
+          title: draft.title,
+          content: draft.content,
+          color: draft.color,
+          projectId: draft.projectId,
         }),
       });
 
@@ -136,12 +133,12 @@ function NotebooksContent() {
 
       const updated = payload as QuickNote;
       setQuickNotes((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
-      setEditingNoteId(null);
+      setEditingNote(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo guardar la nota";
       setNotesError(message);
     } finally {
-      setSavingNoteId(null);
+      setSavingNote(false);
     }
   };
 
@@ -159,8 +156,8 @@ function NotebooksContent() {
       }
 
       setQuickNotes((prev) => prev.filter((item) => item.id !== noteId));
-      if (editingNoteId === noteId) {
-        setEditingNoteId(null);
+      if (editingNote?.id === noteId) {
+        setEditingNote(null);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo eliminar la nota";
@@ -178,10 +175,86 @@ function NotebooksContent() {
         <Editor documentId={selectedDocumentId} />
       ) : selectedFolderId || selectedNotebookId ? (
         <ExplorerPanel folderId={selectedFolderId} notebookId={selectedNotebookId} />
+      ) : highlightedTab === "quick-notes" ? (
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <section className="surface-panel h-full min-h-0 rounded-3xl p-5">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Notas rapidas</h2>
+            </div>
+
+            <label className="relative mb-3 block">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={notesSearch}
+                onChange={(event) => setNotesSearch(event.target.value)}
+                placeholder="Buscar notas rapidas"
+                className="input-orion pl-9"
+              />
+            </label>
+
+            {notesError ? (
+              <div className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
+                {notesError}
+              </div>
+            ) : notesLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="h-24 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+                ))}
+              </div>
+            ) : quickNotes.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-orion-border px-4 py-8 text-center dark:border-orion-dark-border">
+                <p className="text-sm text-slate-500">No hay notas rapidas por ahora.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {quickNotes.map((note) => (
+                  <article
+                    key={note.id}
+                    className="group relative min-h-[140px] overflow-hidden rounded-2xl border border-black/10 p-3 shadow-[0_6px_14px_rgba(15,23,42,0.1)]"
+                    style={{ backgroundColor: note.color }}
+                  >
+                    <div className="flex min-h-[112px] flex-col pb-10">
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <h3 className="min-w-0 flex-1 text-sm font-bold text-slate-900 [overflow-wrap:anywhere] break-all">
+                          {note.title || "Nota sin titulo"}
+                        </h3>
+                        <span className="shrink-0 text-[10px] font-semibold text-slate-600">
+                          {new Date(note.updatedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="line-clamp-5 min-w-0 break-all whitespace-pre-wrap text-xs leading-relaxed text-slate-700 [overflow-wrap:anywhere]">
+                        {note.content || "(Sin contenido)"}
+                      </p>
+                    </div>
+                    <div className="absolute bottom-3 right-3 flex items-center justify-end gap-2 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(note)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-white/75 px-2 py-1 text-[11px] font-semibold text-slate-700"
+                      >
+                        <Pencil size={12} /> Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void deleteQuickNote(note.id)}
+                        disabled={deletingNoteId === note.id}
+                        className="inline-flex items-center gap-1 rounded-lg bg-red-500/85 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-70"
+                      >
+                        {deletingNoteId === note.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Eliminar
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50/30 p-4 dark:bg-transparent sm:p-6 lg:p-8">
-          <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
-            <section className="surface-panel rounded-3xl p-6 text-center lg:text-left">
+        <div className="flex-1 min-h-0 p-4 sm:p-6 lg:p-8">
+          <section className="surface-panel flex h-full min-h-0 items-center justify-center rounded-3xl p-6 text-center">
+            <div className="mx-auto flex w-full max-w-xl flex-col items-center">
               <div className="relative mb-8 inline-flex">
                 <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] bg-orion-primary/10 text-orion-primary transition-all duration-500 hover:scale-110 dark:bg-orion-primary/20">
                   {isCreating ? <Loader2 className="animate-spin" size={48} /> : <BookOpen size={48} />}
@@ -192,12 +265,10 @@ function NotebooksContent() {
                   </div>
                 )}
               </div>
-
               <h1 className="mb-4 text-4xl font-black tracking-tight text-slate-900 dark:text-white">Tu Cerebro Digital</h1>
-              <p className="mb-10 max-w-md text-lg leading-relaxed text-slate-500 dark:text-slate-400">
+              <p className="mb-10 text-lg leading-relaxed text-slate-500 dark:text-slate-400">
                 Organiza tus ideas de forma jerarquica. Crea una nota para empezar a construir tu red de conocimiento.
               </p>
-
               <div className="grid w-full max-w-sm grid-cols-1 gap-4">
                 <QuickAction
                   icon={<Plus size={22} />}
@@ -207,121 +278,35 @@ function NotebooksContent() {
                   primary
                 />
               </div>
-            </section>
-
-            <section className={`surface-panel rounded-3xl p-5 ${highlightedTab === "quick-notes" ? "ring-2 ring-orion-primary/35" : ""}`}>
-              <div className="mb-4 flex items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Notas rapidas</h2>
-                </div>
-              </div>
-
-              <label className="relative mb-3 block">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={notesSearch}
-                  onChange={(event) => setNotesSearch(event.target.value)}
-                  placeholder="Buscar notas rapidas"
-                  className="input-orion pl-9"
-                />
-              </label>
-
-              {notesError ? (
-                <div className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
-                  {notesError}
-                </div>
-              ) : notesLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index} className="h-24 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
-                  ))}
-                </div>
-              ) : quickNotes.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-orion-border px-4 py-8 text-center dark:border-orion-dark-border">
-                  <p className="text-sm text-slate-500">No hay notas rapidas por ahora.</p>
-                  <p className="mt-1 text-xs text-slate-400">Usa el boton flotante para crear una.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {quickNotes.map((note) => {
-                    const isEditing = editingNoteId === note.id;
-                    return (
-                    <article
-                      key={note.id}
-                      className="rounded-2xl border border-black/10 p-3"
-                      style={{ backgroundColor: note.color }}
-                    >
-                      {isEditing ? (
-                        <>
-                          <input
-                            type="text"
-                            value={editingTitle}
-                            onChange={(event) => setEditingTitle(event.target.value.slice(0, 120))}
-                            placeholder="Titulo"
-                            className="input-orion"
-                          />
-                          <textarea
-                            value={editingContent}
-                            onChange={(event) => setEditingContent(event.target.value.slice(0, 10000))}
-                            placeholder="Contenido"
-                            className="input-orion mt-2 min-h-[130px]"
-                          />
-                          <div className="mt-2 flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setEditingNoteId(null)}
-                              className="btn-secondary text-xs"
-                              disabled={savingNoteId === note.id}
-                            >
-                              Cancelar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void saveEditedNote(note.id)}
-                              disabled={savingNoteId === note.id}
-                              className="btn-primary rounded-xl px-3 py-1.5 text-xs font-bold disabled:opacity-70"
-                            >
-                              {savingNoteId === note.id ? <Loader2 size={12} className="animate-spin" /> : "Guardar"}
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="mb-1 flex items-center justify-between gap-2">
-                            <h3 className="truncate text-sm font-bold text-slate-900">{note.title || "Nota sin titulo"}</h3>
-                            <span className="text-[10px] font-semibold text-slate-600">{new Date(note.updatedAt).toLocaleDateString()}</span>
-                          </div>
-                          <p className="line-clamp-3 whitespace-pre-wrap text-xs leading-relaxed text-slate-700">
-                            {note.content || "(Sin contenido)"}
-                          </p>
-                          <div className="mt-2 flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(note)}
-                              className="inline-flex items-center gap-1 rounded-lg bg-white/75 px-2 py-1 text-[11px] font-semibold text-slate-700"
-                            >
-                              <Pencil size={12} /> Editar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void deleteQuickNote(note.id)}
-                              disabled={deletingNoteId === note.id}
-                              className="inline-flex items-center gap-1 rounded-lg bg-red-500/85 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-70"
-                            >
-                              {deletingNoteId === note.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Eliminar
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </article>
-                  );})}
-                </div>
-              )}
-            </section>
-          </div>
+            </div>
+          </section>
         </div>
       )}
+
+      <QuickNoteModal
+        open={editingNote !== null}
+        title="Editar nota rapida"
+        initialValue={
+          editingNote
+            ? {
+                title: editingNote.title,
+                content: editingNote.content,
+                color: editingNote.color,
+                projectId: editingNote.project?.id || null,
+              }
+            : undefined
+        }
+        submitting={savingNote}
+        error={notesError}
+        onClose={() => {
+          if (!savingNote) {
+            setEditingNote(null);
+          }
+        }}
+        onSave={(draft) => {
+          void saveEditedNote(draft);
+        }}
+      />
     </div>
   );
 }
