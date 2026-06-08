@@ -779,9 +779,13 @@ export default function CalendarPage() {
                       <button
                         type="button"
                         className="btn-primary !px-2 !py-1 !text-[10px]"
-                        onClick={() => openCreateModalAtDate(new Date(currentMonth))}
+                        onClick={() => {
+                          setManagerInitialCalendarId(null);
+                          setIsCalendarsOpen(false);
+                          setIsManagerModalOpen(true);
+                        }}
                       >
-                        Anadir evento
+                        Anadir calendario
                       </button>
                       <button
                         type="button"
@@ -855,7 +859,7 @@ export default function CalendarPage() {
                         checked={includeProjectLayer}
                         onChange={(event) => setIncludeProjectLayer(event.target.checked)}
                       />
-                      Mostrar hitos de proyecto
+                      Mostrar proyectos
                     </label>
                   </div>
                 </aside>
@@ -1019,6 +1023,7 @@ export default function CalendarPage() {
         open={isManagerModalOpen}
         calendars={calendars}
         initialCalendarId={managerInitialCalendarId}
+        allowCreate
         onClose={() => {
           setIsManagerModalOpen(false);
           setManagerInitialCalendarId(null);

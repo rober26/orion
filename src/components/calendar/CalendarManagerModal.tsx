@@ -7,6 +7,7 @@ interface CalendarManagerModalProps {
   open: boolean;
   calendars: UserCalendarItem[];
   initialCalendarId?: string | null;
+  allowCreate?: boolean;
   onClose: () => void;
   onChanged: () => Promise<void>;
 }
@@ -19,7 +20,14 @@ interface CalendarFormState {
 
 const DEFAULT_COLOR = "#2563eb";
 
-export default function CalendarManagerModal({ open, calendars, initialCalendarId, onClose, onChanged }: CalendarManagerModalProps) {
+export default function CalendarManagerModal({
+  open,
+  calendars,
+  initialCalendarId,
+  allowCreate = true,
+  onClose,
+  onChanged,
+}: CalendarManagerModalProps) {
   const [selectedId, setSelectedId] = useState<string>("");
   const [creating, setCreating] = useState<CalendarFormState>({ name: "", color: DEFAULT_COLOR, visibility: "PRIVATE" });
   const [editing, setEditing] = useState<CalendarFormState>({ name: "", color: DEFAULT_COLOR, visibility: "PRIVATE" });
@@ -183,35 +191,37 @@ export default function CalendarManagerModal({ open, calendars, initialCalendarI
           <section className="space-y-5">
             {error ? <p className="text-sm text-red-500">{error}</p> : null}
 
-            <div className="rounded-xl border border-orion-border dark:border-orion-dark-border p-4 space-y-3">
-              <h4 className="text-sm font-black uppercase tracking-wider text-slate-500">Nuevo calendario</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-300">Crea un calendario para separar trabajo personal, equipo o clientes.</p>
-              <input
-                className="input-orion"
-                placeholder="Nombre"
-                value={creating.name}
-                onChange={(event) => setCreating((prev) => ({ ...prev, name: event.target.value }))}
-              />
-              <div className="grid grid-cols-2 gap-3">
+            {allowCreate ? (
+              <div className="rounded-xl border border-orion-border dark:border-orion-dark-border p-4 space-y-3">
+                <h4 className="text-sm font-black uppercase tracking-wider text-slate-500">Nuevo calendario</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-300">Crea un calendario para separar trabajo personal, equipo o clientes.</p>
                 <input
                   className="input-orion"
-                  type="color"
-                  value={creating.color}
-                  onChange={(event) => setCreating((prev) => ({ ...prev, color: event.target.value }))}
+                  placeholder="Nombre"
+                  value={creating.name}
+                  onChange={(event) => setCreating((prev) => ({ ...prev, name: event.target.value }))}
                 />
-                <select
-                  className="select-orion"
-                  value={creating.visibility}
-                  onChange={(event) => setCreating((prev) => ({ ...prev, visibility: event.target.value as "PUBLIC" | "PRIVATE" }))}
-                >
-                  <option value="PRIVATE">Privado</option>
-                  <option value="PUBLIC">Publico</option>
-                </select>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    className="input-orion"
+                    type="color"
+                    value={creating.color}
+                    onChange={(event) => setCreating((prev) => ({ ...prev, color: event.target.value }))}
+                  />
+                  <select
+                    className="select-orion"
+                    value={creating.visibility}
+                    onChange={(event) => setCreating((prev) => ({ ...prev, visibility: event.target.value as "PUBLIC" | "PRIVATE" }))}
+                  >
+                    <option value="PRIVATE">Privado</option>
+                    <option value="PUBLIC">Publico</option>
+                  </select>
+                </div>
+                <button type="button" className="btn-primary w-full" disabled={loading} onClick={() => void createCalendar()}>
+                  Crear calendario nuevo
+                </button>
               </div>
-              <button type="button" className="btn-primary w-full" disabled={loading} onClick={() => void createCalendar()}>
-                Crear calendario nuevo
-              </button>
-            </div>
+            ) : null}
 
             {selectedCalendar ? (
               <div className="rounded-xl border border-orion-border dark:border-orion-dark-border p-4 space-y-3">
