@@ -1,144 +1,188 @@
-# ORION
+# Orion
 
-**Orion** es un sistema de **gestión de proyectos y biblioteca de apuntes**, desarrollado para el **TFG de DAM**.  
-Integra organización de proyectos, notas jerárquicas, calendario y colaboración básica, con una arquitectura moderna basada en **Next.js + TypeScript + Prisma**.
+Orion es una plataforma web para productividad personal y colaborativa: proyectos, tareas, notas, notebooks, calendario, conexiones sociales y utilidades de administracion en una sola aplicacion.
 
----
+Esta construida con Next.js (App Router), TypeScript, Prisma y PostgreSQL.
 
-## Objetivo del proyecto (TFG)
+## Que incluye el sistema
 
-El objetivo de Orion es ofrecer un entorno unificado donde un usuario pueda:
+- Autenticacion con sesion y flujo de setup inicial de administrador.
+- Dashboard con actividad, agenda y resumen general.
+- Gestion de proyectos (detalle, miembros, documentacion, tareas, ajustes).
+- Modulo de notebooks y documentos.
+- Calendario y eventos.
+- Modulo social (perfil, conexiones, solicitudes).
+- Area de administracion.
+- Endpoints API para cada modulo bajo `src/app/api`.
 
-- Gestionar proyectos y tareas
-- Organizar apuntes y conocimiento en formato jerárquico
-- Planificar eventos mediante calendario
-- Centralizar documentos y archivos dentro de un mismo sistema
+## Stack tecnico
 
----
+- `Next.js 16` + `React 19`
+- `TypeScript`
+- `Prisma ORM`
+- `PostgreSQL 15`
+- `Tailwind CSS 4`
+- `Vitest` para pruebas unitarias
+- `Docker` y `Docker Compose` para despliegue/contenedorizacion
 
-## Tecnologias utilizadas
+## Requisitos
 
-- **Next.js (App Router)**
-- **TypeScript**
-- **Prisma ORM**
-- **PostgreSQL**
-- **TailwindCSS**
-- **JWT Auth (cookies)**
-- **Docker Compose** (para BD y sistema en un futuro)
+- Node.js 20+
+- npm 10+
+- Docker y Docker Compose (opcional, recomendado para server)
 
----
+## Variables de entorno
 
-## Funcionalidades principales (prototipo)
+Crea un archivo `.env` en la raiz del proyecto.
 
-### Autenticación
+Ejemplo minimo para local:
 
-- Login con JWT + cookies
-- Setup inicial de admin
+```env
+DATABASE_URL="postgresql://orion_admin:orion_password@localhost:5432/orion_db?schema=public"
+JWT_SECRET="cambia_este_valor_por_uno_largo_y_seguro"
+APP_ENCRYPTION_KEY="cambia_esta_clave_por_una_larga_y_segura"
+INTERNAL_APP_URL="http://127.0.0.1:3000"
+COOKIE_SECURE="false"
+```
 
-### Proyectos
+Para entorno con Docker Compose tambien se usan (opcionales con defaults):
 
-- Crear proyectos
-- Listado de proyectos
-- Vista de detalle
+```env
+POSTGRES_USER=orion_admin
+POSTGRES_PASSWORD=orion_password
+POSTGRES_DB=orion_db
+APP_PORT=3000
+DB_PORT=5432
+```
 
-### Notebooks (apuntes)
+## Inicio rapido en desarrollo (sin contenedor de app)
 
-- Crear notebooks
-- Crear documentos
-- Carpetas jerárquicas
-
-### Calendario
-
-- Vista calendario (base)
-- Endpoints de eventos iniciales
-
----
-
-## Limitaciones actuales del prototipo
-
-- CRUD completo de calendario y tareas aún no implementado
-- Módulo social/conexiones definido a nivel de BD pero sin UI completa
-- Módulo de tareas no implementado
-
----
-
-## Instalación rápida (Docker Compose)
-
-### 1. Clonar repositorio
+1) Clonar e instalar dependencias
 
 ```bash
 git clone https://github.com/rober26/orion.git
 cd orion
-```
-
-### 2. Crear archivo .env
-
-Crea un archivo .env en la raíz:
-
-```env
-DATABASE_URL="postgresql://orion_admin:orion_password@localhost:5432/orion_db?schema=public"
-JWT_SECRET="orion_jwt_secret_super_seguro"
-```
-
-### 3. Levantar base de datos
-
-```bash
-docker compose up -d
-```
-
-### 4. Instalar dependencias
-
-```bash
 npm install
 ```
 
-### 5. Ejecutar migraciones de Prisma
+2) Levantar solo la base de datos
 
 ```bash
-npx prisma migrate dev --name init
+docker compose up -d db
 ```
 
-### 6. Iniciar aplicación
+3) Preparar Prisma
+
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+4) Iniciar la aplicacion
 
 ```bash
 npm run dev
 ```
 
-## Primer acceso (Setup admin)
+5) Abrir en navegador
 
-Cuando ejecutes el proyecto por primera vez:
+- `http://localhost:3000/setup` (primer arranque)
+- `http://localhost:3000/login`
 
-Abre en el navegador:
+## Inicio con Docker Compose (app + db)
 
-```URL
-http://localhost:3000/setup
+Levanta todo en modo produccion:
+
+```bash
+docker compose up -d --build
 ```
 
-Crea el usuario administrador.
+Parar servicios:
 
-Luego podrás iniciar sesión en:
-
-```URL
-http://localhost:3000/login
+```bash
+docker compose down
 ```
 
-Estructura del proyecto (resumen)
+Ver logs:
+
+```bash
+docker compose logs -f app
+docker compose logs -f db
+```
+
+Nota: el contenedor `app` ejecuta `npx prisma db push` al iniciar (definido en `Dockerfile`).
+
+## Scripts disponibles
+
+```bash
+npm run dev          # desarrollo
+npm run build        # build de produccion
+npm run start        # ejecutar build
+npm run lint         # lint
+npm run test:unit    # pruebas unitarias
+```
+
+## Estructura del proyecto
+
+```text
 src/
   app/
-    (auth)/         # login, setup
-    (dashboard)/    # proyectos, notebooks, calendar
-    api/            # endpoints API (auth, notebooks, projects)
-  components/       # componentes UI
-  lib/              # utilidades y prisma
+    (dashboard)/      rutas de interfaz principal
+    api/              endpoints backend
+  components/         componentes UI
+  lib/                auth, permisos, prisma, utilidades
 
 prisma/
-  schema.prisma
-Estado actual (TFG)
+  schema.prisma       modelo de datos
 
- Prototipo funcional
+docker-compose.yml    stack de app + postgres
+Dockerfile            build/ejecucion de app en contenedor
+```
 
- Arquitectura sólida
+## Despliegue en servidor (flujo recomendado)
 
- Base de datos completa
+```bash
+git pull
+docker compose down
+docker compose up -d --build
+docker compose ps
+docker compose logs -f app
+```
 
- Algunas funcionalidades en progreso
+## Solucion de problemas comunes
+
+### Error de build por tipos de Prisma
+
+Si aparece un error de tipo tras cambios en `schema.prisma`:
+
+```bash
+npx prisma generate
+npm run build
+```
+
+Si usas contenedores, reconstruye la imagen:
+
+```bash
+docker compose up -d --build
+```
+
+### Error de conexion a BD
+
+- Revisa `DATABASE_URL`.
+- Verifica que `db` este healthy: `docker compose ps`.
+- Comprueba puertos `APP_PORT` y `DB_PORT`.
+
+### Setup inicial no disponible
+
+Si ya existe un admin, la ruta de setup puede cambiar de comportamiento. Usa login normal en `/login`.
+
+## Seguridad y buenas practicas
+
+- No subas `.env` al repositorio.
+- Usa secretos fuertes para `JWT_SECRET` y `APP_ENCRYPTION_KEY`.
+- En produccion, usa `COOKIE_SECURE=true` y publica Orion detras de HTTPS.
+- Realiza backups periodicos de PostgreSQL.
+
+## Estado del proyecto
+
+Orion esta en evolucion continua. El repositorio contiene una base funcional amplia y se siguen iterando mejoras de UX, modulos y estabilidad.
