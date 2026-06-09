@@ -113,14 +113,10 @@ export async function GET(_req: Request, { params }: RouteParams) {
             userId: true,
           },
         },
-        groups: {
-          include: {
-            group: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
+        group: {
+          select: {
+            id: true,
+            name: true,
           },
         },
         tasks: {
@@ -371,24 +367,17 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       }
 
       if (Array.isArray(requestedGroupIds)) {
-        await tx.projectGroup.deleteMany({
-          where: { projectId: id },
+        await tx.project.update({
+          where: { id },
+          data: {
+            groupId: requestedGroupIds[0] ?? null,
+          },
         });
-
-        if (requestedGroupIds.length > 0) {
-          await tx.projectGroup.createMany({
-            data: requestedGroupIds.map((groupId) => ({
-              projectId: id,
-              groupId,
-            })),
-            skipDuplicates: true,
-          });
-        }
       }
 
-      const groups = await tx.projectGroup.findMany({
-        where: { projectId: id },
-        include: {
+      const group = await tx.project.findUnique({
+        where: { id },
+        select: {
           group: {
             select: {
               id: true,
@@ -454,7 +443,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
       return {
         ...updatedProject,
-        groups,
+        group: group?.group ?? null,
       };
     });
 

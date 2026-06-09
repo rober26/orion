@@ -164,6 +164,7 @@ export async function POST(req: Request) {
           color: rawColor || "#3b82f6",
           creatorId: actorUserId,
           ownerId: actorUserId,
+          groupId: normalizedGroupIds[0] ?? null,
         },
       });
 
@@ -190,27 +191,13 @@ export async function POST(req: Request) {
         }
       }
 
-      if (normalizedGroupIds.length > 0) {
-        await tx.projectGroup.createMany({
-          data: normalizedGroupIds.map((groupId) => ({
-            projectId: created.id,
-            groupId,
-          })),
-          skipDuplicates: true,
-        });
-      }
-
       return tx.project.findUnique({
         where: { id: created.id },
         include: {
-          groups: {
-            include: {
-              group: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
+          group: {
+            select: {
+              id: true,
+              name: true,
             },
           },
         },
