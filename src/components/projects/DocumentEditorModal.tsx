@@ -15,8 +15,8 @@ export default function DocumentEditorModal({ documentId, title, onClose }: Docu
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
-      <div className="surface-panel flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-sm">
+      <div className="surface-panel flex h-[88vh] max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl">
         <header className="flex items-center justify-between border-b border-orion-border px-4 py-3 dark:border-orion-dark-border">
           <div>
             <h2 className="text-lg font-black text-slate-900 dark:text-white">Editor de documento</h2>
@@ -32,7 +32,7 @@ export default function DocumentEditorModal({ documentId, title, onClose }: Docu
           </button>
         </header>
 
-        <div className="min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1">
           <Editor key={documentId} documentId={documentId} />
         </div>
       </div>
