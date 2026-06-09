@@ -361,7 +361,7 @@ export default function Navbar() {
 
           <button
             onClick={() => setIsAccountMenuOpen((prev) => !prev)}
-            className="hidden h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-blue-100 text-orion-primary transition-all hover:ring-4 hover:ring-blue-500/10 sm:flex dark:bg-blue-900/30"
+            className="hidden h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-blue-100 text-orion-primary transition-all hover:ring-4 hover:ring-blue-500/10 lg:flex dark:bg-blue-900/30"
             aria-label="Abrir menu de cuenta"
             aria-expanded={isAccountMenuOpen}
             aria-controls="orion-account-menu"

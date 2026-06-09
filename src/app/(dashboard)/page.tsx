@@ -54,23 +54,23 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto">
-      <div className="mx-auto flex h-full w-full max-w-[1800px] flex-col gap-4 p-3 sm:gap-5 sm:p-4 lg:p-5">
-        <section className="surface-panel overflow-hidden rounded-[2rem] border-none bg-gradient-to-r from-blue-600 via-sky-700 to-cyan-600 p-6 text-white sm:p-8">
+    <div className="h-full min-h-0 overflow-hidden">
+      <div className="mx-auto flex h-full w-full max-w-[1800px] flex-col gap-2 p-2 sm:gap-3 sm:p-2.5 md:p-3 lg:gap-5 lg:p-5">
+        <section className="surface-panel overflow-hidden rounded-[2rem] border-none bg-gradient-to-r from-blue-600 via-sky-700 to-cyan-600 p-4 text-white sm:p-5 lg:p-8">
           <div className="flex flex-col gap-2">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-blue-100">Resumen diario</p>
-            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
+            <h1 className="text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl">
               Hola, {isUserLoading ? "..." : userName}
             </h1>
             <p className="text-sm text-blue-100 sm:text-base">{todayLabel}</p>
           </div>
         </section>
 
-        <div className="hidden sm:block">
+        <div className="hidden lg:block">
           <StatsGrid />
         </div>
 
-        <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[1.65fr_1fr]">
+        <section className="grid min-h-0 flex-1 grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 md:gap-3 xl:grid-cols-[1.65fr_1fr] xl:gap-4">
           <UpcomingList />
           <RecentProjects />
         </section>
