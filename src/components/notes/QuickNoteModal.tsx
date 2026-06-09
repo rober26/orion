@@ -81,12 +81,25 @@ export default function QuickNoteModal({
       return;
     }
 
+    let cancelled = false;
     const nextTitle = initialValue?.title?.trim() || "";
     const nextContent = initialValue?.content?.trim() || "";
-    setNoteText(nextTitle && nextContent ? `${nextTitle}\n${nextContent}` : `${nextTitle}${nextContent ? `\n${nextContent}` : ""}`);
-    setColor(safeColor(initialValue?.color));
-    setSelectedProjectId(initialValue?.projectId || "");
-    setProjectSearch("");
+    const nextNoteText = nextTitle && nextContent ? `${nextTitle}\n${nextContent}` : `${nextTitle}${nextContent ? `\n${nextContent}` : ""}`;
+
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
+
+      setNoteText(nextNoteText);
+      setColor(safeColor(initialValue?.color));
+      setSelectedProjectId(initialValue?.projectId || "");
+      setProjectSearch("");
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [open, initialValue]);
 
   useEffect(() => {
@@ -94,31 +107,48 @@ export default function QuickNoteModal({
       return;
     }
 
-    setProjectsLoading(true);
-    fetch("/api/projects?status=active", { cache: "no-store" })
-      .then(async (response) => {
+    let cancelled = false;
+    const loadProjects = async () => {
+      setProjectsLoading(true);
+
+      try {
+        const response = await fetch("/api/projects?status=active", { cache: "no-store" });
         const payload = (await response.json()) as Array<{ id: string; name: string; color?: string | null }>;
+
         if (!response.ok || !Array.isArray(payload)) {
-          setProjects([]);
+          if (!cancelled) {
+            setProjects([]);
+          }
           return;
         }
 
-        setProjects(
-          payload
-            .filter((item) => typeof item.id === "string" && typeof item.name === "string")
-            .map((item) => ({
-              id: item.id,
-              name: item.name,
-              color: item.color,
-            })),
-        );
-      })
-      .catch(() => {
-        setProjects([]);
-      })
-      .finally(() => {
-        setProjectsLoading(false);
-      });
+        if (!cancelled) {
+          setProjects(
+            payload
+              .filter((item) => typeof item.id === "string" && typeof item.name === "string")
+              .map((item) => ({
+                id: item.id,
+                name: item.name,
+                color: item.color,
+              })),
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setProjects([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setProjectsLoading(false);
+        }
+      }
+    };
+
+    void loadProjects();
+
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   const parsed = useMemo(() => parseKeepNote(noteText), [noteText]);

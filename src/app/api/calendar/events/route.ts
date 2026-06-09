@@ -469,7 +469,7 @@ export async function POST(req: Request) {
       return badRequest(CALENDAR_ERROR_MESSAGE.endBeforeStart);
     }
 
-    let resolvedProjectId: string | null = projectId || null;
+    const resolvedProjectId: string | null = projectId || null;
     let resolvedCalendarId: string | null = calendarId || null;
 
     if (projectId) {
